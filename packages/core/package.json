@@ -1,5 +1,5 @@
 {
-	"name": "@taskset/cli",
+	"name": "@taskset/core",
 	"type": "module",
 	"private": true,
 	"version": "0.1.0",
