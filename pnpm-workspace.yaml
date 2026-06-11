@@ -1,0 +1,6 @@
+packages:
+  # Product apps and recursively nested app packages
+  - apps/**
+
+  # Shared packages and recursively nested packages
+  - packages/**

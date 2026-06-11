@@ -1,0 +1,38 @@
+{
+	"name": "taskset",
+	"private": true,
+	"scripts": {
+		"dev": "turbo dev",
+		"build": "turbo build",
+		"test": "turbo test --continue=always",
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"clean": "turbo clean",
+		"update-deps": "pnpm up --latest --recursive && pnpm dedupe && pnpm audit --fix update"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.16",
+		"@changesets/cli": "^2.31.0",
+		"@taskset/configs": "workspace:*",
+		"@taskset/utils": "workspace:*",
+		"@types/react": "^19.2.17",
+		"typescript": "^6.0.3",
+		"@types/node": "^25.9.2",
+		"pnpm": "^11.5.2",
+		"turbo": "latest",
+		"husky": "^9.1.7",
+		"lint-staged": "^17.0.7",
+		"vitest": "^4.1.8"
+	},
+	"packageManager": "pnpm@11.5.2",
+	"engines": {
+		"node": ">=24.16.0",
+		"pnpm": ">=11.2.2"
+	},
+	"lint-staged": {
+		"*.{ts,tsx,js,jsx,json,jsonc,css,mdx}": [
+			"biome check --write --no-errors-on-unmatched",
+			"biome format --write --no-errors-on-unmatched"
+		]
+	}
+}

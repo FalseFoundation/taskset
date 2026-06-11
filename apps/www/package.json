@@ -1,0 +1,9 @@
+{
+	"name": "@taskset/www",
+	"type": "module",
+	"private": true,
+	"version": "0.1.0",
+	"dependencies": {
+		"@tanstack/react-store": "0.11.0"
+	}
+}

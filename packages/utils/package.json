@@ -1,0 +1,13 @@
+{
+	"name": "@taskset/utils",
+	"type": "module",
+	"private": true,
+	"version": "0.1.0",
+	"sideEffects": false,
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"dependencies": {
+		"@tanstack/react-store": "0.11.0"
+	}
+}
