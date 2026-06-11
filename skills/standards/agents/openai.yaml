@@ -1,0 +1,4 @@
+interface:
+  display_name: "Taskset Standards"
+  short_description: "Apply Taskset architecture and workflow rules"
+  default_prompt: "Use $standards to apply Taskset storage, modular architecture, naming, testing, documentation, and release conventions to this change."
