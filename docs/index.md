@@ -13,6 +13,8 @@ Tasks and project knowledge live inside the repository as Markdown. Git supplies
 history, branches, review, and collaboration. Taskset supplies a consistent
 domain model and interfaces over those files.
 
+Install it from npm as `@falsefoundation/taskset`.
+
 ## Core Promise
 
 - Work remains readable without Taskset installed.
@@ -23,12 +25,11 @@ domain model and interfaces over those files.
 
 ## Current Status
 
-Taskset is pre-alpha. The current work defines the storage, architecture,
-testing, and documentation contracts needed for the first CLI MVP.
+Taskset is pre-alpha. The CLI currently supports repository initialization,
+configuration inspection, and task creation, listing, and display.
 
 ## Read Next
 
-- [Product vision](product/vision.md)
-- [Task files](concepts/task-files.md)
-- [Architecture](architecture/overview.md)
-- [Testing](development/testing.md)
+- [Getting started](getting-started.md)
+- [Configuration](configuration.md)
+- [Task files](task-files.md)

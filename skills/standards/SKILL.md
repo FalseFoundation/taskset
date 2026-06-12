@@ -21,24 +21,37 @@ Load only the references relevant to the task:
   and Taskset-specific test strategy
 - [release.md](references/release.md): Changesets, compatibility, commit
   language, and completion requirements
+- [`docs/maintainers/technology.md`](../../docs/maintainers/technology.md): preferred
+  TanStack frontend tools, TypeScript/NestJS and Rust backend choices, and
+  MariaDB/PostgreSQL database defaults
 
 `agents/openai.yaml` is discovery and UI metadata. Do not load it as an
 instruction reference.
 
 ## Start With Judgment
 
-1. Parse the request into intent, constraints, affected owners, and a concrete
+1. Read the complete request before planning or acting. For a multi-part
+   request, identify dependencies, contradictions, and shared owners across all
+   items before changing any one item.
+2. Turn multi-part work into a prioritized checklist. Close every requested
+   item as implemented, already satisfied, or intentionally unnecessary with a
+   concrete reason; do not silently drop notes or late dependencies.
+3. Parse the request into intent, constraints, affected owners, and a concrete
    completion condition.
-2. Inspect the worktree, manifests, relevant implementation, tests, and
+4. Inspect the worktree, manifests, relevant implementation, tests, and
    executable configuration before proposing or editing.
-3. Challenge an approach that creates a second source of truth, bypasses core
+5. Challenge an approach that creates a second source of truth, bypasses core
    validation, weakens deterministic file behavior, or crosses package
    ownership without a contract.
-4. Recover decisions from the repository before asking questions. Ask only when
+6. If a requested change appears unreasonable, internally contradictory,
+   destructive, or incompatible with established product contracts, explain
+   the concrete concern and ask for explicit confirmation before implementing
+   it.
+7. Recover decisions from the repository before asking questions. Ask only when
    a consequential product or data-format decision remains unresolved.
-5. Treat related work as one dependency graph. Keep schemas, core behavior,
+8. Treat related work as one dependency graph. Keep schemas, core behavior,
    clients, tests, docs, and release metadata consistent.
-6. Update this skill and its relevant references in the same change whenever
+9. Update this skill and its relevant references in the same change whenever
    authoritative paths, package names, commands, architecture, product
    contracts, documentation workflows, or completion rules change. Never leave
    the skill knowingly stale.
@@ -78,14 +91,22 @@ Non-negotiable rules:
   filesystem mutation, indexing, graph rules, search, and lifecycle transitions.
 - CLI, TUI, MCP, extension, Kanban, and Office are interfaces over the same core
   contracts. They do not reimplement Taskset semantics.
-- `@taskset/types` owns shared schemas and contracts without filesystem or UI
-  behavior.
+- `@taskset/contracts` owns shared runtime schemas and TypeScript contracts
+  without filesystem, lifecycle, or UI behavior.
 - `@taskset/utils` stays domain-light. Task graph policy and entity lifecycle
   logic belong in core.
 - External integrations are adapters and synchronized views. They do not become
   the silent source of truth.
 - Persisted format changes require explicit compatibility and migration
   decisions.
+- Canonical task files currently use strict `schemaVersion: 1`; unsupported
+  versions and unknown fields are rejected rather than inferred or discarded.
+- `taskset.config.ts` marks the repository root and configures validated project
+  metadata and task creation defaults. It never relocates canonical
+  `.taskset/` data or becomes a second task store.
+- Taskset is developed using its own root config, CLI, and canonical task
+  files. Keep that dogfooding workflow operational when changing core, CLI,
+  workspace commands, or persisted contracts.
 
 ## Organize by Ownership
 
@@ -100,6 +121,10 @@ Use the architecture appropriate to the owning surface:
   is justified. Do not introduce microservices, message brokers, or distributed
   persistence for organizational aesthetics.
 - Colocate feature or module behavior, adapters, tests, and fixtures.
+- Keep a `README.md` in every package and app that states its ownership and
+  current contents.
+- Keep public usage guidance in `README.md` and `docs/`; keep repository
+  architecture and engineering guidance in `docs/maintainers/`.
 - Promote code to a shared package only when more than one owner needs the same
   stable responsibility.
 - Keep client-specific state and presentation in the client. Keep shared domain
@@ -156,8 +181,8 @@ Before completion:
 
 - Run `git diff --check` and review the scoped diff.
 - Confirm canonical `.taskset/` files remain the only persistent authority.
-- Confirm package dependencies point inward toward types, utilities, and core,
-  not sideways between clients.
+- Confirm package dependencies point inward toward contracts, utilities, and
+  core, not sideways between clients.
 - Update `docs/` and this skill when the change alters product behavior,
   architecture, commands, persisted formats, or repository workflows.
 - Add a Changeset when release policy is configured and versioned behavior

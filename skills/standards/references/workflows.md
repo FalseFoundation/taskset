@@ -43,22 +43,29 @@ pnpm lint
 pnpm format
 pnpm check
 pnpm clean
+pnpm taskset
 ```
 
 Current behavior:
 
 - `dev` runs `turbo dev`.
 - `build` runs dependency builds first through Turbo.
-- `test` runs the repository Vitest suite once.
-- `test:watch` runs Vitest in watch mode.
+- `test` uses Turbo to run package-local Vitest suites plus the root workspace
+  architecture suite exposed as `test:architecture`.
+- `test:watch` uses Turbo to start package-local Vitest watch tasks.
 - `check` runs lint, tests, and the build in sequence.
 - `lint` runs `biome check .` without writing fixes.
 - `format` runs `biome format --write .`.
 - `clean` runs the Turbo clean task.
+- `taskset` runs the built entrypoint from the root workspace-installed
+  `@taskset/cli` package. Build first when generated `dist/` output is absent.
 
-The scaffold is incomplete. Inspect each affected package manifest before
-running a filtered script; do not assume every package already defines
-`build`, `test`, `typecheck`, or `dev`.
+`@taskset/contracts`, `@taskset/utils`, `@taskset/core`, and `@taskset/cli`
+currently define `build` and `test`. Their builds run strict TypeScript
+compilation into disposable `dist/` output, and their tests run the owning
+source tests through the root Vitest config. Other packages remain scaffolds,
+so inspect each affected manifest before assuming it defines `build`, `test`,
+`typecheck`, or `dev`.
 
 Use exact package names:
 
@@ -67,6 +74,25 @@ pnpm --filter @taskset/core test
 pnpm --filter @taskset/cli build
 pnpm --filter @taskset/mcp dev
 ```
+
+The repository dogfoods Taskset through:
+
+```bash
+pnpm build
+pnpm taskset config --json
+pnpm taskset task list
+pnpm taskset task create --title "Describe the work"
+```
+
+Package-local `test` and `test:watch` scripts are required because Turbo
+orchestrates scripts declared by each workspace and filtered package commands
+must remain available. Root-only architecture tests run once after Turbo rather
+than being duplicated inside every package. There is no `transit` script;
+Turbo's dependency traversal is orchestration, not another test suite.
+
+`taskset.config.ts` is loaded as trusted project code using Node's native
+erasable TypeScript support. Keep it free of syntax that requires TypeScript
+code generation.
 
 If Turbo reports duplicate workspace names, fix the incorrect package manifest.
 Do not work around the graph with directory filters or aliases.
@@ -97,6 +123,21 @@ Rules:
 - Review license, runtime support, ESM compatibility, maintenance, and bundle
   impact before adding foundational dependencies.
 - Keep lockfile changes scoped to the dependency operation.
+
+Frontend packages should follow the TanStack preference in
+`docs/maintainers/technology.md`, but only install Query, Form, Table, Hotkeys,
+Pacer, Virtual, DB, or their devtools when the owning feature uses them.
+
+`@taskset/www` uses Next.js webpack mode for development and production because
+Turbopack does not reliably discover new files through the external `docs/`
+content symlink.
+
+For backend work, prefer TypeScript first. Add NestJS,
+`class-transformer`, `class-validator`, and TypeORM only in the owning server
+application when its architecture needs them. Use Rust for a clearly bounded
+systems-level component, not as an incidental second implementation of core
+domain behavior. Choose MariaDB for smaller hosted applications and PostgreSQL
+for larger or more advanced relational workloads.
 
 ## Validation
 
@@ -135,6 +176,14 @@ Vitest is the default runner for TypeScript domain, filesystem, CLI adapter, and
 integration tests. Use the root `vitest.config.ts` until a package needs a
 distinct runtime such as browser mode. Add Vitest `projects` only when separate
 Node, browser, or extension environments provide real value.
+Vitest already uses Vite internally. Do not add a standalone Vite build to
+Node-focused libraries or the CLI unless a concrete bundling requirement
+appears; use the owning UI application's build tool for browser products.
+
+Compile Node libraries and the CLI to `dist/` and keep the runtime `import`
+export pointed at emitted JavaScript. Source exports may serve types and
+development tooling, but source-only runtime exports are not a substitute for
+verifying executable build artifacts.
 
 Use this loop for domain behavior and bug fixes:
 

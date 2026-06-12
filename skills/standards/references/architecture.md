@@ -62,6 +62,8 @@ Canonical project state lives under `.taskset/`.
 Rules:
 
 - Entity Markdown files are authoritative persisted state.
+- `taskset.config.ts` is the discoverable repository usage configuration. It
+  controls validated behavior and defaults, not canonical entity state.
 - YAML frontmatter contains structured metadata. Markdown bodies contain
   durable human context.
 - Do not store the same field independently in frontmatter and body.
@@ -73,6 +75,8 @@ Rules:
   state, or another hidden store as an undeclared authority.
 - Git is the versioning and collaboration layer around the files. Do not assume
   it provides database transactions or conflict-free identifiers.
+- Repository discovery walks upward for exactly `taskset.config.ts`; canonical
+  storage remains fixed under `.taskset/`.
 
 Any persisted format change must define validation, compatibility, migration,
 and failure behavior before implementation.
@@ -81,7 +85,7 @@ and failure behavior before implementation.
 
 | Path | Ownership |
 | --- | --- |
-| `packages/types/` | Shared entity schemas, enums, DTOs, configuration types, and integration contracts; package `@taskset/types` |
+| `packages/contracts/` | Shared entity schemas, enums, DTOs, configuration types, and integration contracts; package `@taskset/contracts` |
 | `packages/utils/` | Reusable domain-light filesystem, path, Markdown, and frontmatter primitives; package `@taskset/utils` |
 | `packages/core/` | Entity operations, parsing orchestration, validation, storage, indexing, graph rules, search, filtering, project discovery, and impact analysis; package `@taskset/core` |
 | `packages/cli/` | Command-line adapter over core; package `@taskset/cli` |
@@ -98,8 +102,18 @@ and failure behavior before implementation.
 Directory names and manifest package names must agree. Duplicate workspace
 package names are invalid. Treat a mismatch such as a `packages/core` manifest
 named `@taskset/cli` as a scaffold defect to fix, not an established identity.
+Every package and app has a `README.md` describing its purpose, owned behavior,
+and current implementation status.
 
 Do not add a top-level owner when an existing package or app already fits.
+Within an owning package, prefer responsibility-based names such as `config.ts`
+and `Config` over product-prefixed names such as `tasksetConfig.ts` and
+`TasksetConfig`. Reserve the Taskset name for public identity and protocol
+surfaces such as package names, the CLI command, `taskset.config.ts`, and
+`.taskset/`.
+
+Taskset dogfoods these boundaries. The root workspace installs core and CLI,
+loads `taskset.config.ts`, and stores its own planned work in `.taskset/tasks/`.
 
 ## Dependency Flow
 
@@ -108,10 +122,10 @@ The intended dependency direction is:
 ```text
 configs
 
-types        utils
-   \          /
-      core
-       |
+contracts    utils
+    \         /
+       core
+        |
 cli  tui  mcp  extension  kanban  office
 
 www (product documentation and marketing; no domain authority)
@@ -119,10 +133,10 @@ www (product documentation and marketing; no domain authority)
 
 Rules:
 
-- `types` must not depend on core or a client package.
+- `contracts` must not depend on core or a client package.
 - `utils` must not depend on core or a client package.
-- `core` may depend on types and utils.
-- Product interfaces may depend on core and types.
+- `core` may depend on contracts and utils.
+- Product interfaces may depend on core and contracts.
 - A client package must not become the domain API for another client.
 - Apps may consume packages; shared packages must not depend on apps.
 - Keep framework-specific DTOs and view models in the owning interface unless
@@ -151,6 +165,7 @@ CLI / TUI / MCP / Extension / Kanban / Office
 Core owns behavior such as:
 
 - repository discovery and configuration loading
+- configuration validation and task creation defaults
 - entity parsing and validation
 - deterministic serialization
 - atomic create, update, move, and delete operations
@@ -189,7 +204,7 @@ Guidelines:
 - Keep package entrypoints thin.
 - Use `shared/` only for code genuinely shared by several features in that
   package.
-- Promote behavior to `types`, `utils`, or `core` only when its ownership
+- Promote behavior to `contracts`, `utils`, or `core` only when its ownership
   matches that package.
 - Avoid generic catch-all modules such as a growing `helpers.ts`.
 - Keep board state in Kanban, editor state in the extension, terminal state in
@@ -275,8 +290,13 @@ them. Start with dry runs, atomic writes, and Git-aware warnings.
 
 ## Documentation Architecture
 
-`docs/` is the canonical source for product and contributor documentation.
-`apps/www/` renders those files; it must not maintain a copied content tree.
+`docs/` is the canonical source for documentation. Its top-level pages contain
+user-facing product guidance. `docs/maintainers/` owns product direction,
+architecture, ADRs, engineering workflows, and technology policy. Keep the
+maintainer section visibly separate from the primary usage flow.
+
+`apps/www/` renders `docs/` through Nextra. Its `content` symlink points to the
+root `docs/` directory so the app does not maintain a copied content tree.
 
 Use plain Markdown by default. Use MDX only when a page needs an interactive
 component. Keep frontmatter compatible with the documentation renderer.
@@ -285,12 +305,14 @@ Recommended website stack:
 
 - Next.js App Router because the repository already carries a Next.js shared
   configuration and `apps/www` also owns marketing pages
-- Fumadocs MDX as the content and documentation layer
-- a build-time source configuration pointed at the root `docs/` directory
+- Nextra and the stock Nextra docs theme as the documentation layer
+- Nextra's standard content-directory catch-all route
 - self-hosted search initially; no CMS or remote content database
 
-Keep architectural decisions under `docs/architecture/decisions/`. Update docs,
-tests, and this standards skill together when a public contract changes.
+Keep architectural decisions under
+`docs/maintainers/architecture/decisions/`.
+Update user docs, maintainer docs, tests, and this standards skill together
+when their contracts change.
 
 ## Interfaces and Integrations
 
@@ -316,7 +338,7 @@ Treat these as generated or ephemeral unless an owning tool says otherwise:
 - `.turbo/`, coverage, logs, and `*.tsbuildinfo`
 - `.taskset/cache/`
 - `.taskset/generated/`
-- `apps/www/.source/`
+- Nextra and Next.js generated website output
 
 Change the source or generator, then regenerate. Never make a manual output edit
 the final implementation.

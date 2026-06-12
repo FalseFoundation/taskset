@@ -2,10 +2,14 @@
 
 ## Changesets
 
-The repository includes `@changesets/cli`, but release automation is not fully
-configured until `.changeset/config.json`, package publishability, and registry
-policy exist. Do not pretend a release workflow is operational before those
-contracts are added.
+The consumer-facing npm package is `@falsefoundation/taskset`. Internal
+`@taskset/*` packages are workspace implementation identities and must not
+replace the public package name in installation or consumer API documentation.
+
+The repository includes `@changesets/cli`, but monorepo release automation is
+not fully configured until `.changeset/config.json`, package publishability,
+and registry policy exist. Do not imply that the internal workspace packages
+have an operational release workflow before those contracts are added.
 
 Once configured, create a Changeset when a versioned package's behavior,
 contract, build, persisted format, or user-visible tooling changes:
@@ -14,11 +18,12 @@ contract, build, persisted format, or user-visible tooling changes:
 pnpm changeset
 ```
 
-Select exact current manifest names. Intended identities include:
+When internal packages become independently versioned, select their exact
+current manifest names. Intended identities include:
 
 ```text
 @taskset/configs
-@taskset/types
+@taskset/contracts
 @taskset/utils
 @taskset/core
 @taskset/cli
@@ -40,9 +45,8 @@ Choose the bump by impact:
 - `major`: breaking API, package identity, command contract, persisted schema,
   migration requirement, or workflow change
 
-Persisted Markdown compatibility is a public contract even while packages are
-private. A parser change that makes existing repositories unreadable is
-breaking.
+Persisted Markdown compatibility is a public contract. A parser change that
+makes existing repositories unreadable is breaking.
 
 Write summaries for users:
 

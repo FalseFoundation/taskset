@@ -1,6 +1,6 @@
 ---
 title: Architecture Overview
-description: Taskset package boundaries, runtime flow, and code organization.
+description: Maintainer-facing package boundaries, runtime flow, and code organization.
 ---
 
 # Architecture Overview
@@ -22,14 +22,14 @@ CLI / TUI / MCP / Extension / Kanban / Office
 ## Package Direction
 
 ```text
-types        utils
-   \          /
-      core
-       |
+contracts    utils
+    \         /
+       core
+        |
 cli  tui  mcp  extension  kanban  office
 ```
 
-- `@taskset/types` owns shared contracts and schemas.
+- `@taskset/contracts` owns shared runtime schemas and TypeScript contracts.
 - `@taskset/utils` owns domain-light reusable primitives.
 - `@taskset/core` owns domain behavior and persistence orchestration.
 - Interface packages own input, rendering, transport, and interaction.
@@ -69,12 +69,18 @@ This is not ceremonial DDD:
 If hosted collaboration requires a server, `apps/server` becomes a thin
 composition root over core. It owns transport, authentication, authorization,
 repository checkout, concurrency, and process lifecycle, not duplicate domain
-rules.
+rules. Prefer TypeScript and add NestJS only when the service boundary benefits
+from its module and transport model. Use Rust for clearly bounded native or
+systems-level components.
+
+Relational adapters prefer MariaDB for smaller applications and PostgreSQL for
+larger or more advanced workloads. No database becomes canonical Taskset state.
 
 ## Documentation
 
-The root `docs/` tree is canonical. `apps/www` renders it directly and may add
-marketing routes around it. See the
+The root `docs/` tree contains canonical user guidance and maintainer guidance.
+User pages stay at the top level. Maintainer material lives under
+`docs/maintainers/`. `apps/www` renders both with Nextra. See the
 [documentation platform decision](decisions/0001-documentation-platform.md).
 
 ## Decisions

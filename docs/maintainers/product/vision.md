@@ -1,6 +1,6 @@
 ---
 title: Product Vision
-description: Why Taskset exists and how it improves software delivery awareness.
+description: Maintainer-facing product direction for Taskset.
 ---
 
 # Product Vision
