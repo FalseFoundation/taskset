@@ -11,7 +11,7 @@ interface PackageManifest {
 
 const REPO_ROOT = process.cwd()
 const WORKSPACE_ROOTS = ['apps', 'packages'] as const
-const DOMAIN_PACKAGES = new Set(['core', 'types', 'utils'])
+const DOMAIN_PACKAGES = new Set(['contracts', 'core', 'utils'])
 const UI_DEPENDENCY_PATTERN = /^(?:react|react-dom|next|@tanstack\/react-)/
 
 async function readWorkspaceManifests() {
