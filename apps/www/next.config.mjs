@@ -1,15 +1,15 @@
 import nextra from 'nextra'
 
 const withNextra = nextra({})
-const isGitHubPages = process.env.GITHUB_PAGES === 'true'
-const githubPagesBasePath = process.env.GITHUB_PAGES_BASE_PATH ?? ''
+const staticExport = process.env.STATIC_EXPORT
+const staticExportBasePath = staticExport === '/' ? '' : staticExport
 
 export default withNextra({
 	reactCompiler: true,
 	reactStrictMode: true,
 	typedRoutes: false,
-	...(isGitHubPages && {
-		basePath: githubPagesBasePath,
+	...(staticExport !== undefined && {
+		basePath: staticExportBasePath,
 		images: {
 			unoptimized: true,
 		},
