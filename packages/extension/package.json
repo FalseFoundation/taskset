@@ -1,7 +1,7 @@
 {
 	"name": "@taskset/extension",
 	"type": "module",
-	"private": true,
-	"version": "0.1.0",
+	"private": false,
+	"version": "0.1.1",
 	"sideEffects": false
 }

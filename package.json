@@ -2,7 +2,7 @@
 	"name": "taskset",
 	"description": "Offline, human-readable task management that keeps teams and AI aligned by storing project work alongside the code.",
 	"license": "MIT",
-	"private": true,
+	"private": false,
 	"type": "module",
 	"scripts": {
 		"dev": "turbo dev",

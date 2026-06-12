@@ -1,8 +1,8 @@
 {
 	"name": "@taskset/www",
 	"type": "module",
-	"private": true,
-	"version": "0.1.0",
+	"private": false,
+	"version": "0.1.1",
 	"scripts": {
 		"dev": "next dev --webpack",
 		"build": "next build --webpack",
