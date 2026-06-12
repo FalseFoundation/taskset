@@ -3,5 +3,27 @@
 	"type": "module",
 	"private": true,
 	"version": "0.1.0",
-	"sideEffects": false
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsc",
+		"test": "vitest run --root ../.. packages/core/src",
+		"test:watch": "vitest --root ../.. packages/core/src"
+	},
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"development": "./src/index.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"@taskset/contracts": "workspace:*",
+		"@taskset/utils": "workspace:*"
+	},
+	"devDependencies": {
+		"@taskset/configs": "workspace:*",
+		"@types/node": "^25.9.3",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.8"
+	}
 }
