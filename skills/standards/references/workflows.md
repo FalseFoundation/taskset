@@ -139,6 +139,12 @@ Pacer, Virtual, DB, or their devtools when the owning feature uses them.
 Turbopack does not reliably discover new files through the external `docs/`
 content symlink.
 
+`.github/workflows/publish-pages.yml` builds `@taskset/www` as a static export
+and deploys `apps/www/out` to GitHub Pages on pushes to `main` or manual
+dispatch. The workflow supplies the Pages base path so project sites work below
+the repository subpath; local development and server builds keep their normal
+Next.js configuration.
+
 For backend work, prefer TypeScript first. Add NestJS,
 `class-transformer`, `class-validator`, and TypeORM only in the owning server
 application when its architecture needs them. Use Rust for a clearly bounded
