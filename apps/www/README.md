@@ -1,18 +1,28 @@
 # Taskset Website
 
-`@taskset/www` will contain the Taskset marketing and documentation website.
+`@taskset/www` contains the Taskset public documentation website.
 
 The canonical documentation source is the repository root `docs/` directory.
-The app must render that directory directly rather than copying or symlinking
-content into `apps/www`.
+The app exposes that directory through the `content` symlink and renders it
+with Nextra's standard content-directory route. Do not copy documentation into
+the application.
 
-Accepted stack:
+Current contents:
 
-- Next.js App Router
-- Fumadocs MDX
-- plain Markdown by default
-- self-hosted search initially
+- a Next.js App Router scaffold under `src/app/`
+- Nextra and the stock Nextra docs theme
+- one catch-all route for root `docs/` Markdown
+- app-local Next.js configuration
 
-Implementation is intentionally deferred until the web application scaffold is
-introduced. See
-[`docs/architecture/decisions/0001-documentation-platform.md`](../../docs/architecture/decisions/0001-documentation-platform.md).
+The root pnpm overrides keep Nextra on Zod 4.3.6 until its layout schemas are
+compatible with Zod 4.4.x. `@taskset/contracts` continues to use its own current
+Zod version. Development and production builds use Next's webpack mode because
+Turbopack does not reliably discover new files through the external
+documentation content symlink.
+
+Next.js and the React compiler are dependencies of this app only. Shared
+TypeScript presets remain in `@taskset/configs`; framework runtime
+configuration stays here until another app needs the same stable settings.
+
+See
+[`docs/maintainers/architecture/decisions/0001-documentation-platform.md`](../../docs/maintainers/architecture/decisions/0001-documentation-platform.md).
