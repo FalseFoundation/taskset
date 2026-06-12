@@ -4,10 +4,24 @@
 	"private": true,
 	"version": "0.1.0",
 	"sideEffects": false,
+	"scripts": {
+		"build": "tsc",
+		"test": "vitest run --root ../.. packages/utils/src",
+		"test:watch": "vitest --root ../.. packages/utils/src"
+	},
 	"exports": {
-		"./*": "./src/*.ts"
+		".": {
+			"types": "./src/index.ts",
+			"development": "./src/index.ts",
+			"import": "./dist/index.js"
+		}
 	},
 	"dependencies": {
-		"@tanstack/react-store": "0.11.0"
+		"yaml": "2.9.0"
+	},
+	"devDependencies": {
+		"@taskset/configs": "workspace:*",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.8"
 	}
 }
