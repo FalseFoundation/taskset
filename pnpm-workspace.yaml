@@ -4,3 +4,11 @@ packages:
 
   # Shared packages and recursively nested packages
   - packages/**
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+overrides:
+  nextra-theme-docs>zod: 4.3.6
+  nextra>zod: 4.3.6

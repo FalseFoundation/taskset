@@ -8,6 +8,7 @@
 		"moduleResolution": "Bundler",
 		"allowJs": true,
 		"jsx": "preserve",
+		"lib": ["ES2025", "DOM"],
 		"noEmit": true,
 		"declaration": false,
 		"declarationMap": false
