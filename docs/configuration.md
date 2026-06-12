@@ -10,7 +10,7 @@ started in nested packages or directories walk upward until they find this
 file.
 
 ```typescript
-import { defineConfig } from '@falsefoundation/taskset'
+import { defineConfig } from '@taskset/cli'
 
 export default defineConfig({
 	schemaVersion: 1,

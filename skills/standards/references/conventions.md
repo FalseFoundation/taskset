@@ -79,11 +79,11 @@ Canonical workspace identities:
 @taskset/www
 ```
 
-These are private monorepo identities. The public npm package used by consumers
-is `@falsefoundation/taskset`. Use the public name in installation,
-configuration, and consumer API examples. Use `@taskset/*` only for internal
-workspace dependencies, package filters, and owner-specific maintainer
-documentation.
+`@taskset/cli`, `@taskset/core`, `@taskset/contracts`, and `@taskset/utils` are
+public npm packages. The remaining workspace identities are private until their
+owning interfaces are ready for independent release. Use `@taskset/cli` in
+installation and configuration examples. Use the other public package names
+when consumers intentionally use their lower-level APIs.
 
 Use the exact current manifest name in dependencies, filters, and Changesets.
 Package directories and names must agree. Fix duplicate or misplaced identities

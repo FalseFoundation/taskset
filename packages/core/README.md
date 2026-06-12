@@ -1,6 +1,6 @@
 # @taskset/core
 
-The reusable domain and repository engine for Taskset.
+The public, reusable domain and repository engine for Taskset.
 
 It owns configuration discovery, task parsing and validation, deterministic
 serialization, atomic filesystem writes, repository initialization, and task

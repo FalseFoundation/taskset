@@ -67,6 +67,13 @@ source tests through the root Vitest config. Other packages remain scaffolds,
 so inspect each affected manifest before assuming it defines `build`, `test`,
 `typecheck`, or `dev`.
 
+Those four packages form the public npm runtime and are published recursively.
+Keep their runtime dependency chain public and keep package tarballs restricted
+to built output, runtime source used by workspace development conditions, and
+package documentation. Exclude tests, local build caches, and tool configs.
+Their builds clean `dist/` before TypeScript emits so renamed files cannot leak
+into published tarballs.
+
 Use exact package names:
 
 ```bash

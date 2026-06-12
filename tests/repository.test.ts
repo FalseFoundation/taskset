@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest'
 interface PackageManifest {
 	readonly name?: string
 	readonly private?: boolean
+	readonly publishConfig?: {
+		readonly access?: string
+	}
 	readonly dependencies?: Readonly<Record<string, string>>
 	readonly devDependencies?: Readonly<Record<string, string>>
 }
@@ -12,6 +15,7 @@ interface PackageManifest {
 const REPO_ROOT = process.cwd()
 const WORKSPACE_ROOTS = ['apps', 'packages'] as const
 const DOMAIN_PACKAGES = new Set(['contracts', 'core', 'utils'])
+const PUBLIC_PACKAGES = new Set(['cli', 'contracts', 'core', 'utils'])
 const UI_DEPENDENCY_PATTERN = /^(?:react|react-dom|next|@tanstack\/react-)/
 
 async function readWorkspaceManifests() {
@@ -54,7 +58,34 @@ describe('workspace architecture', () => {
 
 		for (const { directoryName, manifest, relativePath } of manifests) {
 			expect(manifest.name, relativePath).toBe(`@taskset/${directoryName}`)
-			expect(manifest.private, relativePath).toBe(true)
+
+			if (PUBLIC_PACKAGES.has(directoryName)) {
+				expect(manifest.private, relativePath).toBe(false)
+				expect(manifest.publishConfig?.access, relativePath).toBe('public')
+			} else {
+				expect(manifest.private, relativePath).toBe(true)
+			}
+		}
+	})
+
+	it('keeps public package runtime dependencies publishable', async () => {
+		const manifests = await readWorkspaceManifests()
+		const publicPackageNames = new Set(
+			manifests
+				.filter(({ directoryName }) => PUBLIC_PACKAGES.has(directoryName))
+				.map(({ manifest }) => manifest.name),
+		)
+
+		for (const { directoryName, manifest, relativePath } of manifests) {
+			if (!PUBLIC_PACKAGES.has(directoryName)) {
+				continue
+			}
+
+			for (const dependencyName of Object.keys(manifest.dependencies ?? {})) {
+				if (dependencyName.startsWith('@taskset/')) {
+					expect(publicPackageNames, relativePath).toContain(dependencyName)
+				}
+			}
 		}
 	})
 

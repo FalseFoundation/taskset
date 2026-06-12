@@ -105,6 +105,11 @@ named `@taskset/cli` as a scaffold defect to fix, not an established identity.
 Every package and app has a `README.md` describing its purpose, owned behavior,
 and current implementation status.
 
+The publishable npm runtime is `@taskset/cli` and its dependency chain:
+`@taskset/core`, `@taskset/contracts`, and `@taskset/utils`. Other workspace
+packages and apps remain private until they have an intentional public
+contract. Recursive publication must preserve this runtime dependency closure.
+
 Do not add a top-level owner when an existing package or app already fits.
 Within an owning package, prefer responsibility-based names such as `config.ts`
 and `Config` over product-prefixed names such as `tasksetConfig.ts` and

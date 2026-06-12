@@ -1,10 +1,15 @@
 # @taskset/cli
 
-The scriptable command-line interface for Taskset.
+The public, scriptable command-line interface for Taskset. Install it with:
+
+```bash
+pnpm add --save-dev @taskset/cli
+```
 
 It contains argument parsing, stdout and stderr rendering, exit-code mapping,
-and the `taskset` executable. Repository discovery, validation, storage, and
-task behavior are delegated to `@taskset/core`.
+the `taskset` executable, and the `defineConfig` helper used by
+`taskset.config.ts`. Repository discovery, validation, storage, and task
+behavior are delegated to `@taskset/core`.
 
 Current commands:
 

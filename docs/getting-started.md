@@ -19,7 +19,7 @@ Install the published package as a development dependency in the project that
 will own the tasks:
 
 ```bash
-pnpm add --save-dev @falsefoundation/taskset
+pnpm add --save-dev @taskset/cli
 ```
 
 The package exposes the `taskset` executable.

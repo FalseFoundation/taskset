@@ -25,7 +25,7 @@ disposable and rebuildable.
 Install Taskset in the project that will own the work:
 
 ```bash
-pnpm add --save-dev @falsefoundation/taskset
+pnpm add --save-dev @taskset/cli
 pnpm exec taskset init
 ```
 
@@ -44,7 +44,7 @@ cache and generated data.
 ## Configuration
 
 ```typescript
-import { defineConfig } from '@falsefoundation/taskset'
+import { defineConfig } from '@taskset/cli'
 
 export default defineConfig({
 	schemaVersion: 1,

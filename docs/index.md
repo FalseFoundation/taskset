@@ -13,7 +13,7 @@ Tasks and project knowledge live inside the repository as Markdown. Git supplies
 history, branches, review, and collaboration. Taskset supplies a consistent
 domain model and interfaces over those files.
 
-Install it from npm as `@falsefoundation/taskset`.
+Install the command-line package from npm as `@taskset/cli`.
 
 ## Core Promise
 

@@ -2,14 +2,29 @@
 
 ## Changesets
 
-The consumer-facing npm package is `@falsefoundation/taskset`. Internal
-`@taskset/*` packages are workspace implementation identities and must not
-replace the public package name in installation or consumer API documentation.
+The consumer-facing npm package is `@taskset/cli`. It exposes the `taskset`
+executable and re-exports `defineConfig` for `taskset.config.ts`.
 
-The repository includes `@changesets/cli`, but monorepo release automation is
-not fully configured until `.changeset/config.json`, package publishability,
-and registry policy exist. Do not imply that the internal workspace packages
-have an operational release workflow before those contracts are added.
+The public runtime package set is:
+
+```text
+@taskset/cli
+@taskset/core
+@taskset/contracts
+@taskset/utils
+```
+
+The CLI depends on the other public packages, so they must remain publishable
+unless the CLI is deliberately changed to bundle them. Configs, unfinished
+interfaces, and apps remain private.
+
+`.github/workflows/publish-npm.yml` runs repository validation and then uses
+`pnpm --recursive publish --access public --no-git-checks` when a GitHub Release
+is published. pnpm skips private workspaces and publishes the public dependency
+chain. The workflow requires the `NPM_TOKEN` repository secret and enables npm
+provenance through GitHub's OIDC permission.
+
+The npm account used by CI must control the `@taskset` scope.
 
 Once configured, create a Changeset when a versioned package's behavior,
 contract, build, persisted format, or user-visible tooling changes:
@@ -18,25 +33,17 @@ contract, build, persisted format, or user-visible tooling changes:
 pnpm changeset
 ```
 
-When internal packages become independently versioned, select their exact
-current manifest names. Intended identities include:
+Select the exact current manifest names for changed public packages:
 
 ```text
-@taskset/configs
 @taskset/contracts
 @taskset/utils
 @taskset/core
 @taskset/cli
-@taskset/tui
-@taskset/mcp
-@taskset/kanban
-@taskset/extension
-@taskset/office
-@taskset/www
 ```
 
-Do not select a duplicate or misplaced scaffold name. Correct package identity
-first.
+Do not add Changesets for private packages or select a duplicate or misplaced
+scaffold name. Correct package identity first.
 
 Choose the bump by impact:
 
