@@ -39,8 +39,9 @@ jobs:
 
       - name: Build website
         run: pnpm --filter @taskset/www build
-        # env:
+        env:
           # STATIC_EXPORT: ${{ steps.pages.outputs.base_path || '/' }}
+          STATIC_EXPORT: /
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v5
