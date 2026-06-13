@@ -125,6 +125,8 @@ Use the architecture appropriate to the owning surface:
   current contents.
 - Keep public usage guidance in `README.md` and `docs/`; keep repository
   architecture and engineering guidance in `docs/maintainers/`.
+- Keep canonical website blog posts in `apps/www/posts/`; do not duplicate them
+  in `docs/`.
 - Promote code to a shared package only when more than one owner needs the same
   stable responsibility.
 - Keep client-specific state and presentation in the client. Keep shared domain

@@ -139,6 +139,11 @@ Pacer, Virtual, DB, or their devtools when the owning feature uses them.
 Turbopack does not reliably discover new files through the external `docs/`
 content symlink.
 
+The website renders canonical documentation from the `apps/www/content`
+symlink and canonical blog posts from `apps/www/posts/`. Add each post to
+`apps/www/src/blog/posts.ts` so `/posts/[slug]` remains statically enumerable.
+Docs and blog routes use separate Nextra theme wrappers.
+
 `.github/workflows/publish-pages.yml` builds `@taskset/www` as a static export
 and deploys `apps/www/out` to GitHub Pages on pushes to `main` or manual
 dispatch. The workflow supplies the Pages base path through `STATIC_EXPORT` so

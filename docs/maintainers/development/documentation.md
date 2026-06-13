@@ -11,13 +11,15 @@ under `docs/maintainers/`.
 
 ## Recommended Website Stack
 
-Use Next.js App Router, Nextra, and `nextra-theme-docs` in `apps/www`.
+Use Next.js App Router, Nextra, `nextra-theme-docs`, and
+`nextra-theme-blog` in `apps/www`.
 
 Why:
 
 - `apps/www` owns the public documentation renderer
 - the repository already has a Next.js TypeScript preset
-- Nextra supplies Markdown routing, navigation, layout, and search
+- Nextra supplies Markdown routing, documentation navigation, blog layout, and
+  search
 - Markdown remains the source rather than a CMS database
 
 ## Content Rules
@@ -30,12 +32,21 @@ Why:
 - Keep generated API reference separate from hand-authored concepts.
 - Keep architecture, ADRs, development workflows, and technology preferences
   under `docs/maintainers/`, not in top-level usage navigation.
+- Keep chronological release and project posts under `apps/www/posts/`.
+- Require `title`, `description`, and `date` frontmatter for blog posts.
+- Register each post in `apps/www/src/blog/posts.ts` so the static build can
+  enumerate `/posts/[slug]`.
 
 ## Integration
 
 `apps/www/content` is a repository-relative symlink to `../../docs`. Nextra's
 standard catch-all App Router page renders the content without copying it or
 maintaining a second source tree.
+
+The docs and blog themes use separate route layouts and receive their own MDX
+component sets. Do not merge both themes in the global `mdx-components.tsx`;
+their wrapper components own different page contracts. Blog Markdown is loaded
+from `apps/www/posts/` through the app-local post registry.
 
 Run the Next.js development and production builds in webpack mode. Turbopack
 does not reliably discover newly added Markdown through the external content
@@ -47,6 +58,8 @@ app-local environment variable and checked-in `.env.example` only when a value
 genuinely differs by deployment.
 
 The website may generate `.next/`, search data, and build output. These are
-derived and ignored. The root Markdown files remain authoritative.
+derived and ignored. Root `docs/` Markdown remains authoritative for
+documentation, and `apps/www/posts/` Markdown remains authoritative for blog
+posts.
 
 See [ADR 0001](../architecture/decisions/0001-documentation-platform.md).

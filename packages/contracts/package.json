@@ -5,6 +5,19 @@
 	"version": "0.1.2",
 	"description": "Shared runtime schemas and TypeScript contracts for Taskset.",
 	"license": "MIT",
+	"author": {
+		"name": "junkieshuffle",
+		"url": "https://github.com/junkieshuffle"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/falsefoundation/taskset.git",
+		"directory": "packages/contracts"
+	},
+	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"bugs": {
+		"url": "https://github.com/falsefoundation/taskset/issues"
+	},
 	"sideEffects": false,
 	"files": [
 		"dist",

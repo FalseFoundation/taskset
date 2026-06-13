@@ -5,6 +5,19 @@
 	"version": "0.1.2",
 	"description": "Domain-light frontmatter and Markdown utilities for Taskset.",
 	"license": "MIT",
+	"author": {
+		"name": "junkieshuffle",
+		"url": "https://github.com/junkieshuffle"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/falsefoundation/taskset.git",
+		"directory": "packages/utils"
+	},
+	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"bugs": {
+		"url": "https://github.com/falsefoundation/taskset/issues"
+	},
 	"sideEffects": false,
 	"files": [
 		"dist",

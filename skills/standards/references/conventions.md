@@ -307,6 +307,9 @@ For Kanban and Office:
 - Mark integration prerequisites explicitly.
 - Use current paths and package names in documentation.
 - Keep user documentation in `docs/`; `apps/www` renders it.
+- Keep chronological release and project posts in `apps/www/posts/`; require
+  `title`, `description`, and `date` frontmatter and register each route in the
+  website's post registry.
 - Keep contributor, architecture, ADR, testing, and technology documentation
   in `docs/maintainers/`.
 - Keep a concise `README.md` in each package and app describing ownership,

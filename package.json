@@ -2,6 +2,18 @@
 	"name": "taskset",
 	"description": "Offline, human-readable task management that keeps teams and AI aligned by storing project work alongside the code.",
 	"license": "MIT",
+	"author": {
+		"name": "junkieshuffle",
+		"url": "https://github.com/junkieshuffle"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/falsefoundation/taskset.git"
+	},
+	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"bugs": {
+		"url": "https://github.com/falsefoundation/taskset/issues"
+	},
 	"private": true,
 	"type": "module",
 	"scripts": {

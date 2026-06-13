@@ -5,6 +5,19 @@
 	"version": "0.1.2",
 	"description": "The reusable domain and repository engine for Taskset.",
 	"license": "MIT",
+	"author": {
+		"name": "junkieshuffle",
+		"url": "https://github.com/junkieshuffle"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/falsefoundation/taskset.git",
+		"directory": "packages/core"
+	},
+	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"bugs": {
+		"url": "https://github.com/falsefoundation/taskset/issues"
+	},
 	"sideEffects": false,
 	"files": [
 		"dist",

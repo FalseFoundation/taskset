@@ -104,3 +104,6 @@ The website in `apps/www` renders the same `docs/` files with Nextra.
 ## License
 
 Taskset is available under the [MIT License](LICENSE).
+
+Taskset is a [FalseFoundation](https://github.com/falsefoundation) project,
+created by [junkieshuffle](https://github.com/junkieshuffle).

@@ -301,7 +301,9 @@ architecture, ADRs, engineering workflows, and technology policy. Keep the
 maintainer section visibly separate from the primary usage flow.
 
 `apps/www/` renders `docs/` through Nextra. Its `content` symlink points to the
-root `docs/` directory so the app does not maintain a copied content tree.
+root `docs/` directory so the app does not maintain a copied documentation
+tree. Chronological release and project posts are a separate website-owned
+content type stored canonically in `apps/www/posts/`.
 
 Use plain Markdown by default. Use MDX only when a page needs an interactive
 component. Keep frontmatter compatible with the documentation renderer.
@@ -310,9 +312,15 @@ Recommended website stack:
 
 - Next.js App Router because the repository already carries a Next.js shared
   configuration and `apps/www` also owns marketing pages
-- Nextra and the stock Nextra docs theme as the documentation layer
+- Nextra with the stock docs and blog themes
 - Nextra's standard content-directory catch-all route
+- route-isolated docs and blog layouts with separate MDX component sets
 - self-hosted search initially; no CMS or remote content database
+
+Register blog posts in the app-local post registry so static export can
+enumerate `/posts/[slug]`. Keep blog posts in plain Markdown by default with
+`title`, `description`, and `date` frontmatter. Do not merge docs and blog theme
+wrappers in the global MDX component map.
 
 Keep architectural decisions under
 `docs/maintainers/architecture/decisions/`.
