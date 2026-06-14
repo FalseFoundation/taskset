@@ -8,11 +8,11 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/falsefoundation/taskset.git"
+		"url": "git+https://github.com/FalseFoundation/taskset.git"
 	},
 	"homepage": "https://taskset.false.foundation/",
 	"bugs": {
-		"url": "https://github.com/falsefoundation/taskset/issues"
+		"url": "https://github.com/FalseFoundation/taskset/issues"
 	},
 	"private": true,
 	"type": "module",
