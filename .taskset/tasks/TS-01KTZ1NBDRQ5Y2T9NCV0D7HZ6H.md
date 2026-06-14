@@ -2,10 +2,10 @@
 schemaVersion: 1
 id: TS-01KTZ1NBDRQ5Y2T9NCV0D7HZ6H
 title: Build the task dependency graph and integrity validation
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-12 23:11 UTC
-updatedAt: 2026-06-12 23:11 UTC
+updatedAt: 2026-06-13 01:13 UTC
 labels:
   - taskset
   - core

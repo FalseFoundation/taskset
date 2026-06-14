@@ -215,8 +215,9 @@ when they are not Taskset-specific.
 
 - Keep CLI commands thin: parse arguments, call core, render results, map errors
   to exit codes.
-- Current CLI commands are `taskset init`, `taskset config`, `taskset task
-  create`, `taskset task list`, and `taskset task show`.
+- Current CLI commands are `taskset init`, `taskset config`, `taskset doctor`,
+  `taskset tasks-for-file`, and `taskset task create`, `list`, `show`,
+  `update`, `status`, and `delete`.
 - Reserve stdout for requested output and stderr for diagnostics.
 - Avoid interactive prompts when flags or stdin make automation possible.
 - Provide deterministic structured output before integrations depend on parsing

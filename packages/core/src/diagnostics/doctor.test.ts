@@ -1,0 +1,52 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { initializeRepository } from '../repository/repository.ts'
+import { diagnoseRepository } from './doctor.ts'
+
+const temporaryDirectories: string[] = []
+
+afterEach(async () => {
+	await Promise.all(
+		temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })),
+	)
+})
+
+function taskSource(id: string, dependsOn = ''): string {
+	return `---
+schemaVersion: 1
+id: ${id}
+title: Fixture
+status: todo
+createdAt: 2026-06-12
+updatedAt: 2026-06-12
+${dependsOn}---
+
+Fixture body.
+`
+}
+
+describe('repository doctor', () => {
+	it('reports multiple failures deterministically without mutating files', async () => {
+		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-doctor-'))
+		temporaryDirectories.push(rootDirectory)
+		const repository = await initializeRepository(rootDirectory)
+		const first = 'TS-01J00000000000000000000000'
+		const second = 'TS-01J00000000000000000000001'
+		const firstPath = path.join(repository.tasksDirectory, 'first.md')
+		const secondPath = path.join(repository.tasksDirectory, 'second.md')
+		const brokenPath = path.join(repository.tasksDirectory, 'broken.md')
+		await writeFile(firstPath, taskSource(first, `dependsOn:\n  - ${second}\n`))
+		await writeFile(secondPath, taskSource(second, `dependsOn:\n  - ${first}\n`))
+		await writeFile(brokenPath, 'not frontmatter\n')
+		const before = await readFile(firstPath, 'utf8')
+
+		const result = await diagnoseRepository(repository)
+
+		expect(result.valid).toBe(false)
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('frontmatter')
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('cycle')
+		expect(await readFile(firstPath, 'utf8')).toBe(before)
+	})
+})

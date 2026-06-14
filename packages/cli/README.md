@@ -18,3 +18,13 @@ Current commands:
 - `taskset task create`
 - `taskset task list`
 - `taskset task show`
+- `taskset task update`
+- `taskset task status`
+- `taskset task delete`
+- `taskset tasks-for-file`
+- `taskset doctor`
+
+Commands reserve stdout for requested output, send operational failures to
+stderr, and use exit code `0` for success, `1` for repository or domain
+failures, and `2` for invalid CLI usage. Mutating and query commands support
+JSON where scriptable output is needed.

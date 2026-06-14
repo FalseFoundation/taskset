@@ -1,5 +1,13 @@
 # @taskset/contracts
 
+## 0.2.0
+
+### Minor Changes
+
+- Add validated task lifecycle and deletion commands, deterministic graph and
+  query APIs, repository diagnostics, file-impact analysis, disposable indexing,
+  and conflict-aware synchronization contracts and orchestration.
+
 ## 0.1.2
 
 ### Patch Changes

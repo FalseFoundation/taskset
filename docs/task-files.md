@@ -66,17 +66,42 @@ be derived. For example, `blocks` should be derived from another task's
 `dependsOn` rather than independently maintained.
 
 The graph must detect duplicate IDs, missing references, and dependency cycles.
+`blocks` is always derived from `dependsOn`. Stable graph traversal orders task
+IDs lexically where relationship order has no domain meaning.
 
 ## Writes
 
 Taskset provides strict parsing, deterministic serialization, repository
-discovery, atomic task creation, listing, and display. It normalizes line
-endings to LF, writes fields in canonical order, preserves meaningful Markdown
-content, and emits one final newline. Reads never silently repair invalid data.
+discovery, failure-safe creation, update, lifecycle, and deletion operations.
+It normalizes line endings to LF, writes fields in canonical order, preserves
+meaningful Markdown content, and emits one final newline. Reads never silently
+repair invalid data.
 
-Update, removal, lifecycle transitions, and repository diagnostics remain
-future operations. A diagnostic or future `doctor` command will make repairs
-explicit.
+Allowed lifecycle transitions are:
+
+- `todo` to `doing`, `blocked`, or `canceled`
+- `doing` to `todo`, `blocked`, `done`, or `canceled`
+- `blocked` to `todo`, `doing`, or `canceled`
+- `done` and `canceled` are terminal
+
+Task deletion is rejected when inbound dependencies exist. The explicit
+`--remove-dependencies` repair option updates dependents and removes the target
+as one failure-safe operation.
+
+`taskset doctor` scans all canonical files and returns deterministic,
+non-mutating diagnostics for malformed frontmatter, schema failures, unsafe
+paths, duplicate IDs, missing references, self-dependencies, and cycles.
+
+## Queries And Derived State
+
+Filtering, sorting, title/body text search, graph traversal, and file-impact
+queries are deterministic core operations. Text search uses Unicode NFKC
+normalization and locale-aware lowercase matching.
+
+The in-memory task index and optional `.taskset/cache/task-index-v1.json` cache
+are disposable. Canonical task files are always read to validate the cache
+fingerprint. Missing, stale, or corrupt cache data is rebuilt without changing
+task files.
 
 ## History
 

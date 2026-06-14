@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -124,5 +124,117 @@ describe('runCli', () => {
 			}),
 		).toBe(2)
 		expect(output.stderr).toContain('Usage:')
+	})
+
+	it('supports updates, lifecycle transitions, impact queries, and guarded JSON deletion', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const firstOutput = createOutput()
+		await runCli(
+			['task', 'create', '--title', 'Core task', '--file', 'packages/core/src/index.ts'],
+			{ cwd, stdout: firstOutput.writeStdout, stderr: firstOutput.writeStderr },
+		)
+		const firstId = firstOutput.stdout.trim()
+		const updateOutput = createOutput()
+
+		expect(
+			await runCli(
+				['task', 'update', firstId, '--title', 'Updated core task', '--status', 'doing', '--json'],
+				{ cwd, stdout: updateOutput.writeStdout, stderr: updateOutput.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(updateOutput.stdout)).toMatchObject({
+			id: firstId,
+			title: 'Updated core task',
+			status: 'doing',
+		})
+		expect(await runCli(['task', 'status', firstId, 'done'], { cwd })).toBe(0)
+
+		const invalidTransition = createOutput()
+		expect(
+			await runCli(['task', 'status', firstId, 'doing'], {
+				cwd,
+				stdout: invalidTransition.writeStdout,
+				stderr: invalidTransition.writeStderr,
+			}),
+		).toBe(1)
+		expect(invalidTransition.stderr).toContain('cannot transition')
+
+		const secondOutput = createOutput()
+		await runCli(
+			[
+				'task',
+				'create',
+				'--title',
+				'Dependent CLI task',
+				'--depends-on',
+				firstId,
+				'--file',
+				'packages/cli/src/cli.ts',
+			],
+			{ cwd, stdout: secondOutput.writeStdout, stderr: secondOutput.writeStderr },
+		)
+		const secondId = secondOutput.stdout.trim()
+		const impactOutput = createOutput()
+		expect(
+			await runCli(['tasks-for-file', 'packages/core', '--impact', '--json'], {
+				cwd,
+				stdout: impactOutput.writeStdout,
+				stderr: impactOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(impactOutput.stdout)).toMatchObject({
+			direct: [{ id: firstId }],
+			impacted: [{ id: secondId }],
+		})
+
+		const blockedDelete = createOutput()
+		expect(
+			await runCli(['task', 'delete', firstId, '--json'], {
+				cwd,
+				stdout: blockedDelete.writeStdout,
+				stderr: blockedDelete.writeStderr,
+			}),
+		).toBe(1)
+		expect(blockedDelete.stderr).toContain(secondId)
+
+		const deleteOutput = createOutput()
+		expect(
+			await runCli(['task', 'delete', firstId, '--remove-dependencies', '--json'], {
+				cwd,
+				stdout: deleteOutput.writeStdout,
+				stderr: deleteOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(deleteOutput.stdout)).toMatchObject({ deleted: true, id: firstId })
+	})
+
+	it('filters task lists and reports doctor failures with a nonzero exit code', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		await runCli(['task', 'create', '--title', 'Searchable Unicode', '--label', 'query'], { cwd })
+		const listOutput = createOutput()
+		expect(
+			await runCli(['task', 'list', '--label', 'query', '--search', 'unicode', '--json'], {
+				cwd,
+				stdout: listOutput.writeStdout,
+				stderr: listOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(listOutput.stdout)).toHaveLength(1)
+
+		await writeFile(path.join(cwd, '.taskset', 'tasks', 'broken.md'), 'not frontmatter\n')
+		const doctorOutput = createOutput()
+		expect(
+			await runCli(['doctor', '--json'], {
+				cwd,
+				stdout: doctorOutput.writeStdout,
+				stderr: doctorOutput.writeStderr,
+			}),
+		).toBe(1)
+		expect(JSON.parse(doctorOutput.stdout)).toMatchObject({
+			valid: false,
+			diagnostics: [{ code: 'frontmatter' }],
+		})
 	})
 })

@@ -2,10 +2,10 @@
 schemaVersion: 1
 id: TS-01KTZ1PFXA3DM2M1TDZPY6DNJD
 title: Implement synchronization planning and atomic apply
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-12 23:11 UTC
-updatedAt: 2026-06-12 23:11 UTC
+updatedAt: 2026-06-13 01:13 UTC
 labels:
   - taskset
   - core

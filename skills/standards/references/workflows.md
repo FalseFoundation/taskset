@@ -89,6 +89,8 @@ pnpm build
 pnpm taskset config --json
 pnpm taskset task list
 pnpm taskset task create --title "Describe the work"
+pnpm taskset task status <task-id> doing
+pnpm taskset doctor
 ```
 
 Package-local `test` and `test:watch` scripts are required because Turbo

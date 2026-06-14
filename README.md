@@ -5,8 +5,9 @@ Taskset is a local-first task manager that stores project work as human-readable
 Tasks remain useful in editors, Git history, pull requests, scripts, and AI
 workflows without requiring a hosted project-management database.
 
-> Taskset is pre-alpha. The CLI currently supports repository initialization,
-> configuration inspection, and task creation, listing, and display.
+> Taskset is pre-alpha. The CLI supports repository initialization, validated
+> task CRUD and lifecycle changes, repository diagnostics, queries, and
+> file-impact analysis.
 
 ## Why Taskset
 
@@ -35,6 +36,8 @@ Create and inspect work:
 pnpm exec taskset task create --title "Add repository validation"
 pnpm exec taskset task list
 pnpm exec taskset task show <task-id>
+pnpm exec taskset task status <task-id> doing
+pnpm exec taskset doctor
 ```
 
 Initialization creates a root `taskset.config.ts`, the canonical
@@ -90,6 +93,23 @@ Explain why the work exists.
 
 Task IDs are immutable `TS-` prefixed ULIDs. Taskset validates metadata,
 normalizes serialization, and preserves the human-authored Markdown body.
+
+## Queries And Maintenance
+
+Core owns deterministic graph, filtering, search, indexing, and file-impact
+semantics. The CLI exposes scriptable forms:
+
+```bash
+pnpm exec taskset task list --status doing --label core --json
+pnpm exec taskset tasks-for-file packages/core --impact --json
+pnpm exec taskset doctor --json
+pnpm exec taskset task update <task-id> --priority urgent
+pnpm exec taskset task delete <task-id> --remove-dependencies --json
+```
+
+`doctor` scans all task files without modifying them. Deletion is blocked when
+other tasks depend on the target unless `--remove-dependencies` is selected to
+repair those inbound relationships in the same failure-safe mutation.
 
 ## Documentation
 

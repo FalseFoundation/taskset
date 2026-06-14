@@ -2,10 +2,10 @@
 schemaVersion: 1
 id: TS-01KTXKXVGZR1YG2K7S79PYJH3B
 title: Add task update and lifecycle commands
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-12 09:52 UTC
-updatedAt: 2026-06-12 09:52 UTC
+updatedAt: 2026-06-13 01:13 UTC
 labels:
   - taskset
 files:

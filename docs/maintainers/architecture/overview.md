@@ -51,9 +51,12 @@ src/
 │   ├── domain/
 │   ├── application/
 │   └── infrastructure/
+├── diagnostics/
 ├── graph/
+├── indexing/
 ├── projects/
 ├── search/
+├── sync/
 └── repository/
 ```
 
@@ -88,3 +91,4 @@ User pages stay at the top level. Maintainer material lives under
 - [Documentation platform](decisions/0001-documentation-platform.md)
 - [Client FBA and modular core/server](decisions/0002-code-architecture.md)
 - [Snapshot policy](decisions/0003-snapshot-policy.md)
+- [Synchronization](synchronization.md)

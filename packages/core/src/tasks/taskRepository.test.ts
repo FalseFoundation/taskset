@@ -1,14 +1,16 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { initializeRepository } from '../repository/repository.ts'
 import {
 	createTask,
+	deleteTask,
 	generateTaskId,
 	listTasks,
 	readTask,
 	TaskRepositoryError,
+	updateTask,
 } from './taskRepository.ts'
 
 const temporaryDirectories: string[] = []
@@ -133,5 +135,72 @@ describe('task repository', () => {
 		await expect(listTasks(repository)).rejects.toMatchObject({
 			code: 'task-invalid',
 		})
+	})
+
+	it('updates task metadata and body atomically while enforcing lifecycle transitions', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const id = 'TS-01J00000000000000000000000'
+		await createTask(
+			repository,
+			{ title: 'Original', body: '# Context\n\nKeep this.\n' },
+			{
+				createId: () => id,
+				now: () => new Date('2026-06-12T00:00:00.000Z'),
+			},
+		)
+
+		const updated = await updateTask(
+			repository,
+			id,
+			{ title: 'Updated', status: 'doing', labels: ['core'] },
+			{ now: () => new Date('2026-06-12T01:00:00.000Z') },
+		)
+
+		expect(updated.task).toMatchObject({
+			metadata: {
+				title: 'Updated',
+				status: 'doing',
+				updatedAt: '2026-06-12 01:00 UTC',
+				labels: ['core'],
+			},
+			body: '# Context\n\nKeep this.\n',
+		})
+
+		await updateTask(repository, id, { status: 'done' })
+		await expect(updateTask(repository, id, { status: 'doing' })).rejects.toMatchObject({
+			code: 'task-transition-invalid',
+		})
+	})
+
+	it('validates relationship changes and blocks deletion with inbound dependencies', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const first = 'TS-01J00000000000000000000000'
+		const second = 'TS-01J00000000000000000000001'
+		const options = {
+			now: () => new Date('2026-06-12T00:00:00.000Z'),
+		}
+		await createTask(repository, { title: 'First' }, { ...options, createId: () => first })
+		await createTask(
+			repository,
+			{ title: 'Second', dependsOn: [first] },
+			{ ...options, createId: () => second },
+		)
+
+		await expect(updateTask(repository, first, { dependsOn: [second] })).rejects.toMatchObject({
+			code: 'task-invalid',
+		})
+		await expect(deleteTask(repository, first)).rejects.toMatchObject({
+			code: 'task-dependency-blocked',
+		})
+
+		const deleted = await deleteTask(repository, first, {
+			removeDependencies: true,
+			now: () => new Date('2026-06-12T02:00:00.000Z'),
+		})
+		expect(deleted.task.metadata.id).toBe(first)
+		await expect(access(path.join(repository.tasksDirectory, `${first}.md`))).rejects.toThrow()
+		expect((await readTask(repository, second)).task.metadata.dependsOn).toEqual([])
 	})
 })

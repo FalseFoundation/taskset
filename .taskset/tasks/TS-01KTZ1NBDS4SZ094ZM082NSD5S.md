@@ -2,10 +2,10 @@
 schemaVersion: 1
 id: TS-01KTZ1NBDS4SZ094ZM082NSD5S
 title: Add task filtering, sorting, and search queries
-status: todo
+status: done
 priority: medium
 createdAt: 2026-06-12 23:11 UTC
-updatedAt: 2026-06-12 23:11 UTC
+updatedAt: 2026-06-13 01:13 UTC
 labels:
   - taskset
   - core

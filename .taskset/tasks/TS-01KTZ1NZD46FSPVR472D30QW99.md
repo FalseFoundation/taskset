@@ -2,10 +2,10 @@
 schemaVersion: 1
 id: TS-01KTZ1NZD46FSPVR472D30QW99
 title: Add repository doctor diagnostics
-status: todo
+status: done
 priority: medium
 createdAt: 2026-06-12 23:11 UTC
-updatedAt: 2026-06-12 23:11 UTC
+updatedAt: 2026-06-13 01:13 UTC
 labels:
   - taskset
   - core

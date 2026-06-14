@@ -51,9 +51,34 @@ remains the canonical project state. The nested ignore file excludes
 pnpm exec taskset task create --title "Add repository validation"
 pnpm exec taskset task list
 pnpm exec taskset task show <task-id>
+pnpm exec taskset task update <task-id> --status doing
 ```
 
 Task files can also be read and reviewed directly without Taskset installed.
+
+## Query And Validate Work
+
+```bash
+pnpm exec taskset task list --status doing --label core --json
+pnpm exec taskset tasks-for-file packages/core --impact --json
+pnpm exec taskset doctor
+```
+
+`tasks-for-file` matches normalized repository-relative files and directories.
+With `--impact`, it also returns tasks that transitively depend on direct
+matches. `doctor` reports all readable format and graph failures in one
+non-mutating pass.
+
+## Complete Or Remove Work
+
+```bash
+pnpm exec taskset task status <task-id> done
+pnpm exec taskset task delete <task-id>
+```
+
+Completed and canceled tasks are terminal. Deletion fails while another task
+depends on the target. Use `--remove-dependencies` only when Taskset should
+remove those inbound references and the task together.
 
 ## Next
 
