@@ -89,7 +89,10 @@ pnpm build
 pnpm taskset config --json
 pnpm taskset task list
 pnpm taskset task create --title "Describe the work"
+pnpm taskset task list --file packages/core --impact
 pnpm taskset task status <task-id> doing
+pnpm taskset snapshot create
+pnpm taskset migrate --to 2
 pnpm taskset doctor
 ```
 
@@ -228,7 +231,7 @@ Taskset repository safety snapshots.
 
 - valid and invalid enum values
 - required and optional fields
-- defaults and schema versions
+- defaults, v1/v2 reads, and v2 writes
 - forward and backward compatibility fixtures
 
 ### Parsing and serialization
@@ -248,6 +251,7 @@ Taskset repository safety snapshots.
 - duplicate IDs and filename collisions
 - path traversal and symlink boundaries
 - explicit timestamps through a test clock
+- migration dry runs, pre-apply snapshots, restore previews, and atomic apply
 
 ### Graph and search
 
@@ -287,7 +291,7 @@ For generated indexes and views:
 
 1. Delete the derived state.
 2. Rebuild it from canonical entities.
-3. Verify equivalent observable output.
+3. Verify equivalent observable output and stale-file removal.
 
 For concurrency-sensitive writes, test stale reads, competing updates, and
 partial failures. Do not imply database-style transaction guarantees that the

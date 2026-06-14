@@ -14,7 +14,7 @@
 		"url": "git+https://github.com/falsefoundation/taskset.git",
 		"directory": "packages/core"
 	},
-	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"homepage": "https://taskset.false.foundation/",
 	"bugs": {
 		"url": "https://github.com/falsefoundation/taskset/issues"
 	},
@@ -47,7 +47,8 @@
 	},
 	"dependencies": {
 		"@taskset/contracts": "workspace:*",
-		"@taskset/utils": "workspace:*"
+		"@taskset/utils": "workspace:*",
+		"zod": "4.4.3"
 	},
 	"devDependencies": {
 		"@taskset/configs": "workspace:*",

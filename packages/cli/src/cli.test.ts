@@ -177,7 +177,7 @@ describe('runCli', () => {
 		const secondId = secondOutput.stdout.trim()
 		const impactOutput = createOutput()
 		expect(
-			await runCli(['tasks-for-file', 'packages/core', '--impact', '--json'], {
+			await runCli(['task', 'list', '--file', 'packages/core', '--impact', '--json'], {
 				cwd,
 				stdout: impactOutput.writeStdout,
 				stderr: impactOutput.writeStderr,
@@ -236,5 +236,72 @@ describe('runCli', () => {
 			valid: false,
 			diagnostics: [{ code: 'frontmatter' }],
 		})
+	})
+
+	it('validates metadata with Zod and supports generated views and snapshots', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const invalidOutput = createOutput()
+
+		expect(
+			await runCli(['task', 'create', '--title', 'Invalid', '--estimate', '1.5'], {
+				cwd,
+				stdout: invalidOutput.writeStdout,
+				stderr: invalidOutput.writeStderr,
+			}),
+		).toBe(2)
+		expect(invalidOutput.stderr).toContain('estimate')
+
+		const createOutputState = createOutput()
+		expect(
+			await runCli(
+				[
+					'task',
+					'create',
+					'--title',
+					'Metadata task',
+					'--owner',
+					'platform',
+					'--assignee',
+					'maintainer',
+					'--project',
+					'taskset',
+					'--directory',
+					'packages/core',
+					'--json',
+				],
+				{
+					cwd,
+					stdout: createOutputState.writeStdout,
+					stderr: createOutputState.writeStderr,
+				},
+			),
+		).toBe(0)
+		expect(JSON.parse(createOutputState.stdout)).toMatchObject({
+			schemaVersion: 2,
+			owner: 'platform',
+			assignees: ['maintainer'],
+			projects: ['taskset'],
+		})
+
+		const generateOutput = createOutput()
+		expect(
+			await runCli(['generate', '--json'], {
+				cwd,
+				stdout: generateOutput.writeStdout,
+				stderr: generateOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(generateOutput.stdout).files).toContain('assignee/maintainer.md')
+
+		const snapshotOutput = createOutput()
+		expect(
+			await runCli(['snapshot', 'create'], {
+				cwd,
+				stdout: snapshotOutput.writeStdout,
+				stderr: snapshotOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(snapshotOutput.stdout.trim()).toMatch(/^\d{8}T\d{6}Z-[a-f0-9]{12}$/u)
 	})
 })

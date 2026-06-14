@@ -90,6 +90,9 @@ importers:
       '@taskset/core':
         specifier: workspace:*
         version: link:../core
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@taskset/configs':
         specifier: workspace:*
@@ -108,6 +111,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      '@taskset/utils':
+        specifier: workspace:*
+        version: link:../utils
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -130,6 +136,9 @@ importers:
       '@taskset/utils':
         specifier: workspace:*
         version: link:../utils
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@taskset/configs':
         specifier: workspace:*

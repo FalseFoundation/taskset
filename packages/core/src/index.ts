@@ -5,10 +5,12 @@ export {
 	DATA_DIRECTORY_NAME,
 	defineConfig,
 	discoverRepository,
+	GENERATED_DIRECTORY_NAME,
 	loadRepository,
 	type Repository,
 	type ResolvedConfig,
 	type ResolvedTaskDefaults,
+	SNAPSHOTS_DIRECTORY_NAME,
 	TASKS_DIRECTORY_NAME,
 } from './config/config.ts'
 export {
@@ -18,7 +20,14 @@ export {
 	type RepositoryDiagnosticCode,
 } from './diagnostics/doctor.ts'
 export {
+	type GeneratedViewsResult,
+	type GenerateViewsOptions,
+	GenerateViewsOptionsSchema,
+	generateViews,
+} from './generated/generatedViews.ts'
+export {
 	buildTaskGraph,
+	type DerivedTaskRelationships,
 	inspectTaskGraph,
 	TaskGraph,
 	type TaskGraphDiagnostic,
@@ -31,30 +40,55 @@ export {
 	TaskIndex,
 } from './indexing/taskIndex.ts'
 export {
+	type MigrateTasksOptions,
+	MigrateTasksOptionsSchema,
+	migrateTasks,
+	type TaskMigrationChange,
+	type TaskMigrationResult,
+} from './migrations/taskMigration.ts'
+export {
 	normalizeRepositoryPath,
 	RepositoryPathError,
 	type RepositoryPathErrorCode,
-	type TaskImpactOptions,
-	type TaskImpactResult,
-	tasksForFile,
-} from './projects/taskImpact.ts'
+	RepositoryRelativePathSchema,
+	repositoryPathsRelate,
+} from './projects/repositoryPath.ts'
 export {
 	applyFileTransaction,
 	FileTransactionError,
 	type FileTransactionErrorCode,
 	type FileTransactionOperation,
+	FileTransactionOperationSchema,
 } from './repository/fileTransaction.ts'
 export { initializeRepository } from './repository/repository.ts'
 export {
 	queryTaskRecords,
 	queryTasks,
+	TASK_SORT_DIRECTIONS,
+	TASK_SORT_KEYS,
 	type TaskQuery,
+	type TaskQueryResult,
+	TaskQuerySchema,
 	type TaskSortDirection,
 	type TaskSortKey,
 } from './search/taskQuery.ts'
 export {
+	type CreateSnapshotOptions,
+	CreateSnapshotOptionsSchema,
+	createSnapshot,
+	listSnapshots,
+	type RestoreSnapshotOptions,
+	RestoreSnapshotOptionsSchema,
+	type RestoreSnapshotResult,
+	restoreSnapshot,
+	type SnapshotChange,
+	type SnapshotFile,
+	type SnapshotManifest,
+} from './snapshots/snapshotRepository.ts'
+export {
 	applySynchronization,
 	type PlanSynchronizationOptions,
+	PlanSynchronizationOptionsSchema,
 	planSynchronization,
 	SynchronizationError,
 	type SynchronizationErrorCode,
@@ -68,7 +102,9 @@ export {
 	type TaskFileIssue,
 } from './tasks/taskFile.ts'
 export {
+	type CoreWarning,
 	type CreateTaskInput,
+	CreateTaskInputSchema,
 	type CreateTaskOptions,
 	createTask,
 	type DeleteTaskOptions,
@@ -80,6 +116,7 @@ export {
 	TaskRepositoryError,
 	type TaskRepositoryErrorCode,
 	type UpdateTaskInput,
+	UpdateTaskInputSchema,
 	type UpdateTaskOptions,
 	updateTask,
 } from './tasks/taskRepository.ts'

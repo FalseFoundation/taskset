@@ -1,67 +1,65 @@
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
-	TASK_PRIORITIES,
-	TASK_STATUSES,
-	type TaskPriority,
-	type TaskStatus,
+	TaskIdSchema,
+	TaskPrioritySchema,
+	TaskRiskSchema,
+	TaskStatusSchema,
+	TaskTimestampSchema,
 } from '@taskset/contracts'
 import {
+	buildTaskIndex,
+	createSnapshot,
 	createTask,
+	type DerivedTaskRelationships,
 	deleteTask,
 	diagnoseRepository,
 	discoverRepository,
+	generateViews,
 	initializeRepository,
+	listSnapshots,
+	migrateTasks,
+	normalizeRepositoryPath,
 	queryTasks,
+	RepositoryPathError,
 	readTask,
+	restoreSnapshot,
 	serializeTaskFile,
+	TASK_SORT_DIRECTIONS,
+	TASK_SORT_KEYS,
 	type TaskQuery,
 	type TaskRecord,
-	type TaskSortDirection,
-	type TaskSortKey,
-	tasksForFile,
 	type UpdateTaskInput,
 	updateTask,
 } from '@taskset/core'
-
-const TASK_SORT_KEYS = ['id', 'title', 'status', 'priority', 'createdAt', 'updatedAt'] as const
-const TASK_SORT_DIRECTIONS = ['asc', 'desc'] as const
+import * as z from 'zod'
 
 const USAGE = `Usage:
   taskset init [--cwd <path>]
   taskset config [--json] [--cwd <path>]
   taskset doctor [--json] [--cwd <path>]
-  taskset tasks-for-file <path> [--impact] [--json] [--cwd <path>]
-  taskset task create --title <title> [options]
+  taskset generate [--json] [--cwd <path>]
+  taskset migrate --to 2 [--apply] [--json] [--cwd <path>]
+  taskset snapshot create|list [--json] [--cwd <path>]
+  taskset snapshot restore <snapshot-id> [--apply] [--json] [--cwd <path>]
+  taskset task create --title <title> [metadata options]
   taskset task list [query options]
-  taskset task show <task-id> [--json] [--cwd <path>]
-  taskset task update <task-id> [options]
+  taskset task show <task-id> [--include-derived] [--json] [--cwd <path>]
+  taskset task update <task-id> [metadata options]
   taskset task status <task-id> <status> [--json] [--cwd <path>]
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
 
-Create and update options:
-  --title <title>
-  --status <status>
-  --priority <priority>
-  --clear-priority
-  --label <label>           Repeatable; replaces labels on update
-  --clear-labels
-  --depends-on <task-id>    Repeatable; replaces dependencies on update
-  --clear-dependencies
-  --file <path>             Repeatable; replaces file paths on update
-  --clear-files
-  --body <markdown>
+Metadata options:
+  --status --priority --owner --team --estimate --effort --risk --due-date
+  --label --assignee --reviewer --depends-on --related --duplicate
+  --parent --file --directory --project --body
+  Repeat array options. Update commands also accept matching --clear-* options.
 
 List query options:
-  --status <status>         Repeatable
-  --priority <priority>     Repeatable
-  --label <label>           Repeatable; all labels must match
-  --depends-on <task-id>
-  --file <path>
-  --search <text>
-  --sort <id|title|status|priority|createdAt|updatedAt>
-  --direction <asc|desc>
-  --json
+  --status --priority --label --owner --assignee --reviewer --team --risk
+  --project --depends-on --related --parent --file --directory
+  --due-before --due-after --search --sort --direction
+  --impact --include-derived --json
 `
 
 export interface CliContext {
@@ -70,110 +68,230 @@ export interface CliContext {
 	readonly stdout?: (value: string) => void
 }
 
+interface CliIssue {
+	readonly field: string
+	readonly message: string
+}
+
 class CliUsageError extends Error {
-	constructor(message: string) {
+	readonly issues: readonly CliIssue[]
+
+	constructor(message: string, issues: readonly CliIssue[] = []) {
 		super(message)
 		this.name = 'CliUsageError'
+		this.issues = issues
 	}
 }
 
-function parseTaskStatus(value: string | undefined): TaskStatus | undefined {
-	if (value === undefined) {
-		return undefined
-	}
-
-	if (!TASK_STATUSES.includes(value as TaskStatus)) {
-		throw new CliUsageError(`Invalid task status "${value}"`)
-	}
-
-	return value as TaskStatus
+const TrimmedStringSchema = z.string().trim().min(1)
+function uniqueArray<T>(schema: z.ZodType<T>) {
+	return z
+		.array(schema)
+		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 }
 
-function parseTaskStatuses(
-	values: readonly string[] | undefined,
-): readonly TaskStatus[] | undefined {
-	return values?.map((value) => {
-		const status = parseTaskStatus(value)
+const StringListSchema = uniqueArray(TrimmedStringSchema)
+const TaskIdListSchema = uniqueArray(TaskIdSchema)
+const CwdSchema = z.string().min(1).optional()
+const JsonSchema = z.boolean().optional()
 
-		if (!status) {
-			throw new CliUsageError('Task status must not be empty')
+const CommonValuesSchema = z.strictObject({
+	cwd: CwdSchema,
+	json: JsonSchema,
+})
+
+const CreateValuesSchema = z.strictObject({
+	title: TrimmedStringSchema,
+	status: TaskStatusSchema.optional(),
+	priority: TaskPrioritySchema.optional(),
+	label: StringListSchema.optional(),
+	'depends-on': TaskIdListSchema.optional(),
+	file: StringListSchema.optional(),
+	owner: TrimmedStringSchema.optional(),
+	assignee: StringListSchema.optional(),
+	reviewer: StringListSchema.optional(),
+	team: TrimmedStringSchema.optional(),
+	estimate: z.coerce.number().int().nonnegative().optional(),
+	effort: z.coerce.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	'due-date': TaskTimestampSchema.optional(),
+	related: TaskIdListSchema.optional(),
+	duplicate: TaskIdListSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	directory: StringListSchema.optional(),
+	project: StringListSchema.optional(),
+	body: z.string().optional(),
+	cwd: CwdSchema,
+	json: JsonSchema,
+})
+
+const UPDATE_CLEAR_PAIRS = [
+	['priority', 'clear-priority'],
+	['label', 'clear-labels'],
+	['depends-on', 'clear-dependencies'],
+	['file', 'clear-files'],
+	['owner', 'clear-owner'],
+	['assignee', 'clear-assignees'],
+	['reviewer', 'clear-reviewers'],
+	['team', 'clear-team'],
+	['estimate', 'clear-estimate'],
+	['effort', 'clear-effort'],
+	['risk', 'clear-risk'],
+	['due-date', 'clear-due-date'],
+	['related', 'clear-related'],
+	['duplicate', 'clear-duplicates'],
+	['parent', 'clear-parent'],
+	['directory', 'clear-directories'],
+	['project', 'clear-projects'],
+] as const
+
+const UpdateValuesSchema = z
+	.strictObject({
+		title: TrimmedStringSchema.optional(),
+		status: TaskStatusSchema.optional(),
+		priority: TaskPrioritySchema.optional(),
+		label: StringListSchema.optional(),
+		'depends-on': TaskIdListSchema.optional(),
+		file: StringListSchema.optional(),
+		owner: TrimmedStringSchema.optional(),
+		assignee: StringListSchema.optional(),
+		reviewer: StringListSchema.optional(),
+		team: TrimmedStringSchema.optional(),
+		estimate: z.coerce.number().int().nonnegative().optional(),
+		effort: z.coerce.number().finite().nonnegative().optional(),
+		risk: TaskRiskSchema.optional(),
+		'due-date': TaskTimestampSchema.optional(),
+		related: TaskIdListSchema.optional(),
+		duplicate: TaskIdListSchema.optional(),
+		parent: TaskIdSchema.optional(),
+		directory: StringListSchema.optional(),
+		project: StringListSchema.optional(),
+		body: z.string().optional(),
+		'clear-priority': z.boolean().optional(),
+		'clear-labels': z.boolean().optional(),
+		'clear-dependencies': z.boolean().optional(),
+		'clear-files': z.boolean().optional(),
+		'clear-owner': z.boolean().optional(),
+		'clear-assignees': z.boolean().optional(),
+		'clear-reviewers': z.boolean().optional(),
+		'clear-team': z.boolean().optional(),
+		'clear-estimate': z.boolean().optional(),
+		'clear-effort': z.boolean().optional(),
+		'clear-risk': z.boolean().optional(),
+		'clear-due-date': z.boolean().optional(),
+		'clear-related': z.boolean().optional(),
+		'clear-duplicates': z.boolean().optional(),
+		'clear-parent': z.boolean().optional(),
+		'clear-directories': z.boolean().optional(),
+		'clear-projects': z.boolean().optional(),
+		cwd: CwdSchema,
+		json: JsonSchema,
+	})
+	.superRefine((values, context) => {
+		for (const [valueKey, clearKey] of UPDATE_CLEAR_PAIRS) {
+			if (values[valueKey] !== undefined && values[clearKey]) {
+				context.addIssue({
+					code: 'custom',
+					path: [clearKey],
+					message: `Cannot set and clear ${valueKey} in the same update`,
+				})
+			}
 		}
 
-		return status
-	})
-}
+		const nonControlKeys = Object.keys(values).filter((key) => key !== 'cwd' && key !== 'json')
 
-function parseTaskPriority(value: string | undefined): TaskPriority | undefined {
-	if (value === undefined) {
-		return undefined
-	}
-
-	if (!TASK_PRIORITIES.includes(value as TaskPriority)) {
-		throw new CliUsageError(`Invalid task priority "${value}"`)
-	}
-
-	return value as TaskPriority
-}
-
-function parseTaskPriorities(
-	values: readonly string[] | undefined,
-): readonly TaskPriority[] | undefined {
-	return values?.map((value) => {
-		const priority = parseTaskPriority(value)
-
-		if (!priority) {
-			throw new CliUsageError('Task priority must not be empty')
+		if (nonControlKeys.length === 0) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Task update requires at least one field option',
+			})
 		}
-
-		return priority
 	})
-}
 
-function parseSortKey(value: string | undefined): TaskSortKey | undefined {
-	if (value === undefined) {
-		return undefined
+const ListValuesSchema = z.strictObject({
+	status: z.array(TaskStatusSchema).optional(),
+	priority: z.array(TaskPrioritySchema).optional(),
+	label: StringListSchema.optional(),
+	owner: StringListSchema.optional(),
+	assignee: StringListSchema.optional(),
+	reviewer: StringListSchema.optional(),
+	team: StringListSchema.optional(),
+	risk: z.array(TaskRiskSchema).optional(),
+	project: StringListSchema.optional(),
+	'depends-on': TaskIdSchema.optional(),
+	related: TaskIdSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	file: StringListSchema.optional(),
+	directory: StringListSchema.optional(),
+	'due-before': TaskTimestampSchema.optional(),
+	'due-after': TaskTimestampSchema.optional(),
+	search: z.string().optional(),
+	sort: z.enum(TASK_SORT_KEYS).optional(),
+	direction: z.enum(TASK_SORT_DIRECTIONS).optional(),
+	impact: z.boolean().optional(),
+	'include-derived': z.boolean().optional(),
+	cwd: CwdSchema,
+	json: JsonSchema,
+})
+
+const metadataOptionDefinitions = {
+	body: { type: 'string' },
+	'depends-on': { type: 'string', multiple: true },
+	file: { type: 'string', multiple: true },
+	label: { type: 'string', multiple: true },
+	priority: { type: 'string' },
+	status: { type: 'string' },
+	title: { type: 'string' },
+	owner: { type: 'string' },
+	assignee: { type: 'string', multiple: true },
+	reviewer: { type: 'string', multiple: true },
+	team: { type: 'string' },
+	estimate: { type: 'string' },
+	effort: { type: 'string' },
+	risk: { type: 'string' },
+	'due-date': { type: 'string' },
+	related: { type: 'string', multiple: true },
+	duplicate: { type: 'string', multiple: true },
+	parent: { type: 'string' },
+	directory: { type: 'string', multiple: true },
+	project: { type: 'string', multiple: true },
+} as const
+
+const commonOptionDefinitions = {
+	cwd: { type: 'string' },
+	json: { type: 'boolean' },
+} as const
+
+function parseSchema<T>(schema: z.ZodType<T>, value: unknown, label: string): T {
+	const result = schema.safeParse(value)
+
+	if (!result.success) {
+		throw new CliUsageError(
+			`Invalid ${label}`,
+			result.error.issues.map((issue) => ({
+				field: issue.path.length > 0 ? issue.path.map(String).join('.') : label,
+				message: issue.message,
+			})),
+		)
 	}
 
-	if (!TASK_SORT_KEYS.includes(value as TaskSortKey)) {
-		throw new CliUsageError(`Invalid task sort key "${value}"`)
-	}
-
-	return value as TaskSortKey
-}
-
-function parseSortDirection(value: string | undefined): TaskSortDirection | undefined {
-	if (value === undefined) {
-		return undefined
-	}
-
-	if (!TASK_SORT_DIRECTIONS.includes(value as TaskSortDirection)) {
-		throw new CliUsageError(`Invalid task sort direction "${value}"`)
-	}
-
-	return value as TaskSortDirection
+	return result.data
 }
 
 function resolveCommandCwd(baseDirectory: string, cwdOption: string | undefined): string {
 	return cwdOption ? path.resolve(baseDirectory, cwdOption) : baseDirectory
 }
 
-function parseCommonOptions(args: readonly string[]) {
-	return parseArgs({
-		args,
-		allowPositionals: false,
-		options: {
-			cwd: { type: 'string' },
-			json: { type: 'boolean' },
-		},
-	})
-}
-
-function requireSinglePositional(positionals: readonly string[], name: string): string {
-	if (positionals.length !== 1 || !positionals[0]) {
-		throw new CliUsageError(`Expected exactly one ${name}`)
+function requirePositionals(
+	positionals: readonly string[],
+	count: number,
+	description: string,
+): readonly string[] {
+	if (positionals.length !== count || positionals.some((value) => value.length === 0)) {
+		throw new CliUsageError(`Expected ${description}`)
 	}
 
-	return positionals[0]
+	return positionals
 }
 
 function formatError(error: unknown): string {
@@ -195,10 +313,14 @@ function formatError(error: unknown): string {
 	return `${error.message}${issues}`
 }
 
-function taskRecordJson(record: TaskRecord) {
+function taskRecordJson(
+	record: TaskRecord,
+	derived?: DerivedTaskRelationships,
+): Record<string, unknown> {
 	return {
 		relativePath: record.relativePath,
 		...record.task.metadata,
+		...(derived ? { derived } : {}),
 	}
 }
 
@@ -214,58 +336,171 @@ function writeTaskRecord(
 	}
 }
 
+function warningWriter(
+	stderr: (value: string) => void,
+): (warning: { readonly message: string }) => void {
+	return (warning) => stderr(`warning: ${warning.message}\n`)
+}
+
+function normalizeMutationPaths(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
+	values: readonly string[] | undefined,
+): string[] | undefined {
+	return values?.map((value) => normalizeRepositoryPath(repository, value))
+}
+
+function updateInputFromValues(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
+	values: z.infer<typeof UpdateValuesSchema>,
+): UpdateTaskInput {
+	return {
+		...(values.title !== undefined ? { title: values.title } : {}),
+		...(values.status !== undefined ? { status: values.status } : {}),
+		...(values['clear-priority']
+			? { priority: null }
+			: values.priority !== undefined
+				? { priority: values.priority }
+				: {}),
+		...(values['clear-labels']
+			? { labels: [] }
+			: values.label !== undefined
+				? { labels: values.label }
+				: {}),
+		...(values['clear-dependencies']
+			? { dependsOn: [] }
+			: values['depends-on'] !== undefined
+				? { dependsOn: values['depends-on'] }
+				: {}),
+		...(values['clear-files']
+			? { files: [] }
+			: values.file !== undefined
+				? { files: normalizeMutationPaths(repository, values.file) }
+				: {}),
+		...(values['clear-owner']
+			? { owner: null }
+			: values.owner !== undefined
+				? { owner: values.owner }
+				: {}),
+		...(values['clear-assignees']
+			? { assignees: [] }
+			: values.assignee !== undefined
+				? { assignees: values.assignee }
+				: {}),
+		...(values['clear-reviewers']
+			? { reviewers: [] }
+			: values.reviewer !== undefined
+				? { reviewers: values.reviewer }
+				: {}),
+		...(values['clear-team']
+			? { team: null }
+			: values.team !== undefined
+				? { team: values.team }
+				: {}),
+		...(values['clear-estimate']
+			? { estimate: null }
+			: values.estimate !== undefined
+				? { estimate: values.estimate }
+				: {}),
+		...(values['clear-effort']
+			? { effort: null }
+			: values.effort !== undefined
+				? { effort: values.effort }
+				: {}),
+		...(values['clear-risk']
+			? { risk: null }
+			: values.risk !== undefined
+				? { risk: values.risk }
+				: {}),
+		...(values['clear-due-date']
+			? { dueDate: null }
+			: values['due-date'] !== undefined
+				? { dueDate: values['due-date'] }
+				: {}),
+		...(values['clear-related']
+			? { related: [] }
+			: values.related !== undefined
+				? { related: values.related }
+				: {}),
+		...(values['clear-duplicates']
+			? { duplicates: [] }
+			: values.duplicate !== undefined
+				? { duplicates: values.duplicate }
+				: {}),
+		...(values['clear-parent']
+			? { parent: null }
+			: values.parent !== undefined
+				? { parent: values.parent }
+				: {}),
+		...(values['clear-directories']
+			? { directories: [] }
+			: values.directory !== undefined
+				? { directories: normalizeMutationPaths(repository, values.directory) }
+				: {}),
+		...(values['clear-projects']
+			? { projects: [] }
+			: values.project !== undefined
+				? { projects: values.project }
+				: {}),
+		...(values.body !== undefined ? { body: values.body } : {}),
+	}
+}
+
 export async function runCli(args: readonly string[], context: CliContext = {}): Promise<number> {
 	const cwd = path.resolve(context.cwd ?? process.cwd())
 	const stdout = context.stdout ?? ((value: string) => process.stdout.write(value))
 	const stderr = context.stderr ?? ((value: string) => process.stderr.write(value))
+	const onWarning = warningWriter(stderr)
 
 	try {
 		const [command, subcommand] = args
 		const commandArgs = args.slice(1)
-		const taskArgs = args.slice(2)
+		const subcommandArgs = args.slice(2)
 
 		if (!command || command === 'help' || command === '--help' || command === '-h') {
 			stdout(USAGE)
 			return 0
 		}
 
-		if (command === 'init') {
-			const parsed = parseCommonOptions(commandArgs)
-			const repository = await initializeRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			stdout(`Initialized Taskset in ${repository.rootDirectory}\n`)
-			return 0
-		}
+		if (command === 'init' || command === 'config' || command === 'doctor') {
+			const parsed = parseArgs({
+				args: commandArgs,
+				allowPositionals: false,
+				options: commonOptionDefinitions,
+			})
+			const values = parseSchema(CommonValuesSchema, parsed.values, `${command} options`)
+			const commandCwd = resolveCommandCwd(cwd, values.cwd)
 
-		if (command === 'config') {
-			const parsed = parseCommonOptions(commandArgs)
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-
-			if (parsed.values.json) {
-				stdout(
-					`${JSON.stringify(
-						{
-							rootDirectory: repository.rootDirectory,
-							configPath: repository.configPath,
-							dataDirectory: repository.dataDirectory,
-							config: repository.config,
-						},
-						null,
-						2,
-					)}\n`,
-				)
-			} else {
-				stdout(`${repository.configPath}\n`)
+			if (command === 'init') {
+				const repository = await initializeRepository(commandCwd)
+				stdout(`Initialized Taskset in ${repository.rootDirectory}\n`)
+				return 0
 			}
 
-			return 0
-		}
+			const repository = await discoverRepository(commandCwd)
 
-		if (command === 'doctor') {
-			const parsed = parseCommonOptions(commandArgs)
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
+			if (command === 'config') {
+				if (values.json) {
+					stdout(
+						`${JSON.stringify(
+							{
+								rootDirectory: repository.rootDirectory,
+								configPath: repository.configPath,
+								dataDirectory: repository.dataDirectory,
+								config: repository.config,
+							},
+							null,
+							2,
+						)}\n`,
+					)
+				} else {
+					stdout(`${repository.configPath}\n`)
+				}
+				return 0
+			}
+
 			const result = await diagnoseRepository(repository)
 
-			if (parsed.values.json) {
+			if (values.json) {
 				stdout(`${JSON.stringify(result, null, 2)}\n`)
 			} else if (result.valid) {
 				stdout(`Taskset repository is valid (${result.taskCount} tasks)\n`)
@@ -280,49 +515,130 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			return result.valid ? 0 : 1
 		}
 
-		if (command === 'tasks-for-file') {
+		if (command === 'generate') {
 			const parsed = parseArgs({
 				args: commandArgs,
-				allowPositionals: true,
+				allowPositionals: false,
+				options: commonOptionDefinitions,
+			})
+			const values = parseSchema(CommonValuesSchema, parsed.values, 'generate options')
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const result = await generateViews(repository)
+			stdout(
+				values.json
+					? `${JSON.stringify(result, null, 2)}\n`
+					: `Generated ${result.files.length} views in ${result.directory}\n`,
+			)
+			return 0
+		}
+
+		if (command === 'migrate') {
+			const parsed = parseArgs({
+				args: commandArgs,
+				allowPositionals: false,
 				options: {
-					cwd: { type: 'string' },
-					impact: { type: 'boolean' },
-					json: { type: 'boolean' },
+					...commonOptionDefinitions,
+					to: { type: 'string' },
+					apply: { type: 'boolean' },
 				},
 			})
-			const inputPath = requireSinglePositional(parsed.positionals, 'file or directory path')
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const result = await tasksForFile(repository, inputPath, {
-				includeImpact: parsed.values.impact,
+			const values = parseSchema(
+				z.strictObject({
+					to: z.literal('2'),
+					apply: z.boolean().optional(),
+					cwd: CwdSchema,
+					json: JsonSchema,
+				}),
+				parsed.values,
+				'migrate options',
+			)
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const result = await migrateTasks(repository, {
+				to: 2,
+				apply: values.apply,
+				onWarning,
 			})
 
-			if (parsed.values.json) {
-				stdout(
-					`${JSON.stringify(
-						{
-							path: result.path,
-							direct: result.direct.map(taskRecordJson),
-							impacted: result.impacted.map(taskRecordJson),
-						},
-						null,
-						2,
-					)}\n`,
-				)
+			if (values.json) {
+				stdout(`${JSON.stringify(result, null, 2)}\n`)
 			} else {
-				for (const record of result.direct) {
-					stdout(
-						`direct\t${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
-					)
-				}
+				stdout(
+					`${result.applied ? 'Migrated' : 'Would migrate'} ${result.changes.length} tasks to schema 2${
+						result.snapshotId ? ` (snapshot ${result.snapshotId})` : ''
+					}\n`,
+				)
+			}
+			return 0
+		}
 
-				for (const record of result.impacted) {
-					stdout(
-						`impact\t${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
-					)
+		if (command === 'snapshot') {
+			if (subcommand === 'create' || subcommand === 'list') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: false,
+					options: commonOptionDefinitions,
+				})
+				const values = parseSchema(
+					CommonValuesSchema,
+					parsed.values,
+					`snapshot ${subcommand} options`,
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+
+				if (subcommand === 'create') {
+					const result = await createSnapshot(repository)
+					stdout(values.json ? `${JSON.stringify(result, null, 2)}\n` : `${result.id}\n`)
+				} else {
+					const results = await listSnapshots(repository)
+					if (values.json) {
+						stdout(`${JSON.stringify(results, null, 2)}\n`)
+					} else {
+						for (const result of results) {
+							stdout(`${result.id}\t${result.createdAt}\t${result.files.length}\n`)
+						}
+					}
 				}
+				return 0
 			}
 
-			return 0
+			if (subcommand === 'restore') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: {
+						...commonOptionDefinitions,
+						apply: { type: 'boolean' },
+					},
+				})
+				const [snapshotId] = requirePositionals(parsed.positionals, 1, 'exactly one snapshot ID')
+				const values = parseSchema(
+					z.strictObject({
+						apply: z.boolean().optional(),
+						cwd: CwdSchema,
+						json: JsonSchema,
+					}),
+					parsed.values,
+					'snapshot restore options',
+				)
+				const validatedSnapshotId = parseSchema(
+					z.string().regex(/^\d{8}T\d{6}Z-[a-f0-9]{12}$/u),
+					snapshotId,
+					'snapshot ID',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const result = await restoreSnapshot(repository, validatedSnapshotId, {
+					apply: values.apply,
+					onWarning,
+				})
+				stdout(
+					values.json
+						? `${JSON.stringify(result, null, 2)}\n`
+						: `${result.applied ? 'Restored' : 'Would restore'} ${result.changes.length} task files from ${validatedSnapshotId}\n`,
+				)
+				return 0
+			}
+
+			throw new CliUsageError(`Unknown snapshot command "${subcommand ?? ''}"`)
 		}
 
 		if (command !== 'task') {
@@ -331,108 +647,165 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 
 		if (subcommand === 'create') {
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: false,
-				options: {
-					body: { type: 'string' },
-					cwd: { type: 'string' },
-					'depends-on': { type: 'string', multiple: true },
-					file: { type: 'string', multiple: true },
-					json: { type: 'boolean' },
-					label: { type: 'string', multiple: true },
-					priority: { type: 'string' },
-					status: { type: 'string' },
-					title: { type: 'string' },
+				options: { ...metadataOptionDefinitions, ...commonOptionDefinitions },
+			})
+			const values = parseSchema(CreateValuesSchema, parsed.values, 'task create options')
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const record = await createTask(
+				repository,
+				{
+					title: values.title,
+					...(values.status ? { status: values.status } : {}),
+					...(values.priority ? { priority: values.priority } : {}),
+					...(values.label ? { labels: values.label } : {}),
+					...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
+					...(values.file ? { files: normalizeMutationPaths(repository, values.file) } : {}),
+					...(values.owner ? { owner: values.owner } : {}),
+					...(values.assignee ? { assignees: values.assignee } : {}),
+					...(values.reviewer ? { reviewers: values.reviewer } : {}),
+					...(values.team ? { team: values.team } : {}),
+					...(values.estimate !== undefined ? { estimate: values.estimate } : {}),
+					...(values.effort !== undefined ? { effort: values.effort } : {}),
+					...(values.risk ? { risk: values.risk } : {}),
+					...(values['due-date'] ? { dueDate: values['due-date'] } : {}),
+					...(values.related ? { related: values.related } : {}),
+					...(values.duplicate ? { duplicates: values.duplicate } : {}),
+					...(values.parent ? { parent: values.parent } : {}),
+					...(values.directory
+						? { directories: normalizeMutationPaths(repository, values.directory) }
+						: {}),
+					...(values.project ? { projects: values.project } : {}),
+					...(values.body !== undefined ? { body: values.body } : {}),
 				},
-			})
-
-			if (!parsed.values.title) {
-				throw new CliUsageError('The --title option is required')
-			}
-
-			const status = parseTaskStatus(parsed.values.status)
-			const priority = parseTaskPriority(parsed.values.priority)
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const record = await createTask(repository, {
-				title: parsed.values.title,
-				...(status ? { status } : {}),
-				...(priority ? { priority } : {}),
-				...(parsed.values.label ? { labels: parsed.values.label } : {}),
-				...(parsed.values['depends-on'] ? { dependsOn: parsed.values['depends-on'] } : {}),
-				...(parsed.values.file ? { files: parsed.values.file } : {}),
-				...(parsed.values.body !== undefined ? { body: parsed.values.body } : {}),
-			})
-			writeTaskRecord(record, parsed.values.json, stdout)
+				{ onWarning },
+			)
+			writeTaskRecord(record, values.json, stdout)
 			return 0
 		}
 
 		if (subcommand === 'list') {
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: false,
 				options: {
 					cwd: { type: 'string' },
-					'depends-on': { type: 'string' },
-					direction: { type: 'string' },
-					file: { type: 'string' },
 					json: { type: 'boolean' },
-					label: { type: 'string', multiple: true },
+					status: { type: 'string', multiple: true },
 					priority: { type: 'string', multiple: true },
+					label: { type: 'string', multiple: true },
+					owner: { type: 'string', multiple: true },
+					assignee: { type: 'string', multiple: true },
+					reviewer: { type: 'string', multiple: true },
+					team: { type: 'string', multiple: true },
+					risk: { type: 'string', multiple: true },
+					project: { type: 'string', multiple: true },
+					'depends-on': { type: 'string' },
+					related: { type: 'string' },
+					parent: { type: 'string' },
+					file: { type: 'string', multiple: true },
+					directory: { type: 'string', multiple: true },
+					'due-before': { type: 'string' },
+					'due-after': { type: 'string' },
 					search: { type: 'string' },
 					sort: { type: 'string' },
-					status: { type: 'string', multiple: true },
+					direction: { type: 'string' },
+					impact: { type: 'boolean' },
+					'include-derived': { type: 'boolean' },
 				},
 			})
-			const statuses = parseTaskStatuses(parsed.values.status)
-			const priorities = parseTaskPriorities(parsed.values.priority)
-			const sortBy = parseSortKey(parsed.values.sort)
-			const direction = parseSortDirection(parsed.values.direction)
+			const values = parseSchema(ListValuesSchema, parsed.values, 'task list options')
 			const query: TaskQuery = {
-				...(statuses ? { statuses } : {}),
-				...(priorities ? { priorities } : {}),
-				...(parsed.values.label ? { labels: parsed.values.label } : {}),
-				...(parsed.values['depends-on'] ? { dependsOn: parsed.values['depends-on'] } : {}),
-				...(parsed.values.file ? { file: parsed.values.file } : {}),
-				...(parsed.values.search ? { text: parsed.values.search } : {}),
-				...(sortBy ? { sortBy } : {}),
-				...(direction ? { direction } : {}),
+				...(values.status ? { statuses: values.status } : {}),
+				...(values.priority ? { priorities: values.priority } : {}),
+				...(values.label ? { labels: values.label } : {}),
+				...(values.owner ? { owners: values.owner } : {}),
+				...(values.assignee ? { assignees: values.assignee } : {}),
+				...(values.reviewer ? { reviewers: values.reviewer } : {}),
+				...(values.team ? { teams: values.team } : {}),
+				...(values.risk ? { risks: values.risk } : {}),
+				...(values.project ? { projects: values.project } : {}),
+				...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
+				...(values.related ? { related: values.related } : {}),
+				...(values.parent ? { parent: values.parent } : {}),
+				...(values.file ? { files: values.file } : {}),
+				...(values.directory ? { directories: values.directory } : {}),
+				...(values['due-before'] ? { dueBefore: values['due-before'] } : {}),
+				...(values['due-after'] ? { dueAfter: values['due-after'] } : {}),
+				...(values.search !== undefined ? { text: values.search } : {}),
+				...(values.sort ? { sortBy: values.sort } : {}),
+				...(values.direction ? { direction: values.direction } : {}),
+				...(values.impact ? { impact: true } : {}),
 			}
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const records = await queryTasks(repository, query)
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const result = await queryTasks(repository, query)
+			const graph = values['include-derived'] ? (await buildTaskIndex(repository)).graph : undefined
+			const serialize = (record: TaskRecord) =>
+				taskRecordJson(record, graph?.derive(record.task.metadata.id))
 
-			if (parsed.values.json) {
-				stdout(`${JSON.stringify(records.map(taskRecordJson), null, 2)}\n`)
+			if (values.json) {
+				stdout(
+					`${JSON.stringify(
+						values.impact
+							? {
+									direct: result.direct.map(serialize),
+									impacted: result.impacted.map(serialize),
+								}
+							: result.direct.map(serialize),
+						null,
+						2,
+					)}\n`,
+				)
 			} else {
-				for (const record of records) {
+				for (const record of result.direct) {
 					stdout(
-						`${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
+						`${values.impact ? 'direct\t' : ''}${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
+					)
+				}
+				for (const record of result.impacted) {
+					stdout(
+						`impact\t${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
 					)
 				}
 			}
-
 			return 0
 		}
 
 		if (subcommand === 'show') {
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: true,
 				options: {
-					cwd: { type: 'string' },
-					json: { type: 'boolean' },
+					...commonOptionDefinitions,
+					'include-derived': { type: 'boolean' },
 				},
 			})
-			const taskId = requireSinglePositional(parsed.positionals, 'task ID')
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const record = await readTask(repository, taskId)
+			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
+			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const values = parseSchema(
+				z.strictObject({
+					cwd: CwdSchema,
+					json: JsonSchema,
+					'include-derived': z.boolean().optional(),
+				}),
+				parsed.values,
+				'task show options',
+			)
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const record = await readTask(repository, validatedTaskId)
 
-			if (parsed.values.json) {
+			if (values.json) {
+				const derived = values['include-derived']
+					? (await buildTaskIndex(repository)).graph.derive(validatedTaskId)
+					: undefined
 				stdout(
 					`${JSON.stringify(
 						{
 							relativePath: record.relativePath,
 							metadata: record.task.metadata,
 							body: record.task.body,
+							...(derived ? { derived } : {}),
 						},
 						null,
 						2,
@@ -441,132 +814,98 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			} else {
 				stdout(serializeTaskFile(record.task, { filePath: record.relativePath }))
 			}
-
 			return 0
 		}
 
 		if (subcommand === 'update') {
+			const clearDefinitions = Object.fromEntries(
+				UPDATE_CLEAR_PAIRS.map(([, clear]) => [clear, { type: 'boolean' as const }]),
+			)
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: true,
 				options: {
-					body: { type: 'string' },
-					'clear-dependencies': { type: 'boolean' },
-					'clear-files': { type: 'boolean' },
-					'clear-labels': { type: 'boolean' },
-					'clear-priority': { type: 'boolean' },
-					cwd: { type: 'string' },
-					'depends-on': { type: 'string', multiple: true },
-					file: { type: 'string', multiple: true },
-					json: { type: 'boolean' },
-					label: { type: 'string', multiple: true },
-					priority: { type: 'string' },
-					status: { type: 'string' },
-					title: { type: 'string' },
+					...metadataOptionDefinitions,
+					...clearDefinitions,
+					...commonOptionDefinitions,
 				},
 			})
-			const taskId = requireSinglePositional(parsed.positionals, 'task ID')
-
-			for (const [value, clear, name] of [
-				[parsed.values.priority, parsed.values['clear-priority'], 'priority'],
-				[parsed.values.label, parsed.values['clear-labels'], 'labels'],
-				[parsed.values['depends-on'], parsed.values['clear-dependencies'], 'dependencies'],
-				[parsed.values.file, parsed.values['clear-files'], 'files'],
-			] as const) {
-				if (value !== undefined && clear) {
-					throw new CliUsageError(`Cannot set and clear ${name} in the same update`)
-				}
-			}
-
-			const status = parseTaskStatus(parsed.values.status)
-			const priority = parseTaskPriority(parsed.values.priority)
-			const input: UpdateTaskInput = {
-				...(parsed.values.title !== undefined ? { title: parsed.values.title } : {}),
-				...(status ? { status } : {}),
-				...(parsed.values['clear-priority'] ? { priority: null } : priority ? { priority } : {}),
-				...(parsed.values['clear-labels']
-					? { labels: [] }
-					: parsed.values.label
-						? { labels: parsed.values.label }
-						: {}),
-				...(parsed.values['clear-dependencies']
-					? { dependsOn: [] }
-					: parsed.values['depends-on']
-						? { dependsOn: parsed.values['depends-on'] }
-						: {}),
-				...(parsed.values['clear-files']
-					? { files: [] }
-					: parsed.values.file
-						? { files: parsed.values.file }
-						: {}),
-				...(parsed.values.body !== undefined ? { body: parsed.values.body } : {}),
-			}
-
-			if (Object.keys(input).length === 0) {
-				throw new CliUsageError('Task update requires at least one field option')
-			}
-
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const record = await updateTask(repository, taskId, input)
-			writeTaskRecord(record, parsed.values.json, stdout)
+			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
+			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const values = parseSchema(UpdateValuesSchema, parsed.values, 'task update options')
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const record = await updateTask(
+				repository,
+				validatedTaskId,
+				updateInputFromValues(repository, values),
+				{ onWarning },
+			)
+			writeTaskRecord(record, values.json, stdout)
 			return 0
 		}
 
 		if (subcommand === 'status') {
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: true,
-				options: {
-					cwd: { type: 'string' },
-					json: { type: 'boolean' },
-				},
+				options: commonOptionDefinitions,
 			})
-
-			if (parsed.positionals.length !== 2) {
-				throw new CliUsageError('Expected a task ID and status')
-			}
-
-			const [taskId, statusValue] = parsed.positionals
-			const status = parseTaskStatus(statusValue)
-
-			if (!taskId || !status) {
-				throw new CliUsageError('Expected a task ID and status')
-			}
-
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const record = await updateTask(repository, taskId, { status })
-			writeTaskRecord(record, parsed.values.json, stdout)
+			const [taskId, status] = requirePositionals(parsed.positionals, 2, 'a task ID and status')
+			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const validatedStatus = parseSchema(TaskStatusSchema, status, 'task status')
+			const values = parseSchema(CommonValuesSchema, parsed.values, 'task status options')
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const record = await updateTask(
+				repository,
+				validatedTaskId,
+				{ status: validatedStatus },
+				{ onWarning },
+			)
+			writeTaskRecord(record, values.json, stdout)
 			return 0
 		}
 
 		if (subcommand === 'delete') {
 			const parsed = parseArgs({
-				args: taskArgs,
+				args: subcommandArgs,
 				allowPositionals: true,
 				options: {
-					cwd: { type: 'string' },
-					json: { type: 'boolean' },
+					...commonOptionDefinitions,
 					'remove-dependencies': { type: 'boolean' },
 				},
 			})
-			const taskId = requireSinglePositional(parsed.positionals, 'task ID')
-			const repository = await discoverRepository(resolveCommandCwd(cwd, parsed.values.cwd))
-			const record = await deleteTask(repository, taskId, {
-				removeDependencies: parsed.values['remove-dependencies'],
+			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
+			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const values = parseSchema(
+				z.strictObject({
+					cwd: CwdSchema,
+					json: JsonSchema,
+					'remove-dependencies': z.boolean().optional(),
+				}),
+				parsed.values,
+				'task delete options',
+			)
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const record = await deleteTask(repository, validatedTaskId, {
+				removeDependencies: values['remove-dependencies'],
+				onWarning,
 			})
 
-			if (parsed.values.json) {
+			if (values.json) {
 				stdout(`${JSON.stringify({ deleted: true, ...taskRecordJson(record) }, null, 2)}\n`)
 			} else {
-				stdout(`${taskId}\n`)
+				stdout(`${validatedTaskId}\n`)
 			}
-
 			return 0
 		}
 
 		throw new CliUsageError(`Unknown task command "${subcommand ?? ''}"`)
 	} catch (error) {
-		if (error instanceof CliUsageError || error instanceof TypeError) {
+		if (
+			error instanceof CliUsageError ||
+			error instanceof RepositoryPathError ||
+			error instanceof TypeError
+		) {
 			stderr(`${formatError(error)}\n\n${USAGE}`)
 			return 2
 		}

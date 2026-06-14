@@ -1,7 +1,6 @@
 import path from 'node:path'
+import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
-import { buildTaskGraph } from '../graph/taskGraph.ts'
-import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 
 export type RepositoryPathErrorCode = 'empty' | 'outside-repository' | 'not-normalized'
 
@@ -17,16 +16,27 @@ export class RepositoryPathError extends Error {
 	}
 }
 
-export interface TaskImpactOptions {
-	readonly includeImpact?: boolean
-}
+export const RepositoryRelativePathSchema = z
+	.string()
+	.min(1)
+	.refine((value) => !value.includes('\\') && !value.includes('\0'), {
+		message: 'Path must use repository-relative POSIX separators',
+	})
+	.refine(
+		(value) =>
+			!value.startsWith('/') &&
+			!/^[A-Za-z]:\//u.test(value) &&
+			path.posix.normalize(value) === value &&
+			value !== '.' &&
+			value !== '..' &&
+			!value.startsWith('../'),
+		{ message: 'Path must be a normalized repository-relative POSIX path' },
+	)
 
-export interface TaskImpactResult {
-	readonly path: string
-	readonly direct: readonly TaskRecord[]
-	readonly impacted: readonly TaskRecord[]
-}
-
+/**
+ * Resolves an absolute or repository-relative input into the canonical POSIX
+ * representation used by task metadata and query matching.
+ */
 export function normalizeRepositoryPath(repository: Repository, inputPath: string): string {
 	if (inputPath.length === 0 || inputPath.includes('\0')) {
 		throw new RepositoryPathError('empty', 'Repository path must not be empty', inputPath)
@@ -80,7 +90,7 @@ export function normalizeRepositoryPath(repository: Repository, inputPath: strin
 	return normalized
 }
 
-function pathsRelate(left: string, right: string): boolean {
+export function repositoryPathsRelate(left: string, right: string): boolean {
 	return (
 		left === '' ||
 		right === '' ||
@@ -88,44 +98,4 @@ function pathsRelate(left: string, right: string): boolean {
 		left.startsWith(`${right}/`) ||
 		right.startsWith(`${left}/`)
 	)
-}
-
-export async function tasksForFile(
-	repository: Repository,
-	inputPath: string,
-	options: TaskImpactOptions = {},
-): Promise<TaskImpactResult> {
-	const normalizedPath = normalizeRepositoryPath(repository, inputPath)
-	const records = await listTasks(repository)
-	const direct = records.filter((record) =>
-		record.task.metadata.files?.some((file) => pathsRelate(file, normalizedPath)),
-	)
-	const directIds = new Set(direct.map((record) => record.task.metadata.id))
-	const impactedIds = new Set<string>()
-
-	if (options.includeImpact) {
-		const graph = buildTaskGraph(records)
-
-		for (const taskId of directIds) {
-			for (const impactedId of graph.traverse(taskId, 'blocks')) {
-				if (!directIds.has(impactedId)) {
-					impactedIds.add(impactedId)
-				}
-			}
-		}
-	}
-
-	return Object.freeze({
-		path: normalizedPath,
-		direct: Object.freeze(
-			[...direct].sort((left, right) =>
-				left.task.metadata.id.localeCompare(right.task.metadata.id),
-			),
-		),
-		impacted: Object.freeze(
-			records
-				.filter((record) => impactedIds.has(record.task.metadata.id))
-				.sort((left, right) => left.task.metadata.id.localeCompare(right.task.metadata.id)),
-		),
-	})
 }

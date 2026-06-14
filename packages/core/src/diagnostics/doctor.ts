@@ -15,8 +15,11 @@ export type RepositoryDiagnosticCode =
 	| 'validation'
 	| 'duplicate-id'
 	| 'missing-dependency'
+	| 'missing-reference'
 	| 'self-dependency'
-	| 'cycle'
+	| 'self-reference'
+	| 'dependency-cycle'
+	| 'parent-cycle'
 
 export interface RepositoryDiagnostic {
 	readonly code: RepositoryDiagnosticCode
@@ -56,7 +59,7 @@ function taskFileDiagnostics(
 
 	return error.issues.map((issue) => ({
 		code:
-			issue.field === 'files'
+			issue.field === 'files' || issue.field === 'directories'
 				? 'unsafe-path'
 				: issue.field === 'dependsOn' && issue.message.includes('itself')
 					? 'self-dependency'
@@ -66,7 +69,7 @@ function taskFileDiagnostics(
 		field: issue.field,
 		message: issue.message,
 		remediation:
-			issue.field === 'files'
+			issue.field === 'files' || issue.field === 'directories'
 				? 'Use normalized repository-relative POSIX paths without traversal.'
 				: `Correct the "${issue.field}" field and run taskset doctor again.`,
 	}))
@@ -155,11 +158,17 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 			remediation:
 				diagnostic.code === 'missing-dependency'
 					? 'Create the missing task or remove the invalid dependsOn entry.'
-					: diagnostic.code === 'cycle'
-						? 'Remove at least one dependsOn edge from the reported cycle.'
-						: diagnostic.code === 'duplicate-id'
-							? 'Assign one file a new Taskset ID and rename it to match.'
-							: 'Remove the self-dependency from dependsOn.',
+					: diagnostic.code === 'missing-reference'
+						? `Create the missing task or remove the invalid ${diagnostic.field ?? 'relationship'} entry.`
+						: diagnostic.code === 'dependency-cycle'
+							? 'Remove at least one dependsOn edge from the reported cycle.'
+							: diagnostic.code === 'parent-cycle'
+								? 'Remove or change at least one parent edge from the reported cycle.'
+								: diagnostic.code === 'duplicate-id'
+									? 'Assign one file a new Taskset ID and rename it to match.'
+									: diagnostic.code === 'self-dependency'
+										? 'Remove the self-dependency from dependsOn.'
+										: `Remove the self-reference from ${diagnostic.field ?? 'the relationship'}.`,
 		})
 	}
 

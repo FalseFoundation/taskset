@@ -3,16 +3,27 @@ import type { TaskRecord } from '../tasks/taskRepository.ts'
 export type TaskGraphDiagnosticCode =
 	| 'duplicate-id'
 	| 'missing-dependency'
+	| 'missing-reference'
 	| 'self-dependency'
-	| 'cycle'
+	| 'self-reference'
+	| 'dependency-cycle'
+	| 'parent-cycle'
 
 export interface TaskGraphDiagnostic {
 	readonly code: TaskGraphDiagnosticCode
+	readonly field?: 'dependsOn' | 'related' | 'duplicates' | 'parent'
 	readonly message: string
 	readonly path?: string
 	readonly taskId: string
 	readonly relatedTaskId?: string
 	readonly cycle?: readonly string[]
+}
+
+export interface DerivedTaskRelationships {
+	readonly blockedBy: readonly string[]
+	readonly blocks: readonly string[]
+	readonly children: readonly string[]
+	readonly subtasks: readonly string[]
 }
 
 export class TaskGraphError extends Error {
@@ -25,19 +36,95 @@ export class TaskGraphError extends Error {
 	}
 }
 
+function compareText(left: string, right: string): number {
+	return left < right ? -1 : left > right ? 1 : 0
+}
+
 function canonicalCycle(cycle: readonly string[]): readonly string[] {
 	const nodes = cycle.slice(0, -1)
-	const first = [...nodes].sort((left, right) => left.localeCompare(right))[0]
+	const first = [...nodes].sort(compareText)[0]
 	const offset = first ? nodes.indexOf(first) : 0
 	const rotated = [...nodes.slice(offset), ...nodes.slice(0, offset)]
 	return Object.freeze([...rotated, rotated[0] ?? ''])
 }
 
+function inspectCycles(
+	recordsById: ReadonlyMap<string, TaskRecord>,
+	duplicateIds: ReadonlySet<string>,
+	edgesFor: (record: TaskRecord) => readonly string[],
+	options: {
+		readonly code: 'dependency-cycle' | 'parent-cycle'
+		readonly field: 'dependsOn' | 'parent'
+		readonly label: string
+	},
+): readonly TaskGraphDiagnostic[] {
+	const diagnostics: TaskGraphDiagnostic[] = []
+	const state = new Map<string, 'visiting' | 'visited'>()
+	const stack: string[] = []
+	const cycleKeys = new Set<string>()
+
+	// A depth-first walk reports each logical cycle once, independent of file
+	// order or the node where traversal first enters that cycle.
+	function visit(taskId: string): void {
+		if (duplicateIds.has(taskId) || state.get(taskId) === 'visited') {
+			return
+		}
+
+		if (state.get(taskId) === 'visiting') {
+			const cycleStart = stack.indexOf(taskId)
+			const cycle = canonicalCycle([...stack.slice(cycleStart), taskId])
+			const key = cycle.join('>')
+
+			if (!cycleKeys.has(key)) {
+				cycleKeys.add(key)
+				diagnostics.push({
+					code: options.code,
+					field: options.field,
+					taskId: cycle[0] ?? taskId,
+					cycle,
+					path: recordsById.get(cycle[0] ?? taskId)?.relativePath,
+					message: `Task ${options.label} cycle detected: ${cycle.join(' -> ')}`,
+				})
+			}
+
+			return
+		}
+
+		const record = recordsById.get(taskId)
+
+		if (!record) {
+			return
+		}
+
+		state.set(taskId, 'visiting')
+		stack.push(taskId)
+
+		for (const relatedTaskId of [...edgesFor(record)].sort(compareText)) {
+			if (recordsById.has(relatedTaskId) && relatedTaskId !== taskId) {
+				visit(relatedTaskId)
+			}
+		}
+
+		stack.pop()
+		state.set(taskId, 'visited')
+	}
+
+	for (const taskId of [...recordsById.keys()].sort(compareText)) {
+		visit(taskId)
+	}
+
+	return diagnostics
+}
+
+/**
+ * Inspects repository-wide task relationships without throwing so `doctor`
+ * can report all graph failures in one deterministic pass.
+ */
 export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskGraphDiagnostic[] {
 	const orderedRecords = [...records].sort(
 		(left, right) =>
-			left.task.metadata.id.localeCompare(right.task.metadata.id) ||
-			left.relativePath.localeCompare(right.relativePath),
+			compareText(left.task.metadata.id, right.task.metadata.id) ||
+			compareText(left.relativePath, right.relativePath),
 	)
 	const recordsById = new Map<string, TaskRecord>()
 	const duplicateIds = new Set<string>()
@@ -61,86 +148,74 @@ export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskG
 	}
 
 	for (const record of orderedRecords) {
-		const taskId = record.task.metadata.id
+		const { metadata } = record.task
+		const taskId = metadata.id
+		const relationships = [
+			{ field: 'dependsOn' as const, values: metadata.dependsOn ?? [] },
+			{
+				field: 'related' as const,
+				values: metadata.schemaVersion === 2 ? (metadata.related ?? []) : [],
+			},
+			{
+				field: 'duplicates' as const,
+				values: metadata.schemaVersion === 2 ? (metadata.duplicates ?? []) : [],
+			},
+			{
+				field: 'parent' as const,
+				values:
+					metadata.schemaVersion === 2 && metadata.parent !== undefined ? [metadata.parent] : [],
+			},
+		]
 
-		for (const dependencyId of [...(record.task.metadata.dependsOn ?? [])].sort()) {
-			if (dependencyId === taskId) {
-				diagnostics.push({
-					code: 'self-dependency',
-					taskId,
-					relatedTaskId: dependencyId,
-					path: record.relativePath,
-					message: `Task ${taskId} cannot depend on itself`,
-				})
-			} else if (!recordsById.has(dependencyId)) {
-				diagnostics.push({
-					code: 'missing-dependency',
-					taskId,
-					relatedTaskId: dependencyId,
-					path: record.relativePath,
-					message: `Task ${taskId} depends on missing task ${dependencyId}`,
-				})
+		for (const relationship of relationships) {
+			for (const relatedTaskId of [...relationship.values].sort(compareText)) {
+				if (relatedTaskId === taskId) {
+					diagnostics.push({
+						code: relationship.field === 'dependsOn' ? 'self-dependency' : 'self-reference',
+						field: relationship.field,
+						taskId,
+						relatedTaskId,
+						path: record.relativePath,
+						message: `Task ${taskId} cannot reference itself through ${relationship.field}`,
+					})
+				} else if (!recordsById.has(relatedTaskId)) {
+					diagnostics.push({
+						code: relationship.field === 'dependsOn' ? 'missing-dependency' : 'missing-reference',
+						field: relationship.field,
+						taskId,
+						relatedTaskId,
+						path: record.relativePath,
+						message: `Task ${taskId} references missing task ${relatedTaskId} through ${relationship.field}`,
+					})
+				}
 			}
 		}
 	}
 
-	const state = new Map<string, 'visiting' | 'visited'>()
-	const stack: string[] = []
-	const cycleKeys = new Set<string>()
-
-	function visit(taskId: string): void {
-		if (duplicateIds.has(taskId) || state.get(taskId) === 'visited') {
-			return
-		}
-
-		if (state.get(taskId) === 'visiting') {
-			const cycleStart = stack.indexOf(taskId)
-			const cycle = canonicalCycle([...stack.slice(cycleStart), taskId])
-			const key = cycle.join('>')
-
-			if (!cycleKeys.has(key)) {
-				cycleKeys.add(key)
-				diagnostics.push({
-					code: 'cycle',
-					taskId: cycle[0] ?? taskId,
-					cycle,
-					path: recordsById.get(cycle[0] ?? taskId)?.relativePath,
-					message: `Task dependency cycle detected: ${cycle.join(' -> ')}`,
-				})
-			}
-
-			return
-		}
-
-		const record = recordsById.get(taskId)
-
-		if (!record) {
-			return
-		}
-
-		state.set(taskId, 'visiting')
-		stack.push(taskId)
-
-		for (const dependencyId of [...(record.task.metadata.dependsOn ?? [])].sort()) {
-			if (recordsById.has(dependencyId) && dependencyId !== taskId) {
-				visit(dependencyId)
-			}
-		}
-
-		stack.pop()
-		state.set(taskId, 'visited')
-	}
-
-	for (const taskId of [...recordsById.keys()].sort()) {
-		visit(taskId)
-	}
+	diagnostics.push(
+		...inspectCycles(recordsById, duplicateIds, (record) => record.task.metadata.dependsOn ?? [], {
+			code: 'dependency-cycle',
+			field: 'dependsOn',
+			label: 'dependency',
+		}),
+		...inspectCycles(
+			recordsById,
+			duplicateIds,
+			(record) => {
+				const { metadata } = record.task
+				return metadata.schemaVersion === 2 && metadata.parent ? [metadata.parent] : []
+			},
+			{ code: 'parent-cycle', field: 'parent', label: 'parent' },
+		),
+	)
 
 	return Object.freeze(
 		diagnostics.sort(
 			(left, right) =>
-				left.taskId.localeCompare(right.taskId) ||
-				left.code.localeCompare(right.code) ||
-				(left.relatedTaskId ?? '').localeCompare(right.relatedTaskId ?? ''),
+				compareText(left.taskId, right.taskId) ||
+				compareText(left.code, right.code) ||
+				compareText(left.field ?? '', right.field ?? '') ||
+				compareText(left.relatedTaskId ?? '', right.relatedTaskId ?? ''),
 		),
 	)
 }
@@ -149,15 +224,21 @@ function freezeMapValues(source: Map<string, string[]>): ReadonlyMap<string, rea
 	return new Map(
 		[...source.entries()].map(([taskId, values]) => [
 			taskId,
-			Object.freeze([...values].sort((left, right) => left.localeCompare(right))),
+			Object.freeze([...values].sort(compareText)),
 		]),
 	)
 }
 
+/**
+ * Validated, disposable graph projection built entirely from canonical task
+ * records. Inverse relationships are derived and never written to task files.
+ */
 export class TaskGraph {
 	readonly records: ReadonlyMap<string, TaskRecord>
 	readonly dependencies: ReadonlyMap<string, readonly string[]>
 	readonly blocks: ReadonlyMap<string, readonly string[]>
+	readonly parents: ReadonlyMap<string, readonly string[]>
+	readonly children: ReadonlyMap<string, readonly string[]>
 
 	constructor(records: readonly TaskRecord[]) {
 		const diagnostics = inspectTaskGraph(records)
@@ -169,15 +250,20 @@ export class TaskGraph {
 		const recordsById = new Map<string, TaskRecord>()
 		const dependencies = new Map<string, string[]>()
 		const blocks = new Map<string, string[]>()
+		const parents = new Map<string, string[]>()
+		const children = new Map<string, string[]>()
 
 		for (const record of [...records].sort((left, right) =>
-			left.task.metadata.id.localeCompare(right.task.metadata.id),
+			compareText(left.task.metadata.id, right.task.metadata.id),
 		)) {
-			const taskId = record.task.metadata.id
-			const taskDependencies = [...(record.task.metadata.dependsOn ?? [])].sort()
+			const { metadata } = record.task
+			const taskId = metadata.id
+			const parent = metadata.schemaVersion === 2 && metadata.parent ? [metadata.parent] : []
 			recordsById.set(taskId, record)
-			dependencies.set(taskId, taskDependencies)
+			dependencies.set(taskId, [...(metadata.dependsOn ?? [])])
 			blocks.set(taskId, [])
+			parents.set(taskId, parent)
+			children.set(taskId, [])
 		}
 
 		for (const [taskId, taskDependencies] of dependencies) {
@@ -186,22 +272,35 @@ export class TaskGraph {
 			}
 		}
 
+		for (const [taskId, taskParents] of parents) {
+			for (const parentId of taskParents) {
+				children.get(parentId)?.push(taskId)
+			}
+		}
+
 		this.records = recordsById
 		this.dependencies = freezeMapValues(dependencies)
 		this.blocks = freezeMapValues(blocks)
+		this.parents = freezeMapValues(parents)
+		this.children = freezeMapValues(children)
 	}
 
-	traverse(taskId: string, direction: 'dependencies' | 'blocks'): readonly string[] {
+	traverse(taskId: string, direction: 'dependencies' | 'blocks' | 'children'): readonly string[] {
 		if (!this.records.has(taskId)) {
 			return Object.freeze([])
 		}
 
-		const relationships = direction === 'dependencies' ? this.dependencies : this.blocks
+		const relationships =
+			direction === 'dependencies'
+				? this.dependencies
+				: direction === 'blocks'
+					? this.blocks
+					: this.children
 		const visited = new Set<string>()
 		const pending = [...(relationships.get(taskId) ?? [])]
 
 		while (pending.length > 0) {
-			pending.sort((left, right) => left.localeCompare(right))
+			pending.sort(compareText)
 			const current = pending.shift()
 
 			if (!current || visited.has(current)) {
@@ -212,7 +311,16 @@ export class TaskGraph {
 			pending.push(...(relationships.get(current) ?? []))
 		}
 
-		return Object.freeze([...visited].sort((left, right) => left.localeCompare(right)))
+		return Object.freeze([...visited].sort(compareText))
+	}
+
+	derive(taskId: string): DerivedTaskRelationships {
+		return Object.freeze({
+			blockedBy: Object.freeze([...(this.dependencies.get(taskId) ?? [])]),
+			blocks: Object.freeze([...(this.blocks.get(taskId) ?? [])]),
+			children: Object.freeze([...(this.children.get(taskId) ?? [])]),
+			subtasks: this.traverse(taskId, 'children'),
+		})
 	}
 }
 

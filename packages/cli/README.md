@@ -1,30 +1,35 @@
 # @taskset/cli
 
-The public, scriptable command-line interface for Taskset. Install it with:
+The public command-line adapter for Taskset. Full documentation is available at
+[taskset.false.foundation](https://taskset.false.foundation/).
 
 ```bash
 pnpm add --save-dev @taskset/cli
+pnpm exec taskset init
+pnpm exec taskset task create --title "Document the release"
 ```
 
-It contains argument parsing, stdout and stderr rendering, exit-code mapping,
-the `taskset` executable, and the `defineConfig` helper used by
-`taskset.config.ts`. Repository discovery, validation, storage, and task
-behavior are delegated to `@taskset/core`.
+The package owns argument tokenization, Zod-backed command validation, output,
+and exit-code mapping. Repository behavior is delegated to `@taskset/core`.
 
-Current commands:
+Supported command groups:
 
-- `taskset init`
-- `taskset config`
-- `taskset task create`
-- `taskset task list`
-- `taskset task show`
-- `taskset task update`
-- `taskset task status`
-- `taskset task delete`
-- `taskset tasks-for-file`
-- `taskset doctor`
+- `taskset init`, `config`, `doctor`, and `generate`
+- `taskset task create|list|show|update|status|delete`
+- `taskset snapshot create|list|restore`
+- `taskset migrate --to 2`
 
-Commands reserve stdout for requested output, send operational failures to
-stderr, and use exit code `0` for success, `1` for repository or domain
-failures, and `2` for invalid CLI usage. Mutating and query commands support
-JSON where scriptable output is needed.
+Use `task list --file <path> --impact` for direct and transitive code-impact
+queries. `tasks-for-file` was removed in the schema v2 release.
+
+Exit code `0` means success, `1` means a repository or domain failure, and `2`
+means invalid CLI usage. Commands reserve stdout for requested output and send
+diagnostics or generation warnings to stderr.
+
+`defineConfig` is re-exported for `taskset.config.ts`:
+
+```typescript
+import { defineConfig } from '@taskset/cli'
+
+export default defineConfig({ schemaVersion: 1 })
+```

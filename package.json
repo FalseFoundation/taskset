@@ -10,7 +10,7 @@
 		"type": "git",
 		"url": "git+https://github.com/falsefoundation/taskset.git"
 	},
-	"homepage": "https://github.com/falsefoundation/taskset#readme",
+	"homepage": "https://taskset.false.foundation/",
 	"bugs": {
 		"url": "https://github.com/falsefoundation/taskset/issues"
 	},

@@ -1,13 +1,17 @@
+import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
 
+export const TASK_SCHEMA_VERSIONS = [1, 2] as const
 export const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'canceled'] as const
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
+export const TASK_RISKS = ['low', 'medium', 'high', 'critical'] as const
 
+export type TaskSchemaVersion = (typeof TASK_SCHEMA_VERSIONS)[number]
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskPriority = (typeof TASK_PRIORITIES)[number]
+export type TaskRisk = (typeof TASK_RISKS)[number]
 
-export interface TaskMetadata {
-	readonly schemaVersion: 1
+interface TaskMetadataBase {
 	readonly id: string
 	readonly title: string
 	readonly status: TaskStatus
@@ -19,125 +23,105 @@ export interface TaskMetadata {
 	readonly files?: readonly string[]
 }
 
+export interface TaskMetadataV1 extends TaskMetadataBase {
+	readonly schemaVersion: 1
+}
+
+export interface TaskMetadataV2 extends TaskMetadataBase {
+	readonly schemaVersion: 2
+	readonly owner?: string
+	readonly assignees?: readonly string[]
+	readonly reviewers?: readonly string[]
+	readonly team?: string
+	readonly estimate?: number
+	readonly effort?: number
+	readonly risk?: TaskRisk
+	readonly dueDate?: string
+	readonly related?: readonly string[]
+	readonly duplicates?: readonly string[]
+	readonly parent?: string
+	readonly directories?: readonly string[]
+	readonly projects?: readonly string[]
+}
+
+export type TaskMetadata = TaskMetadataV1 | TaskMetadataV2
+
 export interface TaskFile {
 	readonly metadata: TaskMetadata
 	readonly body: string
 }
 
-const TaskIdSchema = z
+export const TaskIdSchema = z
 	.string()
 	.regex(
 		/^TS-[0-9A-HJKMNP-TV-Z]{26}$/u,
 		'Expected a task ID in the form TS- followed by a 26-character ULID',
 	)
 
-const LEGACY_ISO_TIMESTAMP_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z$/u
-const TASK_TIMESTAMP_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?: ([01]\d|2[0-3]):([0-5]\d) UTC)?$/u
+export const TaskTitleSchema = z
+	.string()
+	.min(1, 'Title must not be empty')
+	.refine((title) => title === title.trim(), 'Title must not have surrounding whitespace')
 
-function utcTimestamp(
-	year: number,
-	month: number,
-	day: number,
-	hour: number,
-	minute: number,
-	second = 0,
-	millisecond = 0,
-): number | undefined {
-	const timestamp = Date.UTC(year, month - 1, day, hour, minute, second, millisecond)
-	const date = new Date(timestamp)
+export const TaskStatusSchema = z.enum(TASK_STATUSES)
+export const TaskPrioritySchema = z.enum(TASK_PRIORITIES)
+export const TaskRiskSchema = z.enum(TASK_RISKS)
 
-	if (
-		date.getUTCFullYear() !== year ||
-		date.getUTCMonth() !== month - 1 ||
-		date.getUTCDate() !== day ||
-		date.getUTCHours() !== hour ||
-		date.getUTCMinutes() !== minute ||
-		date.getUTCSeconds() !== second ||
-		date.getUTCMilliseconds() !== millisecond
-	) {
-		return undefined
-	}
-
-	return timestamp
-}
-
-export function parseTaskTimestamp(value: string): number | undefined {
-	const legacyMatch = LEGACY_ISO_TIMESTAMP_PATTERN.exec(value)
-
-	if (legacyMatch) {
-		const [, year, month, day, hour, minute, second, millisecond] = legacyMatch
-		return utcTimestamp(
-			Number(year),
-			Number(month),
-			Number(day),
-			Number(hour),
-			Number(minute),
-			Number(second),
-			Number(millisecond),
-		)
-	}
-
-	const match = TASK_TIMESTAMP_PATTERN.exec(value)
-
-	if (!match) {
-		return undefined
-	}
-
-	const [, yearValue, monthValue, dayValue, hourValue, minuteValue] = match
-	const year = Number(yearValue)
-	const month = Number(monthValue)
-	const day = Number(dayValue)
-	const hour = hourValue === undefined ? 0 : Number(hourValue)
-	const minute = minuteValue === undefined ? 0 : Number(minuteValue)
-	return utcTimestamp(year, month, day, hour, minute)
-}
-
-export function formatTaskTimestamp(
-	date: Date,
-	options: { readonly includeTime?: boolean } = {},
-): string {
-	const timestamp = date.getTime()
-
-	if (!Number.isFinite(timestamp)) {
-		throw new RangeError('Task timestamps require a valid Date')
-	}
-
-	const year = date.getUTCFullYear()
-	const month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
-	const day = date.getUTCDate().toString().padStart(2, '0')
-
-	if (options.includeTime === false) {
-		return `${year}-${month}-${day}`
-	}
-
-	const hour = date.getUTCHours().toString().padStart(2, '0')
-	const minute = date.getUTCMinutes().toString().padStart(2, '0')
-
-	return `${year}-${month}-${day} ${hour}:${minute} UTC`
-}
-
-const TaskTimestampSchema = z
+export const TaskTimestampSchema = z
 	.string()
 	.refine(
-		(value) => parseTaskTimestamp(value) !== undefined,
+		(value) => parseDate(value) !== undefined,
 		'Expected a UTC timestamp as YYYY-MM-DD or YYYY-MM-DD HH:mm UTC',
 	)
 
-export const TaskMetadataSchema = z.strictObject({
-	schemaVersion: z.literal(1),
+const TrimmedValueSchema = z
+	.string()
+	.min(1, 'Value must not be empty')
+	.refine((value) => value === value.trim(), 'Value must not have surrounding whitespace')
+const uniqueArray = <T>(schema: z.ZodType<T>) =>
+	z
+		.array(schema)
+		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
+
+const TaskMetadataBaseShape = {
 	id: TaskIdSchema,
-	title: z
-		.string()
-		.min(1, 'Title must not be empty')
-		.refine((title) => title === title.trim(), 'Title must not have surrounding whitespace'),
-	status: z.enum(TASK_STATUSES),
-	priority: z.enum(TASK_PRIORITIES).optional(),
+	title: TaskTitleSchema,
+	status: TaskStatusSchema,
+	priority: TaskPrioritySchema.optional(),
 	createdAt: TaskTimestampSchema,
 	updatedAt: TaskTimestampSchema,
-	labels: z.array(z.string().min(1, 'Labels must not be empty')).optional(),
-	dependsOn: z.array(TaskIdSchema).optional(),
-	files: z.array(z.string().min(1, 'File paths must not be empty')).optional(),
-}) satisfies z.ZodType<TaskMetadata>
+	labels: uniqueArray(TrimmedValueSchema).optional(),
+	dependsOn: uniqueArray(TaskIdSchema).optional(),
+	files: uniqueArray(TrimmedValueSchema).optional(),
+}
+
+export const TaskMetadataV1Schema = z.strictObject({
+	schemaVersion: z.literal(1),
+	...TaskMetadataBaseShape,
+}) satisfies z.ZodType<TaskMetadataV1>
+
+export const TaskMetadataV2Schema = z.strictObject({
+	schemaVersion: z.literal(2),
+	...TaskMetadataBaseShape,
+	owner: TrimmedValueSchema.optional(),
+	assignees: uniqueArray(TrimmedValueSchema).optional(),
+	reviewers: uniqueArray(TrimmedValueSchema).optional(),
+	team: TrimmedValueSchema.optional(),
+	estimate: z.number().int().nonnegative().optional(),
+	effort: z.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	dueDate: TaskTimestampSchema.optional(),
+	related: uniqueArray(TaskIdSchema).optional(),
+	duplicates: uniqueArray(TaskIdSchema).optional(),
+	parent: TaskIdSchema.optional(),
+	directories: uniqueArray(TrimmedValueSchema).optional(),
+	projects: uniqueArray(TrimmedValueSchema).optional(),
+}) satisfies z.ZodType<TaskMetadataV2>
+
+export const TaskMetadataSchema = z.discriminatedUnion('schemaVersion', [
+	TaskMetadataV1Schema,
+	TaskMetadataV2Schema,
+]) satisfies z.ZodType<TaskMetadata>
 
 export const TaskFileSchema = z.strictObject({
 	metadata: TaskMetadataSchema,

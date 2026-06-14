@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import {
-	formatTaskTimestamp,
 	SYNC_TASK_FIELDS,
 	type SyncAdapter,
 	type SyncApplyResult,
@@ -10,16 +9,21 @@ import {
 	type SyncCheckpoint,
 	type SyncConflict,
 	type SyncDeletionBehavior,
+	SyncDeletionBehaviorSchema,
 	type SyncDirection,
+	SyncDirectionSchema,
 	type SyncExternalRecord,
 	SyncExternalRecordSchema,
 	type SyncFieldConflict,
 	type SyncIdentity,
 	type SyncPlan,
+	SyncPlanSchema,
 	type SyncTaskData,
 	type SyncTaskField,
 	type TaskFile,
 } from '@taskset/contracts'
+import { formatDate } from '@taskset/utils'
+import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { buildTaskGraph } from '../graph/taskGraph.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
@@ -50,6 +54,12 @@ export interface PlanSynchronizationOptions {
 	readonly now?: () => Date
 }
 
+export const PlanSynchronizationOptionsSchema = z.strictObject({
+	direction: SyncDirectionSchema,
+	deletionBehavior: SyncDeletionBehaviorSchema.optional(),
+	now: z.custom<() => Date>((value) => typeof value === 'function').optional(),
+})
+
 function taskData(record: TaskRecord): SyncTaskData {
 	const { metadata } = record.task
 
@@ -60,6 +70,35 @@ function taskData(record: TaskRecord): SyncTaskData {
 		...(metadata.labels ? { labels: Object.freeze([...metadata.labels]) } : {}),
 		...(metadata.dependsOn ? { dependsOn: Object.freeze([...metadata.dependsOn]) } : {}),
 		...(metadata.files ? { files: Object.freeze([...metadata.files]) } : {}),
+		...(metadata.schemaVersion === 2 && metadata.owner ? { owner: metadata.owner } : {}),
+		...(metadata.schemaVersion === 2 && metadata.assignees
+			? { assignees: Object.freeze([...metadata.assignees]) }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.reviewers
+			? { reviewers: Object.freeze([...metadata.reviewers]) }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.team ? { team: metadata.team } : {}),
+		...(metadata.schemaVersion === 2 && metadata.estimate !== undefined
+			? { estimate: metadata.estimate }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.effort !== undefined
+			? { effort: metadata.effort }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.risk ? { risk: metadata.risk } : {}),
+		...(metadata.schemaVersion === 2 && metadata.dueDate ? { dueDate: metadata.dueDate } : {}),
+		...(metadata.schemaVersion === 2 && metadata.related
+			? { related: Object.freeze([...metadata.related]) }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.duplicates
+			? { duplicates: Object.freeze([...metadata.duplicates]) }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.parent ? { parent: metadata.parent } : {}),
+		...(metadata.schemaVersion === 2 && metadata.directories
+			? { directories: Object.freeze([...metadata.directories]) }
+			: {}),
+		...(metadata.schemaVersion === 2 && metadata.projects
+			? { projects: Object.freeze([...metadata.projects]) }
+			: {}),
 		body: record.task.body,
 	})
 }
@@ -303,11 +342,16 @@ function validateExternalRecords(
 	)
 }
 
+/**
+ * Produces a deterministic, non-mutating synchronization plan with field-level
+ * conflicts and optimistic fingerprints for both local and external state.
+ */
 export async function planSynchronization(
 	repository: Repository,
 	adapter: SyncAdapter,
 	options: PlanSynchronizationOptions,
 ): Promise<SyncPlan> {
+	const validatedOptions = PlanSynchronizationOptionsSchema.parse(options)
 	const localRecords = await listTasks(repository)
 	const externalRecords = validateExternalRecords(adapter, await adapter.read())
 	const localById = new Map(localRecords.map((record) => [record.task.metadata.id, record]))
@@ -316,8 +360,8 @@ export async function planSynchronization(
 	const checkpoints: SyncCheckpoint[] = []
 	const unchanged: SyncIdentity[] = []
 	const conflicts: SyncConflict[] = []
-	const generatedAt = formatTaskTimestamp(options.now?.() ?? new Date())
-	const deletionBehavior = options.deletionBehavior ?? 'preserve'
+	const generatedAt = formatDate(validatedOptions.now?.() ?? new Date())
+	const deletionBehavior = validatedOptions.deletionBehavior ?? 'preserve'
 
 	for (const externalRecord of externalRecords) {
 		const mappedTaskId = externalRecord.identity.taskId
@@ -338,7 +382,7 @@ export async function planSynchronization(
 		}
 
 		if (!mappedTaskId && external) {
-			if (options.direction === 'push') {
+			if (validatedOptions.direction === 'push') {
 				unchanged.push(identity)
 			} else {
 				changes.push(change('local', 'create', identity, taskId, { data: external }))
@@ -349,8 +393,8 @@ export async function planSynchronization(
 
 		if (!local && external) {
 			if (
-				options.direction === 'push' ||
-				(options.direction === 'bidirectional' && deletionBehavior === 'delete')
+				validatedOptions.direction === 'push' ||
+				(validatedOptions.direction === 'bidirectional' && deletionBehavior === 'delete')
 			) {
 				const baseline = externalRecord.baseline?.data
 
@@ -376,8 +420,8 @@ export async function planSynchronization(
 
 		if (local && !external) {
 			if (
-				options.direction === 'pull' ||
-				(options.direction === 'bidirectional' && deletionBehavior === 'delete')
+				validatedOptions.direction === 'pull' ||
+				(validatedOptions.direction === 'bidirectional' && deletionBehavior === 'delete')
 			) {
 				const baseline = externalRecord.baseline?.data
 
@@ -409,7 +453,7 @@ export async function planSynchronization(
 			continue
 		}
 
-		if (options.direction === 'pull') {
+		if (validatedOptions.direction === 'pull') {
 			const localChanges = changedFields(externalRecord.baseline?.data ?? external, local)
 
 			if (localChanges.length > 0) {
@@ -444,7 +488,7 @@ export async function planSynchronization(
 			continue
 		}
 
-		if (options.direction === 'push') {
+		if (validatedOptions.direction === 'push') {
 			const externalChanges = changedFields(externalRecord.baseline?.data ?? local, external)
 
 			if (externalChanges.length > 0) {
@@ -517,7 +561,7 @@ export async function planSynchronization(
 		}
 	}
 
-	if (options.direction !== 'pull') {
+	if (validatedOptions.direction !== 'pull') {
 		for (const localRecord of localRecords) {
 			const taskId = localRecord.task.metadata.id
 
@@ -540,7 +584,7 @@ export async function planSynchronization(
 		left.action.localeCompare(right.action)
 
 	return Object.freeze({
-		direction: options.direction,
+		direction: validatedOptions.direction,
 		deletionBehavior,
 		generatedAt,
 		localFingerprint: fingerprintLocal(localRecords),
@@ -568,16 +612,29 @@ function taskFromData(
 ): TaskFile {
 	return {
 		metadata: {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			id: taskId,
 			title: data.title,
 			status: data.status,
 			...(data.priority ? { priority: data.priority } : {}),
+			...(data.owner ? { owner: data.owner } : {}),
+			...(data.assignees ? { assignees: data.assignees } : {}),
+			...(data.reviewers ? { reviewers: data.reviewers } : {}),
+			...(data.team ? { team: data.team } : {}),
+			...(data.estimate !== undefined ? { estimate: data.estimate } : {}),
+			...(data.effort !== undefined ? { effort: data.effort } : {}),
+			...(data.risk ? { risk: data.risk } : {}),
+			...(data.dueDate ? { dueDate: data.dueDate } : {}),
 			createdAt,
 			updatedAt,
 			...(data.labels ? { labels: data.labels } : {}),
 			...(data.dependsOn ? { dependsOn: data.dependsOn } : {}),
+			...(data.related ? { related: data.related } : {}),
+			...(data.duplicates ? { duplicates: data.duplicates } : {}),
+			...(data.parent ? { parent: data.parent } : {}),
 			...(data.files ? { files: data.files } : {}),
+			...(data.directories ? { directories: data.directories } : {}),
+			...(data.projects ? { projects: data.projects } : {}),
 		},
 		body: data.body,
 	}
@@ -682,14 +739,28 @@ async function applyLocalChanges(
 	return Object.freeze([...finalRecords.values()])
 }
 
+/**
+ * Applies a previously fingerprinted plan. External mutations happen before
+ * the local file transaction, and stale inputs or unresolved conflicts abort.
+ */
 export async function applySynchronization(
 	repository: Repository,
 	adapter: SyncAdapter,
 	plan: SyncPlan,
 ): Promise<SyncApplyResult> {
-	if (plan.conflicts.length > 0) {
+	const planResult = SyncPlanSchema.safeParse(plan)
+
+	if (!planResult.success) {
+		throw new SynchronizationError('local-invalid', 'Synchronization plan is invalid', {
+			cause: planResult.error,
+		})
+	}
+
+	const validatedPlan = planResult.data
+
+	if (validatedPlan.conflicts.length > 0) {
 		throw new SynchronizationError('conflict', 'Synchronization plan has unresolved conflicts', {
-			conflicts: plan.conflicts,
+			conflicts: validatedPlan.conflicts,
 		})
 	}
 
@@ -697,8 +768,8 @@ export async function applySynchronization(
 	const currentExternal = validateExternalRecords(adapter, await adapter.read())
 
 	if (
-		fingerprintLocal(currentLocal) !== plan.localFingerprint ||
-		fingerprintExternal(currentExternal) !== plan.externalFingerprint
+		fingerprintLocal(currentLocal) !== validatedPlan.localFingerprint ||
+		fingerprintExternal(currentExternal) !== validatedPlan.externalFingerprint
 	) {
 		throw new SynchronizationError(
 			'stale',
@@ -706,16 +777,23 @@ export async function applySynchronization(
 		)
 	}
 
-	const externalChanges = plan.changes.filter((change) => change.target === 'external')
+	const externalChanges = validatedPlan.changes.filter((change) => change.target === 'external')
 	const resultingExternal =
-		externalChanges.length > 0 || plan.checkpoints.length > 0
-			? validateExternalRecords(adapter, await adapter.apply(externalChanges, plan.checkpoints))
+		externalChanges.length > 0 || validatedPlan.checkpoints.length > 0
+			? validateExternalRecords(
+					adapter,
+					await adapter.apply(externalChanges, validatedPlan.checkpoints),
+				)
 			: currentExternal
-	const resultingLocal = await applyLocalChanges(repository, plan.changes, plan.generatedAt)
+	const resultingLocal = await applyLocalChanges(
+		repository,
+		validatedPlan.changes,
+		validatedPlan.generatedAt,
+	)
 
 	return Object.freeze({
-		applied: plan.changes,
-		unchanged: plan.unchanged,
+		applied: validatedPlan.changes,
+		unchanged: validatedPlan.unchanged,
 		localFingerprint: fingerprintLocal(resultingLocal),
 		externalFingerprint: fingerprintExternal(resultingExternal),
 	})

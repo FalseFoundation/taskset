@@ -3,13 +3,22 @@ import type { Dirent } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import {
-	formatTaskTimestamp,
 	type TaskFile,
+	TaskIdSchema,
 	type TaskPriority,
+	TaskPrioritySchema,
+	type TaskRisk,
+	TaskRiskSchema,
 	type TaskStatus,
+	TaskStatusSchema,
+	TaskTimestampSchema,
+	TaskTitleSchema,
 } from '@taskset/contracts'
+import { formatDate } from '@taskset/utils'
+import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
+import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
 import { parseTaskFile, serializeTaskFile, TaskFileError } from './taskFile.ts'
@@ -22,38 +31,98 @@ export interface TaskRecord {
 	readonly task: TaskFile
 }
 
-export interface CreateTaskInput {
-	readonly title: string
-	readonly status?: TaskStatus
-	readonly priority?: TaskPriority
-	readonly labels?: readonly string[]
-	readonly dependsOn?: readonly string[]
-	readonly files?: readonly string[]
-	readonly body?: string
+const TrimmedStringSchema = z
+	.string()
+	.min(1)
+	.refine((value) => value === value.trim(), 'Must not have surrounding whitespace')
+function uniqueArray<T>(schema: z.ZodType<T>) {
+	return z
+		.array(schema)
+		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 }
+
+const TaskIdListSchema = uniqueArray(TaskIdSchema)
+const StringListSchema = uniqueArray(TrimmedStringSchema)
+const RepositoryPathListSchema = uniqueArray(RepositoryRelativePathSchema)
+
+export const CreateTaskInputSchema = z.strictObject({
+	title: TaskTitleSchema,
+	status: TaskStatusSchema.optional(),
+	priority: TaskPrioritySchema.optional(),
+	labels: StringListSchema.optional(),
+	dependsOn: TaskIdListSchema.optional(),
+	files: RepositoryPathListSchema.optional(),
+	owner: TrimmedStringSchema.optional(),
+	assignees: StringListSchema.optional(),
+	reviewers: StringListSchema.optional(),
+	team: TrimmedStringSchema.optional(),
+	estimate: z.number().int().nonnegative().optional(),
+	effort: z.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	dueDate: TaskTimestampSchema.optional(),
+	related: TaskIdListSchema.optional(),
+	duplicates: TaskIdListSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	directories: RepositoryPathListSchema.optional(),
+	projects: StringListSchema.optional(),
+	body: z.string().optional(),
+})
+
+export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>
 
 export interface CreateTaskOptions {
 	readonly createId?: (date: Date) => string
 	readonly now?: () => Date
+	readonly onWarning?: (warning: CoreWarning) => void
 }
 
-export interface UpdateTaskInput {
-	readonly title?: string
-	readonly status?: TaskStatus
-	readonly priority?: TaskPriority | null
-	readonly labels?: readonly string[]
-	readonly dependsOn?: readonly string[]
-	readonly files?: readonly string[]
-	readonly body?: string
-}
+export const UpdateTaskInputSchema = z
+	.strictObject({
+		title: TaskTitleSchema.optional(),
+		status: TaskStatusSchema.optional(),
+		priority: TaskPrioritySchema.nullable().optional(),
+		labels: StringListSchema.optional(),
+		dependsOn: TaskIdListSchema.optional(),
+		files: RepositoryPathListSchema.optional(),
+		owner: TrimmedStringSchema.nullable().optional(),
+		assignees: StringListSchema.optional(),
+		reviewers: StringListSchema.optional(),
+		team: TrimmedStringSchema.nullable().optional(),
+		estimate: z.number().int().nonnegative().nullable().optional(),
+		effort: z.number().finite().nonnegative().nullable().optional(),
+		risk: TaskRiskSchema.nullable().optional(),
+		dueDate: TaskTimestampSchema.nullable().optional(),
+		related: TaskIdListSchema.optional(),
+		duplicates: TaskIdListSchema.optional(),
+		parent: TaskIdSchema.nullable().optional(),
+		directories: RepositoryPathListSchema.optional(),
+		projects: StringListSchema.optional(),
+		body: z.string().optional(),
+	})
+	.refine((input) => Object.keys(input).length > 0, 'Task update requires at least one field')
+
+export type UpdateTaskInput = z.infer<typeof UpdateTaskInputSchema>
 
 export interface UpdateTaskOptions {
 	readonly now?: () => Date
+	readonly onWarning?: (warning: CoreWarning) => void
 }
 
 export interface DeleteTaskOptions {
 	readonly removeDependencies?: boolean
 	readonly now?: () => Date
+	readonly onWarning?: (warning: CoreWarning) => void
+}
+
+export interface CoreWarning {
+	readonly code: 'generated-view-refresh'
+	readonly message: string
+	readonly cause?: unknown
+}
+
+export interface TaskRepositoryIssue {
+	readonly field: string
+	readonly message: string
 }
 
 export type TaskRepositoryErrorCode =
@@ -71,6 +140,7 @@ export class TaskRepositoryError extends Error {
 	readonly code: TaskRepositoryErrorCode
 	readonly filePath?: string
 	readonly taskId?: string
+	readonly issues: readonly TaskRepositoryIssue[]
 
 	constructor(
 		code: TaskRepositoryErrorCode,
@@ -79,6 +149,7 @@ export class TaskRepositoryError extends Error {
 			readonly cause?: unknown
 			readonly filePath?: string
 			readonly taskId?: string
+			readonly issues?: readonly TaskRepositoryIssue[]
 		} = {},
 	) {
 		super(message, { cause: options.cause })
@@ -86,7 +157,36 @@ export class TaskRepositoryError extends Error {
 		this.code = code
 		this.filePath = options.filePath
 		this.taskId = options.taskId
+		this.issues = options.issues ?? []
 	}
+}
+
+function schemaIssues(error: z.ZodError): readonly TaskRepositoryIssue[] {
+	return error.issues.map((issue) => ({
+		field: issue.path.length > 0 ? issue.path.map(String).join('.') : 'input',
+		message: issue.message,
+	}))
+}
+
+function parseInput<T>(schema: z.ZodType<T>, value: unknown, operation: string): T {
+	const result = schema.safeParse(value)
+
+	if (!result.success) {
+		throw new TaskRepositoryError('task-invalid', `Invalid ${operation} input`, {
+			cause: result.error,
+			issues: schemaIssues(result.error),
+		})
+	}
+
+	return result.data
+}
+
+function parseTaskId(taskId: string): string {
+	return parseInput(TaskIdSchema, taskId, 'task ID')
+}
+
+function resolveOptional<T>(next: T | null | undefined, current: T | undefined): T | undefined {
+	return next === null ? undefined : (next ?? current)
 }
 
 function isNodeError(error: unknown, code: string): error is NodeJS.ErrnoException {
@@ -164,6 +264,26 @@ async function invalidateTaskIndex(repository: Repository): Promise<void> {
 		await rm(path.join(repository.dataDirectory, 'cache', 'task-index-v1.json'), { force: true })
 	} catch {
 		// Cache state is disposable and fingerprint-validated on the next read.
+	}
+}
+
+async function refreshGeneratedViews(
+	repository: Repository,
+	onWarning: ((warning: CoreWarning) => void) | undefined,
+): Promise<void> {
+	try {
+		const { generateViews } = await import('../generated/generatedViews.ts')
+		await generateViews(repository)
+	} catch (error) {
+		onWarning?.(
+			Object.freeze({
+				code: 'generated-view-refresh',
+				message: `Canonical task mutation succeeded, but generated views could not be refreshed: ${
+					error instanceof Error ? error.message : 'unknown generation failure'
+				}`,
+				cause: error,
+			}),
+		)
 	}
 }
 
@@ -288,12 +408,15 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 }
 
 export async function readTask(repository: Repository, taskId: string): Promise<TaskRecord> {
+	const validatedTaskId = parseTaskId(taskId)
 	const record = (await listTasks(repository)).find(
-		(candidate) => candidate.task.metadata.id === taskId,
+		(candidate) => candidate.task.metadata.id === validatedTaskId,
 	)
 
 	if (!record) {
-		throw new TaskRepositoryError('task-not-found', `Task ${taskId} was not found`, { taskId })
+		throw new TaskRepositoryError('task-not-found', `Task ${validatedTaskId} was not found`, {
+			taskId: validatedTaskId,
+		})
 	}
 
 	return record
@@ -304,29 +427,44 @@ export async function createTask(
 	input: CreateTaskInput,
 	options: CreateTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedInput = parseInput(CreateTaskInputSchema, input, 'task creation')
 	const now = options.now?.() ?? new Date()
 	const taskId = options.createId?.(now) ?? generateTaskId(now)
-	const timestamp = formatTaskTimestamp(now)
+	parseTaskId(taskId)
+	const timestamp = formatDate(now)
 	const defaults = repository.config.tasks.defaults
-	const priority = input.priority ?? defaults.priority
-	const labels = input.labels ?? defaults.labels
+	const priority = validatedInput.priority ?? defaults.priority
+	const labels = validatedInput.labels ?? defaults.labels
 
 	validateConfiguredPriority(repository, priority)
 
 	const task: TaskFile = {
 		metadata: {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			id: taskId,
-			title: input.title,
-			status: input.status ?? defaults.status,
+			title: validatedInput.title,
+			status: validatedInput.status ?? defaults.status,
 			...(priority ? { priority } : {}),
+			...(validatedInput.owner ? { owner: validatedInput.owner } : {}),
+			...(validatedInput.assignees?.length ? { assignees: validatedInput.assignees } : {}),
+			...(validatedInput.reviewers?.length ? { reviewers: validatedInput.reviewers } : {}),
+			...(validatedInput.team ? { team: validatedInput.team } : {}),
+			...(validatedInput.estimate !== undefined ? { estimate: validatedInput.estimate } : {}),
+			...(validatedInput.effort !== undefined ? { effort: validatedInput.effort } : {}),
+			...(validatedInput.risk ? { risk: validatedInput.risk } : {}),
+			...(validatedInput.dueDate ? { dueDate: validatedInput.dueDate } : {}),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			...(labels.length > 0 ? { labels } : {}),
-			...(input.dependsOn && input.dependsOn.length > 0 ? { dependsOn: input.dependsOn } : {}),
-			...(input.files && input.files.length > 0 ? { files: input.files } : {}),
+			...(validatedInput.dependsOn?.length ? { dependsOn: validatedInput.dependsOn } : {}),
+			...(validatedInput.related?.length ? { related: validatedInput.related } : {}),
+			...(validatedInput.duplicates?.length ? { duplicates: validatedInput.duplicates } : {}),
+			...(validatedInput.parent ? { parent: validatedInput.parent } : {}),
+			...(validatedInput.files?.length ? { files: validatedInput.files } : {}),
+			...(validatedInput.directories?.length ? { directories: validatedInput.directories } : {}),
+			...(validatedInput.projects?.length ? { projects: validatedInput.projects } : {}),
 		},
-		body: input.body ?? '',
+		body: validatedInput.body ?? '',
 	}
 	const absolutePath = path.join(repository.tasksDirectory, `${taskId}.md`)
 	const relativePath = toRepositoryRelativePath(repository, absolutePath)
@@ -365,6 +503,7 @@ export async function createTask(
 	}
 
 	await invalidateTaskIndex(repository)
+	await refreshGeneratedViews(repository, options.onWarning)
 	return freezeRecord(relativePath, parsedTask)
 }
 
@@ -374,43 +513,64 @@ export async function updateTask(
 	input: UpdateTaskInput,
 	options: UpdateTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedTaskId = parseTaskId(taskId)
+	const validatedInput = parseInput(UpdateTaskInputSchema, input, 'task update')
 	const records = await listTasks(repository)
-	const existing = records.find((record) => record.task.metadata.id === taskId)
+	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
-		throw new TaskRepositoryError('task-not-found', `Task ${taskId} was not found`, { taskId })
+		throw new TaskRepositoryError('task-not-found', `Task ${validatedTaskId} was not found`, {
+			taskId: validatedTaskId,
+		})
 	}
 
 	const absolutePath = path.join(repository.rootDirectory, existing.relativePath)
-	const originalContents = await readTaskContents(repository, existing, taskId)
+	const originalContents = await readTaskContents(repository, existing, validatedTaskId)
 	const current = parseTaskFile(originalContents, { filePath: existing.relativePath })
 
-	if (current.metadata.id !== taskId) {
+	if (current.metadata.id !== validatedTaskId) {
 		throw new TaskRepositoryError(
 			'task-stale',
 			`Task file ${existing.relativePath} changed identity before update`,
-			{ filePath: existing.relativePath, taskId },
+			{ filePath: existing.relativePath, taskId: validatedTaskId },
 		)
 	}
 
-	const nextStatus = input.status ?? current.metadata.status
+	const currentV2 = current.metadata.schemaVersion === 2 ? current.metadata : undefined
+	const nextStatus = validatedInput.status ?? current.metadata.status
 	const nextPriority =
-		input.priority === null ? undefined : (input.priority ?? current.metadata.priority)
+		validatedInput.priority === null
+			? undefined
+			: (validatedInput.priority ?? current.metadata.priority)
 	validateStatusTransition(current.metadata.status, nextStatus)
 	validateConfiguredPriority(repository, nextPriority)
 
 	const updatedTask: TaskFile = {
 		metadata: {
 			...current.metadata,
-			...(input.title !== undefined ? { title: input.title } : {}),
+			schemaVersion: 2,
+			...(validatedInput.title !== undefined ? { title: validatedInput.title } : {}),
 			status: nextStatus,
 			...(nextPriority !== undefined ? { priority: nextPriority } : { priority: undefined }),
-			updatedAt: formatTaskTimestamp(options.now?.() ?? new Date()),
-			...(input.labels !== undefined ? { labels: input.labels } : {}),
-			...(input.dependsOn !== undefined ? { dependsOn: input.dependsOn } : {}),
-			...(input.files !== undefined ? { files: input.files } : {}),
+			owner: resolveOptional(validatedInput.owner, currentV2?.owner),
+			assignees: validatedInput.assignees ?? currentV2?.assignees,
+			reviewers: validatedInput.reviewers ?? currentV2?.reviewers,
+			team: resolveOptional(validatedInput.team, currentV2?.team),
+			estimate: resolveOptional(validatedInput.estimate, currentV2?.estimate),
+			effort: resolveOptional(validatedInput.effort, currentV2?.effort),
+			risk: resolveOptional<TaskRisk>(validatedInput.risk, currentV2?.risk),
+			dueDate: resolveOptional(validatedInput.dueDate, currentV2?.dueDate),
+			updatedAt: formatDate(options.now?.() ?? new Date()),
+			...(validatedInput.labels !== undefined ? { labels: validatedInput.labels } : {}),
+			...(validatedInput.dependsOn !== undefined ? { dependsOn: validatedInput.dependsOn } : {}),
+			related: validatedInput.related ?? currentV2?.related,
+			duplicates: validatedInput.duplicates ?? currentV2?.duplicates,
+			parent: resolveOptional(validatedInput.parent, currentV2?.parent),
+			...(validatedInput.files !== undefined ? { files: validatedInput.files } : {}),
+			directories: validatedInput.directories ?? currentV2?.directories,
+			projects: validatedInput.projects ?? currentV2?.projects,
 		},
-		body: input.body ?? current.body,
+		body: validatedInput.body ?? current.body,
 	}
 	const contents = serializeTaskFile(updatedTask, { filePath: existing.relativePath })
 	const parsedTask = parseTaskFile(contents, { filePath: existing.relativePath })
@@ -430,7 +590,7 @@ export async function updateTask(
 			throw new TaskRepositoryError(
 				error.code === 'stale' ? 'task-stale' : 'task-write',
 				error.message,
-				{ cause: error, filePath: existing.relativePath, taskId },
+				{ cause: error, filePath: existing.relativePath, taskId: validatedTaskId },
 			)
 		}
 
@@ -438,6 +598,7 @@ export async function updateTask(
 	}
 
 	await invalidateTaskIndex(repository)
+	await refreshGeneratedViews(repository, options.onWarning)
 	return updatedRecord
 }
 
@@ -446,67 +607,88 @@ export async function deleteTask(
 	taskId: string,
 	options: DeleteTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedTaskId = parseTaskId(taskId)
 	const records = await listTasks(repository)
-	const existing = records.find((record) => record.task.metadata.id === taskId)
+	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
-		throw new TaskRepositoryError('task-not-found', `Task ${taskId} was not found`, { taskId })
+		throw new TaskRepositoryError('task-not-found', `Task ${validatedTaskId} was not found`, {
+			taskId: validatedTaskId,
+		})
 	}
 
-	const graph = buildTaskGraph(records)
-	const blockers = graph.blocks.get(taskId) ?? []
+	const inboundReferences = records.filter((record) => {
+		if (record.task.metadata.id === validatedTaskId) {
+			return false
+		}
 
-	if (blockers.length > 0 && !options.removeDependencies) {
+		const { metadata } = record.task
+		return (
+			metadata.dependsOn?.includes(validatedTaskId) === true ||
+			(metadata.schemaVersion === 2 &&
+				(metadata.related?.includes(validatedTaskId) === true ||
+					metadata.duplicates?.includes(validatedTaskId) === true ||
+					metadata.parent === validatedTaskId))
+		)
+	})
+
+	if (inboundReferences.length > 0 && !options.removeDependencies) {
 		throw new TaskRepositoryError(
 			'task-dependency-blocked',
-			`Task ${taskId} cannot be deleted because it is required by ${blockers.join(', ')}; use removeDependencies to repair inbound relationships`,
-			{ taskId, filePath: existing.relativePath },
+			`Task ${validatedTaskId} cannot be deleted because it is referenced by ${inboundReferences
+				.map((record) => record.task.metadata.id)
+				.join(', ')}; use removeDependencies to repair inbound relationships`,
+			{ taskId: validatedTaskId, filePath: existing.relativePath },
 		)
 	}
 
-	const timestamp = formatTaskTimestamp(options.now?.() ?? new Date())
+	const timestamp = formatDate(options.now?.() ?? new Date())
 	const possibleRepairs = await Promise.all(
-		records
-			.filter((record) => blockers.includes(record.task.metadata.id))
-			.map(async (record) => {
-				const absolutePath = path.join(repository.rootDirectory, record.relativePath)
-				const originalContents = await readTaskContents(repository, record, record.task.metadata.id)
-				const currentTask = parseTaskFile(originalContents, { filePath: record.relativePath })
+		inboundReferences.map(async (record) => {
+			const absolutePath = path.join(repository.rootDirectory, record.relativePath)
+			const originalContents = await readTaskContents(repository, record, record.task.metadata.id)
+			const currentTask = parseTaskFile(originalContents, { filePath: record.relativePath })
+			const currentV2 = currentTask.metadata.schemaVersion === 2 ? currentTask.metadata : undefined
 
-				if (!currentTask.metadata.dependsOn?.includes(taskId)) {
-					return undefined
-				}
+			const repairedTask: TaskFile = {
+				metadata: {
+					...currentTask.metadata,
+					updatedAt: timestamp,
+					dependsOn: currentTask.metadata.dependsOn?.filter(
+						(dependencyId) => dependencyId !== validatedTaskId,
+					),
+					...(currentV2
+						? {
+								related: currentV2.related?.filter((relatedId) => relatedId !== validatedTaskId),
+								duplicates: currentV2.duplicates?.filter(
+									(duplicateId) => duplicateId !== validatedTaskId,
+								),
+								parent: currentV2.parent === validatedTaskId ? undefined : currentV2.parent,
+							}
+						: {}),
+				},
+				body: currentTask.body,
+			}
 
-				const repairedTask: TaskFile = {
-					metadata: {
-						...currentTask.metadata,
-						updatedAt: timestamp,
-						dependsOn: currentTask.metadata.dependsOn.filter(
-							(dependencyId) => dependencyId !== taskId,
-						),
-					},
-					body: currentTask.body,
-				}
-
-				return {
-					targetPath: absolutePath,
-					contents: serializeTaskFile(repairedTask, { filePath: record.relativePath }),
-					expectedContents: originalContents,
-				}
-			}),
+			return {
+				targetPath: absolutePath,
+				contents: serializeTaskFile(repairedTask, { filePath: record.relativePath }),
+				expectedContents: originalContents,
+			}
+		}),
 	)
 	const operations = possibleRepairs.filter(
 		(operation): operation is NonNullable<typeof operation> => operation !== undefined,
 	)
 	const existingAbsolutePath = path.join(repository.rootDirectory, existing.relativePath)
-	const existingContents = await readTaskContents(repository, existing, taskId)
+	const existingContents = await readTaskContents(repository, existing, validatedTaskId)
 	const currentTarget = parseTaskFile(existingContents, { filePath: existing.relativePath })
 
-	if (currentTarget.metadata.id !== taskId) {
+	if (currentTarget.metadata.id !== validatedTaskId) {
 		throw new TaskRepositoryError(
 			'task-stale',
 			`Task file ${existing.relativePath} changed identity before deletion`,
-			{ filePath: existing.relativePath, taskId },
+			{ filePath: existing.relativePath, taskId: validatedTaskId },
 		)
 	}
 
@@ -524,7 +706,7 @@ export async function deleteTask(
 			throw new TaskRepositoryError(
 				error.code === 'stale' ? 'task-stale' : 'task-write',
 				error.message,
-				{ cause: error, filePath: existing.relativePath, taskId },
+				{ cause: error, filePath: existing.relativePath, taskId: validatedTaskId },
 			)
 		}
 
@@ -532,5 +714,6 @@ export async function deleteTask(
 	}
 
 	await invalidateTaskIndex(repository)
+	await refreshGeneratedViews(repository, options.onWarning)
 	return existing
 }

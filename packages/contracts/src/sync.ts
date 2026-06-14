@@ -1,5 +1,15 @@
 import * as z from 'zod'
-import { TaskMetadataSchema } from './task.ts'
+import {
+	TaskIdSchema,
+	type TaskPriority,
+	TaskPrioritySchema,
+	type TaskRisk,
+	TaskRiskSchema,
+	type TaskStatus,
+	TaskStatusSchema,
+	TaskTimestampSchema,
+	TaskTitleSchema,
+} from './task.ts'
 
 export const SYNC_DIRECTIONS = ['pull', 'push', 'bidirectional'] as const
 export const SYNC_DELETION_BEHAVIORS = ['preserve', 'delete'] as const
@@ -10,6 +20,19 @@ export const SYNC_TASK_FIELDS = [
 	'labels',
 	'dependsOn',
 	'files',
+	'owner',
+	'assignees',
+	'reviewers',
+	'team',
+	'estimate',
+	'effort',
+	'risk',
+	'dueDate',
+	'related',
+	'duplicates',
+	'parent',
+	'directories',
+	'projects',
 	'body',
 ] as const
 
@@ -19,11 +42,24 @@ export type SyncTaskField = (typeof SYNC_TASK_FIELDS)[number]
 
 export interface SyncTaskData {
 	readonly title: string
-	readonly status: z.infer<typeof TaskMetadataSchema>['status']
-	readonly priority?: z.infer<typeof TaskMetadataSchema>['priority']
+	readonly status: TaskStatus
+	readonly priority?: TaskPriority
 	readonly labels?: readonly string[]
 	readonly dependsOn?: readonly string[]
 	readonly files?: readonly string[]
+	readonly owner?: string
+	readonly assignees?: readonly string[]
+	readonly reviewers?: readonly string[]
+	readonly team?: string
+	readonly estimate?: number
+	readonly effort?: number
+	readonly risk?: TaskRisk
+	readonly dueDate?: string
+	readonly related?: readonly string[]
+	readonly duplicates?: readonly string[]
+	readonly parent?: string
+	readonly directories?: readonly string[]
+	readonly projects?: readonly string[]
 	readonly body: string
 }
 
@@ -110,25 +146,46 @@ export interface SyncAdapter {
 
 export const SyncDirectionSchema = z.enum(SYNC_DIRECTIONS)
 export const SyncDeletionBehaviorSchema = z.enum(SYNC_DELETION_BEHAVIORS)
+const TrimmedValueSchema = z
+	.string()
+	.min(1)
+	.refine((value) => value === value.trim(), 'Value must not have surrounding whitespace')
+const uniqueArray = <T>(schema: z.ZodType<T>) =>
+	z
+		.array(schema)
+		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 export const SyncTaskDataSchema = z.strictObject({
-	title: TaskMetadataSchema.shape.title,
-	status: TaskMetadataSchema.shape.status,
-	priority: TaskMetadataSchema.shape.priority,
-	labels: TaskMetadataSchema.shape.labels,
-	dependsOn: TaskMetadataSchema.shape.dependsOn,
-	files: TaskMetadataSchema.shape.files,
+	title: TaskTitleSchema,
+	status: TaskStatusSchema,
+	priority: TaskPrioritySchema.optional(),
+	labels: uniqueArray(TrimmedValueSchema).optional(),
+	dependsOn: uniqueArray(TaskIdSchema).optional(),
+	files: uniqueArray(TrimmedValueSchema).optional(),
+	owner: TrimmedValueSchema.optional(),
+	assignees: uniqueArray(TrimmedValueSchema).optional(),
+	reviewers: uniqueArray(TrimmedValueSchema).optional(),
+	team: TrimmedValueSchema.optional(),
+	estimate: z.number().int().nonnegative().optional(),
+	effort: z.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	dueDate: TaskTimestampSchema.optional(),
+	related: uniqueArray(TaskIdSchema).optional(),
+	duplicates: uniqueArray(TaskIdSchema).optional(),
+	parent: TaskIdSchema.optional(),
+	directories: uniqueArray(TrimmedValueSchema).optional(),
+	projects: uniqueArray(TrimmedValueSchema).optional(),
 	body: z.string(),
 }) satisfies z.ZodType<SyncTaskData>
 
 export const SyncIdentitySchema = z.strictObject({
 	provider: z.string().min(1),
 	externalId: z.string().min(1),
-	taskId: TaskMetadataSchema.shape.id.optional(),
+	taskId: TaskIdSchema.optional(),
 }) satisfies z.ZodType<SyncIdentity>
 
 export const SyncBaselineSchema = z.strictObject({
 	data: SyncTaskDataSchema.nullable(),
-	localUpdatedAt: TaskMetadataSchema.shape.updatedAt.optional(),
+	localUpdatedAt: TaskTimestampSchema.optional(),
 	externalRevision: z.string().min(1).optional(),
 }) satisfies z.ZodType<SyncBaseline>
 
@@ -138,3 +195,46 @@ export const SyncExternalRecordSchema = z.strictObject({
 	data: SyncTaskDataSchema.nullable(),
 	baseline: SyncBaselineSchema.optional(),
 }) satisfies z.ZodType<SyncExternalRecord>
+
+export const SyncChangeSchema = z.strictObject({
+	target: z.enum(['local', 'external']),
+	action: z.enum(['create', 'update', 'delete']),
+	identity: SyncIdentitySchema,
+	taskId: TaskIdSchema,
+	data: SyncTaskDataSchema.optional(),
+	expectedRevision: z.string().min(1).optional(),
+	expectedUpdatedAt: TaskTimestampSchema.optional(),
+}) satisfies z.ZodType<SyncChange>
+
+export const SyncCheckpointSchema = z.strictObject({
+	identity: SyncIdentitySchema,
+	taskId: TaskIdSchema,
+	baseline: SyncBaselineSchema,
+	expectedRevision: z.string().min(1).optional(),
+}) satisfies z.ZodType<SyncCheckpoint>
+
+export const SyncConflictSchema = z.strictObject({
+	identity: SyncIdentitySchema,
+	taskId: TaskIdSchema.optional(),
+	fields: z.array(
+		z.strictObject({
+			field: z.enum([...SYNC_TASK_FIELDS, 'record']),
+			baseline: z.unknown(),
+			local: z.unknown(),
+			external: z.unknown(),
+		}),
+	),
+	message: z.string(),
+}) satisfies z.ZodType<SyncConflict>
+
+export const SyncPlanSchema = z.strictObject({
+	direction: SyncDirectionSchema,
+	deletionBehavior: SyncDeletionBehaviorSchema,
+	generatedAt: TaskTimestampSchema,
+	localFingerprint: z.string().regex(/^[a-f0-9]{64}$/u),
+	externalFingerprint: z.string().regex(/^[a-f0-9]{64}$/u),
+	changes: z.array(SyncChangeSchema),
+	checkpoints: z.array(SyncCheckpointSchema),
+	unchanged: z.array(SyncIdentitySchema),
+	conflicts: z.array(SyncConflictSchema),
+}) satisfies z.ZodType<SyncPlan>

@@ -1,3 +1,4 @@
+export { formatDate, parseDate } from './date.ts'
 export {
 	FrontmatterError,
 	type FrontmatterErrorCode,

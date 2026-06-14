@@ -9,6 +9,8 @@ workflows without requiring a hosted project-management database.
 > task CRUD and lifecycle changes, repository diagnostics, queries, and
 > file-impact analysis.
 
+Documentation: [taskset.false.foundation](https://taskset.false.foundation/)
+
 ## Why Taskset
 
 - Work stays in the repository that it describes.
@@ -42,7 +44,7 @@ pnpm exec taskset doctor
 
 Initialization creates a root `taskset.config.ts`, the canonical
 `.taskset/tasks/` directory, and `.taskset/.gitignore` rules for disposable
-cache and generated data.
+cache, generated data, and non-authoritative safety snapshots.
 
 ## Configuration
 
@@ -75,15 +77,24 @@ Each task combines YAML metadata with a Markdown body:
 
 ```markdown
 ---
-schemaVersion: 1
+schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add repository validation
 status: todo
 priority: high
+owner: platform
+assignees:
+  - maintainer
+risk: medium
+dueDate: 2026-06-30
 createdAt: 2026-06-12
 updatedAt: 2026-06-12 09:30 UTC
 files:
   - packages/core/src/index.ts
+directories:
+  - packages/core
+projects:
+  - taskset
 ---
 
 ## Context
@@ -101,15 +112,23 @@ semantics. The CLI exposes scriptable forms:
 
 ```bash
 pnpm exec taskset task list --status doing --label core --json
-pnpm exec taskset tasks-for-file packages/core --impact --json
+pnpm exec taskset task list --file packages/core --impact --json
 pnpm exec taskset doctor --json
 pnpm exec taskset task update <task-id> --priority urgent
 pnpm exec taskset task delete <task-id> --remove-dependencies --json
+pnpm exec taskset generate
+pnpm exec taskset snapshot create
+pnpm exec taskset migrate --to 2
 ```
 
 `doctor` scans all task files without modifying them. Deletion is blocked when
 other tasks depend on the target unless `--remove-dependencies` is selected to
 repair those inbound relationships in the same failure-safe mutation.
+
+Migration and snapshot restore are dry runs unless `--apply` is supplied.
+Applying a schema migration first creates an immutable snapshot under
+`.taskset/snapshots/`. Generated metadata indexes under `.taskset/generated/`
+are disposable and refresh automatically after canonical mutations.
 
 ## Documentation
 

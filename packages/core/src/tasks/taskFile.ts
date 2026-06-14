@@ -1,11 +1,10 @@
 import {
-	parseTaskTimestamp,
 	type TaskFile,
 	TaskFileSchema,
 	type TaskMetadata,
 	TaskMetadataSchema,
 } from '@taskset/contracts'
-import { FrontmatterError, parseFrontmatter, serializeFrontmatter } from '@taskset/utils'
+import { FrontmatterError, parseDate, parseFrontmatter, serializeFrontmatter } from '@taskset/utils'
 
 export type TaskFileErrorCode = 'frontmatter' | 'schema' | 'validation'
 
@@ -80,8 +79,8 @@ function validationError(field: string, message: string, filePath?: string): Tas
 }
 
 function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
-	const createdAt = parseTaskTimestamp(metadata.createdAt)
-	const updatedAt = parseTaskTimestamp(metadata.updatedAt)
+	const createdAt = parseDate(metadata.createdAt)
+	const updatedAt = parseDate(metadata.updatedAt)
 
 	if (createdAt === undefined) {
 		throw validationError('createdAt', 'must be a valid UTC task timestamp', filePath)
@@ -99,6 +98,12 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 		['labels', metadata.labels],
 		['dependsOn', metadata.dependsOn],
 		['files', metadata.files],
+		['assignees', metadata.schemaVersion === 2 ? metadata.assignees : undefined],
+		['reviewers', metadata.schemaVersion === 2 ? metadata.reviewers : undefined],
+		['related', metadata.schemaVersion === 2 ? metadata.related : undefined],
+		['duplicates', metadata.schemaVersion === 2 ? metadata.duplicates : undefined],
+		['directories', metadata.schemaVersion === 2 ? metadata.directories : undefined],
+		['projects', metadata.schemaVersion === 2 ? metadata.projects : undefined],
 	] as const) {
 		if (!values) {
 			continue
@@ -111,9 +116,16 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 		}
 	}
 
-	for (const label of metadata.labels ?? []) {
-		if (label !== label.trim()) {
-			throw validationError('labels', `"${label}" has surrounding whitespace`, filePath)
+	for (const [field, values] of [
+		['labels', metadata.labels],
+		['assignees', metadata.schemaVersion === 2 ? metadata.assignees : undefined],
+		['reviewers', metadata.schemaVersion === 2 ? metadata.reviewers : undefined],
+		['projects', metadata.schemaVersion === 2 ? metadata.projects : undefined],
+	] as const) {
+		for (const value of values ?? []) {
+			if (value !== value.trim()) {
+				throw validationError(field, `"${value}" has surrounding whitespace`, filePath)
+			}
 		}
 	}
 
@@ -121,11 +133,33 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 		throw validationError('dependsOn', 'a task cannot depend on itself', filePath)
 	}
 
-	for (const file of metadata.files ?? []) {
-		if (!isRepositoryRelativePosixPath(file)) {
+	if (metadata.schemaVersion === 2) {
+		for (const [field, taskIds] of [
+			['related', metadata.related],
+			['duplicates', metadata.duplicates],
+		] as const) {
+			if (taskIds?.includes(metadata.id)) {
+				throw validationError(field, 'a task cannot relate to itself', filePath)
+			}
+		}
+
+		if (metadata.parent === metadata.id) {
+			throw validationError('parent', 'a task cannot be its own parent', filePath)
+		}
+	}
+
+	for (const [field, paths] of [
+		['files', metadata.files],
+		['directories', metadata.schemaVersion === 2 ? metadata.directories : undefined],
+	] as const) {
+		for (const value of paths ?? []) {
+			if (isRepositoryRelativePosixPath(value)) {
+				continue
+			}
+
 			throw validationError(
-				'files',
-				`"${file}" must be a normalized repository-relative POSIX path`,
+				field,
+				`"${value}" must be a normalized repository-relative POSIX path`,
 				filePath,
 			)
 		}
@@ -133,6 +167,29 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 }
 
 function freezeTaskFile(task: TaskFile): TaskFile {
+	const versionTwoLists =
+		task.metadata.schemaVersion === 2
+			? {
+					...(task.metadata.assignees !== undefined
+						? { assignees: Object.freeze([...task.metadata.assignees]) }
+						: {}),
+					...(task.metadata.reviewers !== undefined
+						? { reviewers: Object.freeze([...task.metadata.reviewers]) }
+						: {}),
+					...(task.metadata.related !== undefined
+						? { related: Object.freeze([...task.metadata.related]) }
+						: {}),
+					...(task.metadata.duplicates !== undefined
+						? { duplicates: Object.freeze([...task.metadata.duplicates]) }
+						: {}),
+					...(task.metadata.directories !== undefined
+						? { directories: Object.freeze([...task.metadata.directories]) }
+						: {}),
+					...(task.metadata.projects !== undefined
+						? { projects: Object.freeze([...task.metadata.projects]) }
+						: {}),
+				}
+			: {}
 	const metadata = Object.freeze({
 		...task.metadata,
 		...(task.metadata.labels !== undefined
@@ -144,6 +201,7 @@ function freezeTaskFile(task: TaskFile): TaskFile {
 		...(task.metadata.files !== undefined
 			? { files: Object.freeze([...task.metadata.files]) }
 			: {}),
+		...versionTwoLists,
 	})
 
 	return Object.freeze({
@@ -164,6 +222,10 @@ function schemaIssues(error: {
 	}))
 }
 
+/**
+ * Parses strict v1 or v2 task metadata while preserving the Markdown body.
+ * Reads validate but never migrate or repair canonical input.
+ */
 export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}): TaskFile {
 	let parsedFrontmatter: ReturnType<typeof parseFrontmatter>
 
@@ -198,6 +260,10 @@ export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}
 	})
 }
 
+/**
+ * Validates and serializes a task with canonical key order, LF line endings,
+ * and exactly one final newline.
+ */
 export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions = {}): string {
 	const taskResult = TaskFileSchema.safeParse(task)
 
@@ -223,6 +289,40 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 		orderedMetadata.priority = metadata.priority
 	}
 
+	if (metadata.schemaVersion === 2) {
+		if (metadata.owner !== undefined) {
+			orderedMetadata.owner = metadata.owner
+		}
+
+		if (metadata.assignees !== undefined) {
+			orderedMetadata.assignees = metadata.assignees
+		}
+
+		if (metadata.reviewers !== undefined) {
+			orderedMetadata.reviewers = metadata.reviewers
+		}
+
+		if (metadata.team !== undefined) {
+			orderedMetadata.team = metadata.team
+		}
+
+		if (metadata.estimate !== undefined) {
+			orderedMetadata.estimate = metadata.estimate
+		}
+
+		if (metadata.effort !== undefined) {
+			orderedMetadata.effort = metadata.effort
+		}
+
+		if (metadata.risk !== undefined) {
+			orderedMetadata.risk = metadata.risk
+		}
+
+		if (metadata.dueDate !== undefined) {
+			orderedMetadata.dueDate = metadata.dueDate
+		}
+	}
+
 	orderedMetadata.createdAt = metadata.createdAt
 	orderedMetadata.updatedAt = metadata.updatedAt
 
@@ -234,8 +334,32 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 		orderedMetadata.dependsOn = metadata.dependsOn
 	}
 
+	if (metadata.schemaVersion === 2) {
+		if (metadata.related !== undefined) {
+			orderedMetadata.related = metadata.related
+		}
+
+		if (metadata.duplicates !== undefined) {
+			orderedMetadata.duplicates = metadata.duplicates
+		}
+
+		if (metadata.parent !== undefined) {
+			orderedMetadata.parent = metadata.parent
+		}
+	}
+
 	if (metadata.files !== undefined) {
 		orderedMetadata.files = metadata.files
+	}
+
+	if (metadata.schemaVersion === 2) {
+		if (metadata.directories !== undefined) {
+			orderedMetadata.directories = metadata.directories
+		}
+
+		if (metadata.projects !== undefined) {
+			orderedMetadata.projects = metadata.projects
+		}
 	}
 
 	return serializeFrontmatter(orderedMetadata, taskResult.data.body)

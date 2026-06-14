@@ -55,6 +55,7 @@ Canonical project state lives under `.taskset/`.
 ├── decisions/
 ├── releases/
 ├── runbooks/
+├── snapshots/
 ├── generated/
 └── cache/
 ```
@@ -69,6 +70,8 @@ Rules:
 - Do not store the same field independently in frontmatter and body.
 - `generated/` and `cache/` are derived, disposable, and never required to
   recover canonical state.
+- `snapshots/` contains immutable, non-authoritative safety checkpoints for
+  migrations and explicit restore workflows.
 - An in-memory index or optional on-disk cache may accelerate reads, but it must
   be rebuildable from canonical files.
 - Do not introduce SQLite, a remote service, browser storage, editor global
@@ -86,7 +89,7 @@ and failure behavior before implementation.
 | Path | Ownership |
 | --- | --- |
 | `packages/contracts/` | Shared entity schemas, enums, DTOs, configuration types, and integration contracts; package `@taskset/contracts` |
-| `packages/utils/` | Reusable domain-light filesystem, path, Markdown, and frontmatter primitives; package `@taskset/utils` |
+| `packages/utils/` | Reusable domain-light date, filesystem, path, Markdown, and frontmatter primitives; package `@taskset/utils` |
 | `packages/core/` | Entity operations, parsing orchestration, validation, storage, indexing, graph rules, search, filtering, project discovery, and impact analysis; package `@taskset/core` |
 | `packages/cli/` | Command-line adapter over core; package `@taskset/cli` |
 | `packages/tui/` | Keyboard-driven terminal interface over core; package `@taskset/tui` |
@@ -180,6 +183,7 @@ Core owns behavior such as:
 - cycle and broken-reference detection
 - monorepo project and package discovery
 - code-path relationships and impact analysis
+- immutable snapshots, schema migrations, and generated metadata views
 
 Interfaces own input, rendering, transport, and user interaction. They call core
 operations rather than reproducing these rules.
@@ -276,9 +280,8 @@ does not become a second implementation of Taskset rules.
 Git commits and branches are the normal history and rollback mechanism. Do not
 duplicate that history in a Taskset-owned snapshot database.
 
-A future explicit snapshot capability is acceptable only as a safety mechanism
-for uncommitted state before migrations, imports, repair commands, or bulk
-mutation:
+The explicit snapshot capability is a safety mechanism for uncommitted state
+before migrations, restore operations, imports, repairs, or bulk mutation:
 
 - snapshots are user-invoked or created immediately before a destructive
   operation
@@ -290,8 +293,9 @@ mutation:
 - restore is explicit and conflict-aware
 - snapshots do not replace Git commits, reflogs, or normal backups
 
-Do not include snapshots in the MVP unless a destructive workflow requires
-them. Start with dry runs, atomic writes, and Git-aware warnings.
+`taskset migrate --to 2` and snapshot restore preview by default. Migration
+`--apply` creates a snapshot before atomically rewriting tasks. Restore requires
+`--apply` and atomically reconciles canonical task files.
 
 ## Documentation Architecture
 
@@ -351,6 +355,7 @@ Treat these as generated or ephemeral unless an owning tool says otherwise:
 - `.turbo/`, coverage, logs, and `*.tsbuildinfo`
 - `.taskset/cache/`
 - `.taskset/generated/`
+- `.taskset/snapshots/`
 - Nextra and Next.js generated website output
 
 Change the source or generator, then regenerate. Never make a manual output edit

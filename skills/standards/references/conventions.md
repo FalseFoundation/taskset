@@ -40,6 +40,10 @@
   operations.
 - Comment format constraints and non-obvious tradeoffs. Do not narrate obvious
   code.
+- Add focused TSDoc to non-obvious public APIs and short orienting comments
+  around complex algorithms, transactions, migrations, synchronization, and
+  validation. Do not document obvious assignments or straightforward control
+  flow.
 - Keep diffs narrow. Do not combine behavior changes with unrelated renaming or
   cleanup.
 
@@ -92,7 +96,7 @@ instead of documenting aliases for accidental scaffold state.
 Command names use lowercase kebab-case:
 
 ```text
-taskset tasks-for-file
+taskset task list --file packages/core --impact
 taskset context-bundle
 ```
 
@@ -148,7 +152,7 @@ Use YAML frontmatter for machine metadata and Markdown for human context:
 
 ```markdown
 ---
-schemaVersion: 1
+schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
@@ -175,9 +179,9 @@ Rules:
 
 - Require `schemaVersion`, `id`, `title`, `status`, `createdAt`, and
   `updatedAt`.
-- Accept `priority`, `labels`, `dependsOn`, and `files` as optional fields.
-- Use `schemaVersion: 1` for the initial task format and reject unsupported
-  versions.
+- Read schema versions 1 and 2. Serialize new and modified tasks as v2.
+- Accept schema v2 people, planning, canonical relationship, path, and project
+  metadata only through the shared strict schema.
 - Use `todo`, `doing`, `blocked`, `done`, and `canceled` for task status.
 - Use `low`, `medium`, `high`, and `urgent` for task priority.
 - Priority is the sole measure of task importance. Do not add a second,
@@ -196,9 +200,14 @@ Rules:
 - Omit absent optional fields consistently; do not alternate between missing,
   empty, and `null` without schema meaning.
 - Validate enum values, dates, paths, IDs, and relationship targets centrally.
+- Validate normalized CLI arguments and public core inputs with Zod schemas.
+  Keep `parseArgs` limited to tokenization and use `superRefine` for
+  cross-option rules.
 - Do not infer `updatedAt` or lifecycle timestamps differently in each client.
 - Do not write derived inverse relationships into files unless the schema makes
   them independently authoritative.
+- Keep `dependsOn`, `related`, `duplicates`, and `parent` canonical. Derive
+  `blockedBy`, `blocks`, `children`, and `subtasks`.
 - Treat schema additions, removals, defaults, and coercions as compatibility
   decisions.
 - Reject unknown fields, duplicate list values, self-dependencies,
@@ -211,13 +220,18 @@ orchestration, defaults, transitions, validation policy, and migrations in
 `@taskset/core`. Keep generic YAML/Markdown mechanics in `@taskset/utils` only
 when they are not Taskset-specific.
 
+Put generic date, time, and mathematical operations in `@taskset/utils` when
+they have no task-domain policy. Prefer names such as `parseDate` over
+task-specific wrappers such as `parseTaskDate`.
+
 ## CLI and Interface Behavior
 
 - Keep CLI commands thin: parse arguments, call core, render results, map errors
   to exit codes.
 - Current CLI commands are `taskset init`, `taskset config`, `taskset doctor`,
-  `taskset tasks-for-file`, and `taskset task create`, `list`, `show`,
-  `update`, `status`, and `delete`.
+  `taskset generate`, `taskset migrate`, `taskset snapshot create`, `list`,
+  `restore`, and `taskset task create`, `list`, `show`, `update`, `status`, and
+  `delete`.
 - Reserve stdout for requested output and stderr for diagnostics.
 - Avoid interactive prompts when flags or stdin make automation possible.
 - Provide deterministic structured output before integrations depend on parsing

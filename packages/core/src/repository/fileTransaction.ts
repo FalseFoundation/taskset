@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto'
 import { link, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import * as z from 'zod'
 
 export interface FileTransactionOperation {
 	readonly targetPath: string
 	readonly contents: string | null
 	readonly expectedContents?: string | null
 }
+
+export const FileTransactionOperationSchema = z.strictObject({
+	targetPath: z.string().min(1),
+	contents: z.string().nullable(),
+	expectedContents: z.string().nullable().optional(),
+}) satisfies z.ZodType<FileTransactionOperation>
 
 export type FileTransactionErrorCode = 'stale' | 'mutation' | 'rollback'
 
@@ -71,10 +78,16 @@ async function cleanupArtifacts(
 	)
 }
 
+/**
+ * Applies a deterministic set of optimistic file mutations. All replacements
+ * are staged before commit, and completed mutations are rolled back from hard
+ * links if a later operation fails.
+ */
 export async function applyFileTransaction(
 	operations: readonly FileTransactionOperation[],
 ): Promise<void> {
-	const orderedOperations = [...operations].sort((left, right) =>
+	const validatedOperations = z.array(FileTransactionOperationSchema).parse(operations)
+	const orderedOperations = [...validatedOperations].sort((left, right) =>
 		left.targetPath.localeCompare(right.targetPath),
 	)
 	const duplicatePath = orderedOperations.find(
@@ -92,6 +105,8 @@ export async function applyFileTransaction(
 
 	const prepared: PreparedOperation[] = []
 
+	// Preparation captures optimistic-read state and creates every temporary
+	// file and backup before any canonical target is changed.
 	try {
 		for (const operation of orderedOperations) {
 			const originalContents = await readOptionalFile(operation.targetPath)
@@ -155,6 +170,8 @@ export async function applyFileTransaction(
 
 	const mutated: PreparedOperation[] = []
 
+	// Commit in path order. The reverse rollback below restores the exact
+	// original contents for every operation that completed before a failure.
 	try {
 		for (const operation of prepared) {
 			if (operation.contents === null) {

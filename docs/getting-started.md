@@ -43,7 +43,8 @@ taskset.config.ts
 
 The config controls validated defaults. Task Markdown under `.taskset/tasks/`
 remains the canonical project state. The nested ignore file excludes
-`.taskset/cache/` and `.taskset/generated/` because both are rebuildable.
+`.taskset/cache/`, `.taskset/generated/`, and `.taskset/snapshots/`.
+Snapshots are non-authoritative safety checkpoints; tasks remain canonical.
 
 ## Create And Inspect Work
 
@@ -60,14 +61,29 @@ Task files can also be read and reviewed directly without Taskset installed.
 
 ```bash
 pnpm exec taskset task list --status doing --label core --json
-pnpm exec taskset tasks-for-file packages/core --impact --json
+pnpm exec taskset task list --file packages/core --impact --json
 pnpm exec taskset doctor
 ```
 
-`tasks-for-file` matches normalized repository-relative files and directories.
-With `--impact`, it also returns tasks that transitively depend on direct
-matches. `doctor` reports all readable format and graph failures in one
+File and directory filters use normalized repository-relative containment
+matching. With `--impact`, list output groups direct matches and tasks that
+transitively depend on them. Other filters select the direct set before graph
+expansion. `doctor` reports all readable format and graph failures in one
 non-mutating pass.
+
+## Generated Views And Migration
+
+```bash
+pnpm exec taskset generate
+pnpm exec taskset snapshot create
+pnpm exec taskset snapshot list
+pnpm exec taskset migrate --to 2
+pnpm exec taskset migrate --to 2 --apply
+```
+
+Migration previews by default. Applying it snapshots canonical tasks first,
+then rewrites schema v1 files to v2 atomically. Snapshot restore also previews
+unless `--apply` is present.
 
 ## Complete Or Remove Work
 

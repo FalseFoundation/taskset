@@ -109,7 +109,7 @@ Unicode: سلام
 		[
 			'duplicate list values',
 			canonicalSource.replace('labels:\n  - core', 'labels:\n  - core\n  - core'),
-			'validation',
+			'schema',
 		],
 		[
 			'an updatedAt value earlier than createdAt',
@@ -148,6 +148,46 @@ describe('serializeTaskFile', () => {
 
 	it('round-trips an empty Markdown body', () => {
 		const source = canonicalSource.replace('\n# Context\n\nPreserve human-authored Markdown.\n', '')
+
+		expect(serializeTaskFile(parseTaskFile(source))).toBe(source)
+	})
+
+	it('round-trips schema v2 metadata in deterministic order', () => {
+		const source = canonicalSource
+			.replace('schemaVersion: 1', 'schemaVersion: 2')
+			.replace(
+				'createdAt: 2026-06-12',
+				`owner: platform
+assignees:
+  - maintainer
+reviewers:
+  - reviewer
+team: core
+estimate: 90
+effort: 3
+risk: high
+dueDate: 2026-06-30
+createdAt: 2026-06-12`,
+			)
+			.replace(
+				'files:',
+				`related:
+  - TS-01J00000000000000000000001
+duplicates:
+  - TS-01J00000000000000000000002
+parent: TS-01J00000000000000000000003
+files:`,
+			)
+			.replace(
+				'---\n\n# Context',
+				`directories:
+  - packages/core
+projects:
+  - taskset
+---
+
+# Context`,
+			)
 
 		expect(serializeTaskFile(parseTaskFile(source))).toBe(source)
 	})

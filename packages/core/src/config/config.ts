@@ -12,6 +12,8 @@ import {
 export const CONFIG_FILE_NAME = 'taskset.config.ts'
 export const DATA_DIRECTORY_NAME = '.taskset'
 export const TASKS_DIRECTORY_NAME = 'tasks'
+export const GENERATED_DIRECTORY_NAME = 'generated'
+export const SNAPSHOTS_DIRECTORY_NAME = 'snapshots'
 
 export interface ResolvedTaskDefaults {
 	readonly status: TaskStatus
@@ -35,6 +37,8 @@ export interface Repository {
 	readonly configPath: string
 	readonly dataDirectory: string
 	readonly tasksDirectory: string
+	readonly generatedDirectory: string
+	readonly snapshotsDirectory: string
 	readonly config: ResolvedConfig
 }
 
@@ -200,6 +204,8 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 		configPath,
 		dataDirectory,
 		tasksDirectory: path.join(dataDirectory, TASKS_DIRECTORY_NAME),
+		generatedDirectory: path.join(dataDirectory, GENERATED_DIRECTORY_NAME),
+		snapshotsDirectory: path.join(dataDirectory, SNAPSHOTS_DIRECTORY_NAME),
 		config: resolveConfig(configResult.data),
 	})
 }

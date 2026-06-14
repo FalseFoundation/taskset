@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-	formatTaskTimestamp,
-	parseTaskTimestamp,
 	TASK_PRIORITIES,
+	TASK_RISKS,
 	TASK_STATUSES,
 	TaskFileSchema,
 	TaskMetadataSchema,
 } from './task.ts'
 
-const validMetadata = {
+const validV1Metadata = {
 	schemaVersion: 1,
 	id: 'TS-01J00000000000000000000000',
 	title: 'Add deterministic task parsing',
@@ -21,65 +20,71 @@ const validMetadata = {
 	files: ['packages/core/src/tasks/taskFile.ts'],
 } as const
 
+const validV2Metadata = {
+	...validV1Metadata,
+	schemaVersion: 2,
+	owner: 'platform',
+	assignees: ['maintainer'],
+	reviewers: ['reviewer'],
+	team: 'core',
+	estimate: 90,
+	effort: 3,
+	risk: 'high',
+	dueDate: '2026-06-30',
+	related: ['TS-01J00000000000000000000001'],
+	duplicates: ['TS-01J00000000000000000000002'],
+	parent: 'TS-01J00000000000000000000003',
+	directories: ['packages/core'],
+	projects: ['taskset'],
+} as const
+
 describe('TaskMetadataSchema', () => {
-	it('accepts the canonical task metadata shape', () => {
-		expect(TaskMetadataSchema.parse(validMetadata)).toEqual(validMetadata)
+	it('accepts strict schema versions 1 and 2', () => {
+		expect(TaskMetadataSchema.parse(validV1Metadata)).toEqual(validV1Metadata)
+		expect(TaskMetadataSchema.parse(validV2Metadata)).toEqual(validV2Metadata)
 		expect(TASK_STATUSES).toContain('doing')
 		expect(TASK_PRIORITIES).toContain('high')
+		expect(TASK_RISKS).toContain('critical')
 	})
 
 	it.each([
-		['schemaVersion', { ...validMetadata, schemaVersion: 2 }],
-		['id', { ...validMetadata, id: 'TS-1' }],
-		['status', { ...validMetadata, status: 'in-progress' }],
-		['priority', { ...validMetadata, priority: 'critical' }],
-		['createdAt', { ...validMetadata, createdAt: '2026-02-30' }],
-		['updatedAt', { ...validMetadata, updatedAt: '2026-06-12 24:00 UTC' }],
+		['schemaVersion', { ...validV1Metadata, schemaVersion: 3 }],
+		['id', { ...validV1Metadata, id: 'TS-1' }],
+		['status', { ...validV1Metadata, status: 'in-progress' }],
+		['priority', { ...validV1Metadata, priority: 'critical' }],
+		['createdAt', { ...validV1Metadata, createdAt: '2026-02-30' }],
+		['updatedAt', { ...validV1Metadata, updatedAt: '2026-06-12 24:00 UTC' }],
+		['estimate', { ...validV2Metadata, estimate: 1.5 }],
+		['effort', { ...validV2Metadata, effort: -1 }],
+		['risk', { ...validV2Metadata, risk: 'severe' }],
+		['dueDate', { ...validV2Metadata, dueDate: 'tomorrow' }],
+		['assignees', { ...validV2Metadata, assignees: ['maintainer', 'maintainer'] }],
 	])('rejects an invalid %s', (_, metadata) => {
 		expect(TaskMetadataSchema.safeParse(metadata).success).toBe(false)
 	})
 
-	it('accepts legacy ISO timestamps while formatting new timestamps for humans', () => {
+	it('keeps v1 strict while allowing v2 fields only in v2', () => {
+		expect(TaskMetadataSchema.safeParse({ ...validV1Metadata, owner: 'platform' }).success).toBe(
+			false,
+		)
+		expect(TaskMetadataSchema.safeParse({ ...validV2Metadata, blocks: [] }).success).toBe(false)
+	})
+
+	it('accepts documented legacy ISO timestamps', () => {
 		expect(
 			TaskMetadataSchema.safeParse({
-				...validMetadata,
+				...validV2Metadata,
 				createdAt: '2026-06-12T00:00:00.000Z',
 				updatedAt: '2026-06-12T01:02:03.004Z',
 			}).success,
 		).toBe(true)
-		expect(parseTaskTimestamp('2026-06-12 01:02 UTC')).toBe(Date.UTC(2026, 5, 12, 1, 2))
-		expect(formatTaskTimestamp(new Date('2026-06-12T01:02:03.004Z'))).toBe('2026-06-12 01:02 UTC')
-		expect(formatTaskTimestamp(new Date('2026-06-12T01:02:03.004Z'), { includeTime: false })).toBe(
-			'2026-06-12',
-		)
-	})
-
-	it('rejects unknown metadata fields instead of discarding them', () => {
-		const result = TaskMetadataSchema.safeParse({
-			...validMetadata,
-			blocks: ['TS-01J11111111111111111111111'],
-		})
-
-		expect(result.success).toBe(false)
-	})
-
-	it('accepts omitted optional metadata consistently', () => {
-		const {
-			dependsOn: _dependsOn,
-			files: _files,
-			labels: _labels,
-			priority: _priority,
-			...required
-		} = validMetadata
-
-		expect(TaskMetadataSchema.parse(required)).toEqual(required)
 	})
 })
 
 describe('TaskFileSchema', () => {
 	it('keeps Markdown body content separate from metadata', () => {
 		const task = {
-			metadata: validMetadata,
+			metadata: validV2Metadata,
 			body: '# Context\n\nKeep this text human-readable.\n',
 		}
 

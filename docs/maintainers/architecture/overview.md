@@ -53,9 +53,12 @@ src/
 │   └── infrastructure/
 ├── diagnostics/
 ├── graph/
+├── generated/
 ├── indexing/
+├── migrations/
 ├── projects/
 ├── search/
+├── snapshots/
 ├── sync/
 └── repository/
 ```
@@ -78,6 +81,17 @@ systems-level components.
 
 Relational adapters prefer MariaDB for smaller applications and PostgreSQL for
 larger or more advanced workloads. No database becomes canonical Taskset state.
+
+## Persistence Projections
+
+Canonical tasks live in `.taskset/tasks/`. Schema v1 remains readable while new
+and modified tasks use v2. Migration is explicit, dry-run by default, and
+snapshots before atomic apply.
+
+`.taskset/generated/` contains deterministic status, priority, project, and
+assignee indexes. `.taskset/cache/` and generated views are disposable.
+`.taskset/snapshots/` contains immutable safety checkpoints and is not normal
+history or a second source of truth.
 
 ## Documentation
 

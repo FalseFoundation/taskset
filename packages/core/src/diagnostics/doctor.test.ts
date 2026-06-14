@@ -46,7 +46,7 @@ describe('repository doctor', () => {
 
 		expect(result.valid).toBe(false)
 		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('frontmatter')
-		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('cycle')
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('dependency-cycle')
 		expect(await readFile(firstPath, 'utf8')).toBe(before)
 	})
 })

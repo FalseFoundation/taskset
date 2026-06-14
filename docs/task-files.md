@@ -5,77 +5,98 @@ description: The canonical Markdown representation for Taskset work items.
 
 # Task Files
 
-Task files live under `.taskset/tasks/`. Each file combines YAML frontmatter for
-structured fields with Markdown for durable human context.
+Task files live under `.taskset/tasks/`. YAML frontmatter owns structured
+metadata and the Markdown body owns durable human context.
 
 ```markdown
 ---
-schemaVersion: 1
+schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
 priority: high
+owner: platform
+assignees:
+  - maintainer
+reviewers:
+  - reviewer
+team: core
+estimate: 90
+effort: 3
+risk: high
+dueDate: 2026-06-30
 createdAt: 2026-06-12
 updatedAt: 2026-06-12 09:30 UTC
 labels:
   - core
 dependsOn: []
+related: []
+duplicates: []
 files:
-  - packages/core/src/tasks/validateTask.ts
+  - packages/core/src/tasks/taskFile.ts
+directories:
+  - packages/core
+projects:
+  - taskset
 ---
 
 # Context
 
 Explain why the task exists.
-
-# Acceptance Criteria
-
-- [ ] Invalid statuses produce an actionable diagnostic.
 ```
 
 ## Canonical Data
 
-- Frontmatter owns machine-readable metadata.
-- The Markdown body owns narrative context and checklists.
-- A value must not have two independently editable representations.
-- `schemaVersion`, `id`, `title`, `status`, `createdAt`, and `updatedAt` are
-  required.
-- `priority`, `labels`, `dependsOn`, and `files` are optional. When present,
-  empty arrays have explicit meaning and are preserved.
-- Task IDs use `TS-` followed by a 26-character uppercase ULID and are
-  immutable.
-- Status values are `todo`, `doing`, `blocked`, `done`, or `canceled`.
-- Priority values are `low`, `medium`, `high`, or `urgent`.
-- Timestamps use human-readable UTC strings. Use `YYYY-MM-DD` when the date is
-  enough, or `YYYY-MM-DD HH:mm UTC` when the hour and minute matter. Existing
-  ISO 8601 UTC timestamps remain readable for compatibility.
-- Code references use repository-relative POSIX paths.
-- Unknown fields, duplicate list values, self-dependencies, path traversal, and
-  timestamps earlier than `createdAt` are rejected.
+Required fields are `schemaVersion`, `id`, `title`, `status`, `createdAt`, and
+`updatedAt`. Task IDs are immutable `TS-` prefixed ULIDs.
 
-## Compatibility
+Schema v2 supports these optional fields:
 
-The initial format is `schemaVersion: 1`. Unsupported versions are rejected
-instead of guessed or silently rewritten. There is no legacy task format to
-migrate yet.
+- Planning: `priority`, `estimate` in integer minutes, `effort` as a finite
+  nonnegative number, `risk`, and `dueDate`
+- People: `owner`, `assignees`, `reviewers`, and `team`
+- Relationships: `dependsOn`, `related`, `duplicates`, and `parent`
+- Scope: `labels`, `files`, `directories`, and `projects`
+
+People and project values are trimmed free-form strings. Arrays must not
+contain duplicates. Paths are normalized repository-relative POSIX paths.
+Dates use `YYYY-MM-DD` or `YYYY-MM-DD HH:mm UTC`; documented legacy
+millisecond ISO UTC timestamps remain readable.
+
+Unknown fields, invalid enum values, self-links, duplicate list values, path
+traversal, and an `updatedAt` earlier than `createdAt` are rejected.
+
+## Compatibility And Migration
+
+Taskset reads schema versions 1 and 2. New and modified tasks serialize as v2.
+
+```bash
+taskset migrate --to 2
+taskset migrate --to 2 --apply
+```
+
+Migration previews by default. Applying it creates an immutable snapshot and
+atomically rewrites v1 files. Reads never silently rewrite canonical data.
 
 ## Relationships
 
-Taskset stores one canonical relationship direction when another direction can
-be derived. For example, `blocks` should be derived from another task's
-`dependsOn` rather than independently maintained.
+`dependsOn`, `related`, `duplicates`, and `parent` are canonical. Taskset
+derives:
 
-The graph must detect duplicate IDs, missing references, and dependency cycles.
-`blocks` is always derived from `dependsOn`. Stable graph traversal orders task
-IDs lexically where relationship order has no domain meaning.
+- `blockedBy`: direct dependencies
+- `blocks`: direct inverse dependencies
+- `children`: direct inverse parents
+- `subtasks`: all transitive descendants
 
-## Writes
+Use `--include-derived` with task list or JSON task show output. Derived values
+are never written to canonical Markdown. The graph validates missing targets,
+self-links, dependency cycles, and parent cycles.
 
-Taskset provides strict parsing, deterministic serialization, repository
-discovery, failure-safe creation, update, lifecycle, and deletion operations.
-It normalizes line endings to LF, writes fields in canonical order, preserves
-meaningful Markdown content, and emits one final newline. Reads never silently
-repair invalid data.
+## Writes And Lifecycle
+
+Taskset serializes fields deterministically, normalizes line endings to LF,
+preserves the Markdown body, and emits one final newline. Canonical mutations
+use failure-safe file operations.
 
 Allowed lifecycle transitions are:
 
@@ -84,27 +105,36 @@ Allowed lifecycle transitions are:
 - `blocked` to `todo`, `doing`, or `canceled`
 - `done` and `canceled` are terminal
 
-Task deletion is rejected when inbound dependencies exist. The explicit
-`--remove-dependencies` repair option updates dependents and removes the target
-as one failure-safe operation.
-
-`taskset doctor` scans all canonical files and returns deterministic,
-non-mutating diagnostics for malformed frontmatter, schema failures, unsafe
-paths, duplicate IDs, missing references, self-dependencies, and cycles.
+Deletion is rejected while another task has an inbound canonical relationship
+to the target. `--remove-dependencies` repairs those references and removes the
+target in one transaction.
 
 ## Queries And Derived State
 
-Filtering, sorting, title/body text search, graph traversal, and file-impact
-queries are deterministic core operations. Text search uses Unicode NFKC
-normalization and locale-aware lowercase matching.
+`task list` supports metadata, text, file, and directory filters. File and
+directory matching uses normalized containment:
 
-The in-memory task index and optional `.taskset/cache/task-index-v1.json` cache
-are disposable. Canonical task files are always read to validate the cache
-fingerprint. Missing, stale, or corrupt cache data is rebuilt without changing
-task files.
+```bash
+taskset task list --file packages/core --impact --json
+```
 
-## History
+With `--impact`, other filters select direct matches first, then the graph adds
+tasks that transitively depend on them.
 
-Git is the normal history for task files. Taskset-specific snapshots, when
-introduced, are limited to explicit safety checkpoints around destructive
-operations.
+`.taskset/cache/` and `.taskset/generated/` are disposable. Generated status,
+priority, project, and assignee indexes are deterministic projections and
+refresh on a best-effort basis after canonical mutations.
+
+## Snapshots
+
+Git remains the normal history. `.taskset/snapshots/` contains immutable,
+non-authoritative safety checkpoints:
+
+```bash
+taskset snapshot create
+taskset snapshot list
+taskset snapshot restore <snapshot-id>
+taskset snapshot restore <snapshot-id> --apply
+```
+
+Restore previews by default and requires `--apply` to mutate canonical tasks.

@@ -17,15 +17,15 @@ confuse authority.
 ## Decision
 
 - Git remains the normal task history and rollback system.
-- Do not include a general snapshot subsystem in the MVP.
 - Prefer dry runs, atomic writes, validation, diffs, and Git-aware warnings.
-- A future explicit snapshot feature may protect uncommitted state before
-  migrations, imports, repair commands, or bulk mutation.
+- The explicit snapshot subsystem protects uncommitted state before schema
+  migrations and supports user-invoked safety checkpoints.
 - Snapshots are immutable, non-authoritative, conflict-aware on restore, and
   removable without changing current project state.
+- Migration and restore preview by default. Migration snapshots before apply;
+  restore requires an explicit `--apply`.
 
 ## Consequences
 
-The MVP stays smaller and avoids hidden history. Snapshot work begins only when
-a concrete destructive workflow cannot be made adequately safe with Git and
-atomic file operations.
+Snapshots add a bounded recovery mechanism without becoming hidden history.
+They live under `.taskset/snapshots/`, remain disposable, and never replace Git.
