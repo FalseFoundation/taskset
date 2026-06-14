@@ -2,7 +2,7 @@
 	"name": "@taskset/utils",
 	"type": "module",
 	"private": false,
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"description": "Domain-light frontmatter and Markdown utilities for Taskset.",
 	"license": "MIT",
 	"author": {
