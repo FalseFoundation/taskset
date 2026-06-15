@@ -16,11 +16,12 @@ import {
 } from '@taskset/contracts'
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
-import type { Repository } from '../config/config.ts'
+import { type Repository, RepositorySchema } from '../config/config.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 import { parseTaskFile, serializeTaskFile, TaskFileError } from './taskFile.ts'
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -76,6 +77,17 @@ export interface CreateTaskOptions {
 	readonly onWarning?: (warning: CoreWarning) => void
 }
 
+const ClockSchema = z.custom<() => Date>((value) => typeof value === 'function')
+const WarningHandlerSchema = z.custom<(warning: CoreWarning) => void>(
+	(value) => typeof value === 'function',
+)
+
+export const CreateTaskOptionsSchema = z.strictObject({
+	createId: z.custom<(date: Date) => string>((value) => typeof value === 'function').optional(),
+	now: ClockSchema.optional(),
+	onWarning: WarningHandlerSchema.optional(),
+}) satisfies z.ZodType<CreateTaskOptions>
+
 export const UpdateTaskInputSchema = z
 	.strictObject({
 		title: TaskTitleSchema.optional(),
@@ -108,11 +120,22 @@ export interface UpdateTaskOptions {
 	readonly onWarning?: (warning: CoreWarning) => void
 }
 
+export const UpdateTaskOptionsSchema = z.strictObject({
+	now: ClockSchema.optional(),
+	onWarning: WarningHandlerSchema.optional(),
+}) satisfies z.ZodType<UpdateTaskOptions>
+
 export interface DeleteTaskOptions {
 	readonly removeDependencies?: boolean
 	readonly now?: () => Date
 	readonly onWarning?: (warning: CoreWarning) => void
 }
+
+export const DeleteTaskOptionsSchema = z.strictObject({
+	removeDependencies: z.boolean().optional(),
+	now: ClockSchema.optional(),
+	onWarning: WarningHandlerSchema.optional(),
+}) satisfies z.ZodType<DeleteTaskOptions>
 
 export interface CoreWarning {
 	readonly code: 'generated-view-refresh'
@@ -344,15 +367,16 @@ export function generateTaskId(
 }
 
 export async function listTasks(repository: Repository): Promise<readonly TaskRecord[]> {
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task repository')
 	let entries: Dirent<string>[]
 
 	try {
-		entries = await readdir(repository.tasksDirectory, { withFileTypes: true })
+		entries = await readdir(validatedRepository.tasksDirectory, { withFileTypes: true })
 	} catch (error) {
 		if (isNodeError(error, 'ENOENT')) {
 			throw new TaskRepositoryError(
 				'not-initialized',
-				`Taskset is not initialized in ${repository.rootDirectory}; run "taskset init"`,
+				`Taskset is not initialized in ${validatedRepository.rootDirectory}; run "taskset init"`,
 			)
 		}
 
@@ -365,8 +389,8 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 	for (const entry of entries
 		.filter((candidate) => candidate.isFile() && candidate.name.endsWith('.md'))
 		.sort((left, right) => left.name.localeCompare(right.name))) {
-		const absolutePath = path.join(repository.tasksDirectory, entry.name)
-		const relativePath = toRepositoryRelativePath(repository, absolutePath)
+		const absolutePath = path.join(validatedRepository.tasksDirectory, entry.name)
+		const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 
 		try {
 			const task = parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath })
@@ -408,6 +432,7 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 }
 
 export async function readTask(repository: Repository, taskId: string): Promise<TaskRecord> {
+	parseCoreInput(RepositorySchema, repository, 'task read repository')
 	const validatedTaskId = parseTaskId(taskId)
 	const record = (await listTasks(repository)).find(
 		(candidate) => candidate.task.metadata.id === validatedTaskId,
@@ -427,16 +452,22 @@ export async function createTask(
 	input: CreateTaskInput,
 	options: CreateTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedRepository = parseCoreInput(
+		RepositorySchema,
+		repository,
+		'task creation repository',
+	)
 	const validatedInput = parseInput(CreateTaskInputSchema, input, 'task creation')
-	const now = options.now?.() ?? new Date()
-	const taskId = options.createId?.(now) ?? generateTaskId(now)
+	const validatedOptions = parseCoreInput(CreateTaskOptionsSchema, options, 'task creation options')
+	const now = validatedOptions.now?.() ?? new Date()
+	const taskId = validatedOptions.createId?.(now) ?? generateTaskId(now)
 	parseTaskId(taskId)
 	const timestamp = formatDate(now)
-	const defaults = repository.config.tasks.defaults
+	const defaults = validatedRepository.config.tasks.defaults
 	const priority = validatedInput.priority ?? defaults.priority
 	const labels = validatedInput.labels ?? defaults.labels
 
-	validateConfiguredPriority(repository, priority)
+	validateConfiguredPriority(validatedRepository, priority)
 
 	const task: TaskFile = {
 		metadata: {
@@ -466,11 +497,11 @@ export async function createTask(
 		},
 		body: validatedInput.body ?? '',
 	}
-	const absolutePath = path.join(repository.tasksDirectory, `${taskId}.md`)
-	const relativePath = toRepositoryRelativePath(repository, absolutePath)
+	const absolutePath = path.join(validatedRepository.tasksDirectory, `${taskId}.md`)
+	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 	const contents = serializeTaskFile(task, { filePath: relativePath })
 	const parsedTask = parseTaskFile(contents, { filePath: relativePath })
-	const existingRecords = await listTasks(repository)
+	const existingRecords = await listTasks(validatedRepository)
 
 	if (existingRecords.some((record) => record.task.metadata.id === taskId)) {
 		throw new TaskRepositoryError('task-exists', `Task ${taskId} already exists`, {
@@ -487,7 +518,7 @@ export async function createTask(
 		if (isNodeError(error, 'ENOENT')) {
 			throw new TaskRepositoryError(
 				'not-initialized',
-				`Taskset is not initialized in ${repository.rootDirectory}; run "taskset init"`,
+				`Taskset is not initialized in ${validatedRepository.rootDirectory}; run "taskset init"`,
 			)
 		}
 
@@ -502,8 +533,8 @@ export async function createTask(
 		throw error
 	}
 
-	await invalidateTaskIndex(repository)
-	await refreshGeneratedViews(repository, options.onWarning)
+	await invalidateTaskIndex(validatedRepository)
+	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
 	return freezeRecord(relativePath, parsedTask)
 }
 
@@ -513,9 +544,11 @@ export async function updateTask(
 	input: UpdateTaskInput,
 	options: UpdateTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task update repository')
 	const validatedTaskId = parseTaskId(taskId)
 	const validatedInput = parseInput(UpdateTaskInputSchema, input, 'task update')
-	const records = await listTasks(repository)
+	const validatedOptions = parseCoreInput(UpdateTaskOptionsSchema, options, 'task update options')
+	const records = await listTasks(validatedRepository)
 	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
@@ -524,8 +557,8 @@ export async function updateTask(
 		})
 	}
 
-	const absolutePath = path.join(repository.rootDirectory, existing.relativePath)
-	const originalContents = await readTaskContents(repository, existing, validatedTaskId)
+	const absolutePath = path.join(validatedRepository.rootDirectory, existing.relativePath)
+	const originalContents = await readTaskContents(validatedRepository, existing, validatedTaskId)
 	const current = parseTaskFile(originalContents, { filePath: existing.relativePath })
 
 	if (current.metadata.id !== validatedTaskId) {
@@ -543,7 +576,7 @@ export async function updateTask(
 			? undefined
 			: (validatedInput.priority ?? current.metadata.priority)
 	validateStatusTransition(current.metadata.status, nextStatus)
-	validateConfiguredPriority(repository, nextPriority)
+	validateConfiguredPriority(validatedRepository, nextPriority)
 
 	const updatedTask: TaskFile = {
 		metadata: {
@@ -560,7 +593,7 @@ export async function updateTask(
 			effort: resolveOptional(validatedInput.effort, currentV2?.effort),
 			risk: resolveOptional<TaskRisk>(validatedInput.risk, currentV2?.risk),
 			dueDate: resolveOptional(validatedInput.dueDate, currentV2?.dueDate),
-			updatedAt: formatDate(options.now?.() ?? new Date()),
+			updatedAt: formatDate(validatedOptions.now?.() ?? new Date()),
 			...(validatedInput.labels !== undefined ? { labels: validatedInput.labels } : {}),
 			...(validatedInput.dependsOn !== undefined ? { dependsOn: validatedInput.dependsOn } : {}),
 			related: validatedInput.related ?? currentV2?.related,
@@ -597,8 +630,8 @@ export async function updateTask(
 		throw error
 	}
 
-	await invalidateTaskIndex(repository)
-	await refreshGeneratedViews(repository, options.onWarning)
+	await invalidateTaskIndex(validatedRepository)
+	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
 	return updatedRecord
 }
 
@@ -607,8 +640,14 @@ export async function deleteTask(
 	taskId: string,
 	options: DeleteTaskOptions = {},
 ): Promise<TaskRecord> {
+	const validatedRepository = parseCoreInput(
+		RepositorySchema,
+		repository,
+		'task deletion repository',
+	)
 	const validatedTaskId = parseTaskId(taskId)
-	const records = await listTasks(repository)
+	const validatedOptions = parseCoreInput(DeleteTaskOptionsSchema, options, 'task deletion options')
+	const records = await listTasks(validatedRepository)
 	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
@@ -632,7 +671,7 @@ export async function deleteTask(
 		)
 	})
 
-	if (inboundReferences.length > 0 && !options.removeDependencies) {
+	if (inboundReferences.length > 0 && !validatedOptions.removeDependencies) {
 		throw new TaskRepositoryError(
 			'task-dependency-blocked',
 			`Task ${validatedTaskId} cannot be deleted because it is referenced by ${inboundReferences
@@ -642,11 +681,15 @@ export async function deleteTask(
 		)
 	}
 
-	const timestamp = formatDate(options.now?.() ?? new Date())
+	const timestamp = formatDate(validatedOptions.now?.() ?? new Date())
 	const possibleRepairs = await Promise.all(
 		inboundReferences.map(async (record) => {
-			const absolutePath = path.join(repository.rootDirectory, record.relativePath)
-			const originalContents = await readTaskContents(repository, record, record.task.metadata.id)
+			const absolutePath = path.join(validatedRepository.rootDirectory, record.relativePath)
+			const originalContents = await readTaskContents(
+				validatedRepository,
+				record,
+				record.task.metadata.id,
+			)
 			const currentTask = parseTaskFile(originalContents, { filePath: record.relativePath })
 			const currentV2 = currentTask.metadata.schemaVersion === 2 ? currentTask.metadata : undefined
 
@@ -680,8 +723,8 @@ export async function deleteTask(
 	const operations = possibleRepairs.filter(
 		(operation): operation is NonNullable<typeof operation> => operation !== undefined,
 	)
-	const existingAbsolutePath = path.join(repository.rootDirectory, existing.relativePath)
-	const existingContents = await readTaskContents(repository, existing, validatedTaskId)
+	const existingAbsolutePath = path.join(validatedRepository.rootDirectory, existing.relativePath)
+	const existingContents = await readTaskContents(validatedRepository, existing, validatedTaskId)
 	const currentTarget = parseTaskFile(existingContents, { filePath: existing.relativePath })
 
 	if (currentTarget.metadata.id !== validatedTaskId) {
@@ -713,7 +756,7 @@ export async function deleteTask(
 		throw error
 	}
 
-	await invalidateTaskIndex(repository)
-	await refreshGeneratedViews(repository, options.onWarning)
+	await invalidateTaskIndex(validatedRepository)
+	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
 	return existing
 }

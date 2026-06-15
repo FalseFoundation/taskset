@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV3JHHPAAEXS6KY18EZN6A21
 title: Finish Zod validation across public core boundaries
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-14 17:23 UTC
-updatedAt: 2026-06-14 17:23 UTC
+updatedAt: 2026-06-15 20:36 UTC
 labels:
   - validation
   - core

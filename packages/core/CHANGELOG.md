@@ -1,5 +1,11 @@
 # @taskset/core
 
+## 1.1.0
+
+### Minor Changes
+
+- Validate public core inputs consistently and report stable field-level issues through `CoreValidationError`.
+
 ## 1.0.0
 
 ### Major Changes

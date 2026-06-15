@@ -1,6 +1,12 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { CONFIG_FILE_NAME, loadRepository, type Repository } from '../config/config.ts'
+import {
+	CONFIG_FILE_NAME,
+	loadRepository,
+	type Repository,
+	RepositoryDirectorySchema,
+} from '../config/config.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 import { atomicWriteFileExclusive } from './atomicWrite.ts'
 
 export { CONFIG_FILE_NAME, loadRepository }
@@ -19,7 +25,9 @@ function isExistingFile(error: unknown): error is NodeJS.ErrnoException {
 }
 
 export async function initializeRepository(rootDirectory = process.cwd()): Promise<Repository> {
-	const resolvedRoot = path.resolve(rootDirectory)
+	const resolvedRoot = path.resolve(
+		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository initialization'),
+	)
 	const configPath = path.join(resolvedRoot, CONFIG_FILE_NAME)
 
 	await mkdir(resolvedRoot, { recursive: true })

@@ -1,4 +1,15 @@
+import { TaskFileSchema } from '@taskset/contracts'
+import * as z from 'zod'
 import type { TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
+
+export const TaskRecordSchema = z.strictObject({
+	relativePath: z.string().min(1),
+	task: TaskFileSchema,
+}) satisfies z.ZodType<TaskRecord>
+
+export const TaskRecordsSchema = z.array(TaskRecordSchema)
+const TaskGraphDirectionSchema = z.enum(['dependencies', 'blocks', 'children'])
 
 export type TaskGraphDiagnosticCode =
 	| 'duplicate-id'
@@ -121,7 +132,8 @@ function inspectCycles(
  * can report all graph failures in one deterministic pass.
  */
 export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskGraphDiagnostic[] {
-	const orderedRecords = [...records].sort(
+	const validatedRecords = parseCoreInput(TaskRecordsSchema, records, 'task graph inspection')
+	const orderedRecords = [...validatedRecords].sort(
 		(left, right) =>
 			compareText(left.task.metadata.id, right.task.metadata.id) ||
 			compareText(left.relativePath, right.relativePath),
@@ -241,7 +253,8 @@ export class TaskGraph {
 	readonly children: ReadonlyMap<string, readonly string[]>
 
 	constructor(records: readonly TaskRecord[]) {
-		const diagnostics = inspectTaskGraph(records)
+		const validatedRecords = parseCoreInput(TaskRecordsSchema, records, 'task graph construction')
+		const diagnostics = inspectTaskGraph(validatedRecords)
 
 		if (diagnostics.length > 0) {
 			throw new TaskGraphError(diagnostics)
@@ -253,7 +266,7 @@ export class TaskGraph {
 		const parents = new Map<string, string[]>()
 		const children = new Map<string, string[]>()
 
-		for (const record of [...records].sort((left, right) =>
+		for (const record of [...validatedRecords].sort((left, right) =>
 			compareText(left.task.metadata.id, right.task.metadata.id),
 		)) {
 			const { metadata } = record.task
@@ -286,18 +299,25 @@ export class TaskGraph {
 	}
 
 	traverse(taskId: string, direction: 'dependencies' | 'blocks' | 'children'): readonly string[] {
-		if (!this.records.has(taskId)) {
+		const validatedTaskId = parseCoreInput(z.string().min(1), taskId, 'task graph task ID')
+		const validatedDirection = parseCoreInput(
+			TaskGraphDirectionSchema,
+			direction,
+			'task graph direction',
+		)
+
+		if (!this.records.has(validatedTaskId)) {
 			return Object.freeze([])
 		}
 
 		const relationships =
-			direction === 'dependencies'
+			validatedDirection === 'dependencies'
 				? this.dependencies
-				: direction === 'blocks'
+				: validatedDirection === 'blocks'
 					? this.blocks
 					: this.children
 		const visited = new Set<string>()
-		const pending = [...(relationships.get(taskId) ?? [])]
+		const pending = [...(relationships.get(validatedTaskId) ?? [])]
 
 		while (pending.length > 0) {
 			pending.sort(compareText)
@@ -315,11 +335,13 @@ export class TaskGraph {
 	}
 
 	derive(taskId: string): DerivedTaskRelationships {
+		const validatedTaskId = parseCoreInput(z.string().min(1), taskId, 'task graph task ID')
+
 		return Object.freeze({
-			blockedBy: Object.freeze([...(this.dependencies.get(taskId) ?? [])]),
-			blocks: Object.freeze([...(this.blocks.get(taskId) ?? [])]),
-			children: Object.freeze([...(this.children.get(taskId) ?? [])]),
-			subtasks: this.traverse(taskId, 'children'),
+			blockedBy: Object.freeze([...(this.dependencies.get(validatedTaskId) ?? [])]),
+			blocks: Object.freeze([...(this.blocks.get(validatedTaskId) ?? [])]),
+			children: Object.freeze([...(this.children.get(validatedTaskId) ?? [])]),
+			subtasks: this.traverse(validatedTaskId, 'children'),
 		})
 	}
 }

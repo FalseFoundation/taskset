@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { link, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as z from 'zod'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export interface FileTransactionOperation {
 	readonly targetPath: string
@@ -86,7 +87,11 @@ async function cleanupArtifacts(
 export async function applyFileTransaction(
 	operations: readonly FileTransactionOperation[],
 ): Promise<void> {
-	const validatedOperations = z.array(FileTransactionOperationSchema).parse(operations)
+	const validatedOperations = parseCoreInput(
+		z.array(FileTransactionOperationSchema),
+		operations,
+		'file transaction',
+	)
 	const orderedOperations = [...validatedOperations].sort((left, right) =>
 		left.targetPath.localeCompare(right.targetPath),
 	)

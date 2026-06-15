@@ -5,6 +5,7 @@ import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 const GENERATED_MANIFEST_VERSION = 1
 
@@ -113,7 +114,7 @@ export async function generateViews(
 	repository: Repository,
 	options: GenerateViewsOptions = {},
 ): Promise<GeneratedViewsResult> {
-	GenerateViewsOptionsSchema.parse(options)
+	parseCoreInput(GenerateViewsOptionsSchema, options, 'generated view options')
 	const records = await listTasks(repository)
 	const fingerprint = fingerprintRecords(records)
 	const files = buildViewFiles(records)

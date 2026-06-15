@@ -29,6 +29,7 @@ import { buildTaskGraph } from '../graph/taskGraph.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { parseTaskFile, serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type SynchronizationErrorCode = 'adapter-invalid' | 'conflict' | 'stale' | 'local-invalid'
 
@@ -351,7 +352,11 @@ export async function planSynchronization(
 	adapter: SyncAdapter,
 	options: PlanSynchronizationOptions,
 ): Promise<SyncPlan> {
-	const validatedOptions = PlanSynchronizationOptionsSchema.parse(options)
+	const validatedOptions = parseCoreInput(
+		PlanSynchronizationOptionsSchema,
+		options,
+		'synchronization planning options',
+	)
 	const localRecords = await listTasks(repository)
 	const externalRecords = validateExternalRecords(adapter, await adapter.read())
 	const localById = new Map(localRecords.map((record) => [record.task.metadata.id, record]))

@@ -1,10 +1,11 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Repository } from '../config/config.ts'
+import { type Repository, RepositorySchema } from '../config/config.ts'
 import { inspectTaskGraph } from '../graph/taskGraph.ts'
 import { parseTaskFile, TaskFileError } from '../tasks/taskFile.ts'
 import type { TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type RepositoryDiagnosticCode =
 	| 'not-initialized'
@@ -76,16 +77,17 @@ function taskFileDiagnostics(
 }
 
 export async function diagnoseRepository(repository: Repository): Promise<DoctorResult> {
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'repository diagnostics')
 	let entries: Dirent<string>[]
 
 	try {
-		entries = await readdir(repository.tasksDirectory, { withFileTypes: true })
+		entries = await readdir(validatedRepository.tasksDirectory, { withFileTypes: true })
 	} catch (error) {
 		if (isMissingFile(error)) {
 			const diagnostic: RepositoryDiagnostic = {
 				code: 'not-initialized',
 				severity: 'error',
-				message: `Task directory does not exist: ${repository.tasksDirectory}`,
+				message: `Task directory does not exist: ${validatedRepository.tasksDirectory}`,
 				remediation: 'Run "taskset init" from the repository root.',
 			}
 
@@ -104,9 +106,9 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 	const orderedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name))
 
 	for (const entry of orderedEntries) {
-		const absolutePath = path.join(repository.tasksDirectory, entry.name)
+		const absolutePath = path.join(validatedRepository.tasksDirectory, entry.name)
 		const relativePath = path
-			.relative(repository.rootDirectory, absolutePath)
+			.relative(validatedRepository.rootDirectory, absolutePath)
 			.split(path.sep)
 			.join('/')
 

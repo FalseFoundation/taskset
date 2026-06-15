@@ -6,6 +6,7 @@ import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { createSnapshot } from '../snapshots/snapshotRepository.ts'
 import { serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export const MigrateTasksOptionsSchema = z.strictObject({
 	to: z.literal(2),
@@ -39,7 +40,11 @@ export async function migrateTasks(
 	repository: Repository,
 	options: MigrateTasksOptions,
 ): Promise<TaskMigrationResult> {
-	const validatedOptions = MigrateTasksOptionsSchema.parse(options)
+	const validatedOptions = parseCoreInput(
+		MigrateTasksOptionsSchema,
+		options,
+		'task migration options',
+	)
 	const records = await listTasks(repository)
 	const changes = records
 		.filter((record) => record.task.metadata.schemaVersion === 1)

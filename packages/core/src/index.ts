@@ -8,6 +8,8 @@ export {
 	GENERATED_DIRECTORY_NAME,
 	loadRepository,
 	type Repository,
+	RepositoryDirectorySchema,
+	RepositorySchema,
 	type ResolvedConfig,
 	type ResolvedTaskDefaults,
 	SNAPSHOTS_DIRECTORY_NAME,
@@ -33,9 +35,12 @@ export {
 	type TaskGraphDiagnostic,
 	type TaskGraphDiagnosticCode,
 	TaskGraphError,
+	TaskRecordSchema,
+	TaskRecordsSchema,
 } from './graph/taskGraph.ts'
 export {
 	type BuildTaskIndexOptions,
+	BuildTaskIndexOptionsSchema,
 	buildTaskIndex,
 	TaskIndex,
 } from './indexing/taskIndex.ts'
@@ -95,6 +100,7 @@ export {
 } from './sync/synchronization.ts'
 export {
 	type ParseTaskFileOptions,
+	ParseTaskFileOptionsSchema,
 	parseTaskFile,
 	serializeTaskFile,
 	TaskFileError,
@@ -106,8 +112,10 @@ export {
 	type CreateTaskInput,
 	CreateTaskInputSchema,
 	type CreateTaskOptions,
+	CreateTaskOptionsSchema,
 	createTask,
 	type DeleteTaskOptions,
+	DeleteTaskOptionsSchema,
 	deleteTask,
 	generateTaskId,
 	listTasks,
@@ -118,5 +126,10 @@ export {
 	type UpdateTaskInput,
 	UpdateTaskInputSchema,
 	type UpdateTaskOptions,
+	UpdateTaskOptionsSchema,
 	updateTask,
 } from './tasks/taskRepository.ts'
+export {
+	CoreValidationError,
+	type CoreValidationIssue,
+} from './validation/coreValidation.ts'

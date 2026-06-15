@@ -31,6 +31,8 @@ Key public operations include:
 - `generateViews`
 
 Public operation inputs are validated with exported Zod schemas where
-applicable. Task mutations refresh disposable generated views on a best-effort
+applicable. Invalid boundary data throws `CoreValidationError` with stable
+field-level `issues`; task-domain failures retain their more specific typed
+errors. Task mutations refresh disposable generated views on a best-effort
 basis; canonical writes remain successful if generation fails and callers can
 surface the warning callback.

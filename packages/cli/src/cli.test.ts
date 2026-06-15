@@ -304,4 +304,30 @@ describe('runCli', () => {
 		).toBe(0)
 		expect(snapshotOutput.stdout.trim()).toMatch(/^\d{8}T\d{6}Z-[a-f0-9]{12}$/u)
 	})
+
+	it('renders set/clear conflicts as field-level usage errors', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const created = createOutput()
+		await runCli(['task', 'create', '--title', 'Conflict target'], {
+			cwd,
+			stdout: created.writeStdout,
+			stderr: created.writeStderr,
+		})
+		const output = createOutput()
+
+		expect(
+			await runCli(
+				['task', 'update', created.stdout.trim(), '--owner', 'platform', '--clear-owner'],
+				{
+					cwd,
+					stdout: output.writeStdout,
+					stderr: output.writeStderr,
+				},
+			),
+		).toBe(2)
+		expect(output.stderr).toContain('owner')
+		expect(output.stderr).toContain('clear-owner')
+		expect(output.stderr).toContain('Cannot set and clear owner in the same update')
+	})
 })

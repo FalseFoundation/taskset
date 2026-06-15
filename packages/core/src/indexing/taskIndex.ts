@@ -1,12 +1,15 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
-import { buildTaskGraph, type TaskGraph } from '../graph/taskGraph.ts'
+import { RepositorySchema } from '../config/config.ts'
+import { buildTaskGraph, type TaskGraph, TaskRecordsSchema } from '../graph/taskGraph.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { queryTaskRecords, type TaskQuery } from '../search/taskQuery.ts'
 import { parseTaskFile, serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 const TASK_INDEX_SCHEMA_VERSION = 1
 const TASK_INDEX_CACHE_NAME = 'task-index-v1.json'
@@ -23,6 +26,10 @@ interface SerializedTaskIndex {
 export interface BuildTaskIndexOptions {
 	readonly cache?: boolean
 }
+
+export const BuildTaskIndexOptionsSchema = z.strictObject({
+	cache: z.boolean().optional(),
+}) satisfies z.ZodType<BuildTaskIndexOptions>
 
 function fingerprintRecords(records: readonly TaskRecord[]): string {
 	const hash = createHash('sha256')
@@ -89,10 +96,16 @@ export class TaskIndex {
 	readonly fingerprint: string
 
 	constructor(records: readonly TaskRecord[], fingerprint = fingerprintRecords(records)) {
-		this.records = Object.freeze([...records])
-		this.byId = new Map(records.map((record) => [record.task.metadata.id, record]))
-		this.graph = buildTaskGraph(records)
-		this.fingerprint = fingerprint
+		const validatedRecords = parseCoreInput(TaskRecordsSchema, records, 'task index construction')
+		const validatedFingerprint = parseCoreInput(
+			z.string().regex(/^[a-f0-9]{64}$/u),
+			fingerprint,
+			'task index fingerprint',
+		)
+		this.records = Object.freeze([...validatedRecords])
+		this.byId = new Map(validatedRecords.map((record) => [record.task.metadata.id, record]))
+		this.graph = buildTaskGraph(validatedRecords)
+		this.fingerprint = validatedFingerprint
 	}
 
 	query(query: TaskQuery = {}): readonly TaskRecord[] {
@@ -104,14 +117,20 @@ export async function buildTaskIndex(
 	repository: Repository,
 	options: BuildTaskIndexOptions = {},
 ): Promise<TaskIndex> {
-	const canonicalRecords = await listTasks(repository)
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task index repository')
+	const validatedOptions = parseCoreInput(
+		BuildTaskIndexOptionsSchema,
+		options,
+		'task index options',
+	)
+	const canonicalRecords = await listTasks(validatedRepository)
 	const fingerprint = fingerprintRecords(canonicalRecords)
 
-	if (!options.cache) {
+	if (!validatedOptions.cache) {
 		return new TaskIndex(canonicalRecords, fingerprint)
 	}
 
-	const cacheDirectory = path.join(repository.dataDirectory, 'cache')
+	const cacheDirectory = path.join(validatedRepository.dataDirectory, 'cache')
 	const cachePath = path.join(cacheDirectory, TASK_INDEX_CACHE_NAME)
 	let existingCache: string | null = null
 

@@ -16,6 +16,7 @@ import type { Repository } from '../config/config.ts'
 import { buildTaskGraph } from '../graph/taskGraph.ts'
 import { normalizeRepositoryPath, repositoryPathsRelate } from '../projects/repositoryPath.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export const TASK_SORT_KEYS = [
 	'id',
@@ -201,7 +202,7 @@ function matchesPathFilters(record: TaskRecord, query: TaskQuery): boolean {
 }
 
 function validateQuery(query: TaskQuery): TaskQuery {
-	return TaskQuerySchema.parse(query)
+	return parseCoreInput(TaskQuerySchema, query, 'task query')
 }
 
 /**

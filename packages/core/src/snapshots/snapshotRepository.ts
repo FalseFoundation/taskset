@@ -6,6 +6,7 @@ import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { listTasks } from '../tasks/taskRepository.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 const SNAPSHOT_MANIFEST_VERSION = 1
 const SnapshotIdSchema = z
@@ -121,7 +122,11 @@ export async function createSnapshot(
 	repository: Repository,
 	options: CreateSnapshotOptions = {},
 ): Promise<SnapshotManifest> {
-	const validatedOptions = CreateSnapshotOptionsSchema.parse(options)
+	const validatedOptions = parseCoreInput(
+		CreateSnapshotOptionsSchema,
+		options,
+		'snapshot creation options',
+	)
 	const now = validatedOptions.now?.() ?? new Date()
 	const records = await listTasks(repository)
 	const sources = await Promise.all(
@@ -208,7 +213,7 @@ async function readSnapshotSources(
 	readonly manifest: SnapshotManifest
 	readonly sources: ReadonlyMap<string, string>
 }> {
-	const validatedId = SnapshotIdSchema.parse(snapshotId)
+	const validatedId = parseCoreInput(SnapshotIdSchema, snapshotId, 'snapshot ID')
 	const directory = path.join(repository.snapshotsDirectory, validatedId)
 	const manifest = parseManifest(
 		await readFile(path.join(directory, 'manifest.json'), 'utf8'),
@@ -241,7 +246,11 @@ export async function restoreSnapshot(
 	snapshotId: string,
 	options: RestoreSnapshotOptions = {},
 ): Promise<RestoreSnapshotResult> {
-	const validatedOptions = RestoreSnapshotOptionsSchema.parse(options)
+	const validatedOptions = parseCoreInput(
+		RestoreSnapshotOptionsSchema,
+		options,
+		'snapshot restore options',
+	)
 	const { manifest, sources } = await readSnapshotSources(repository, snapshotId)
 	const currentRecords = await listTasks(repository)
 	const currentSources = new Map(

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import * as z from 'zod'
-import type { Repository } from '../config/config.ts'
+import { type Repository, RepositorySchema } from '../config/config.ts'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type RepositoryPathErrorCode = 'empty' | 'outside-repository' | 'not-normalized'
 
@@ -38,34 +39,43 @@ export const RepositoryRelativePathSchema = z
  * representation used by task metadata and query matching.
  */
 export function normalizeRepositoryPath(repository: Repository, inputPath: string): string {
-	if (inputPath.length === 0 || inputPath.includes('\0')) {
-		throw new RepositoryPathError('empty', 'Repository path must not be empty', inputPath)
+	const validatedRepository = parseCoreInput(
+		RepositorySchema,
+		repository,
+		'repository path repository',
+	)
+	const validatedInputPath = parseCoreInput(z.string(), inputPath, 'repository path')
+	if (validatedInputPath.length === 0 || validatedInputPath.includes('\0')) {
+		throw new RepositoryPathError('empty', 'Repository path must not be empty', validatedInputPath)
 	}
 
 	let candidate: string
 
-	if (path.isAbsolute(inputPath)) {
-		const relative = path.relative(repository.rootDirectory, path.resolve(inputPath))
+	if (path.isAbsolute(validatedInputPath)) {
+		const relative = path.relative(
+			validatedRepository.rootDirectory,
+			path.resolve(validatedInputPath),
+		)
 
 		if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
 			throw new RepositoryPathError(
 				'outside-repository',
-				`Path is outside repository ${repository.rootDirectory}: ${inputPath}`,
-				inputPath,
+				`Path is outside repository ${validatedRepository.rootDirectory}: ${validatedInputPath}`,
+				validatedInputPath,
 			)
 		}
 
 		candidate = relative.split(path.sep).join('/')
 	} else {
-		if (inputPath.includes('\\')) {
+		if (validatedInputPath.includes('\\')) {
 			throw new RepositoryPathError(
 				'not-normalized',
-				`Path must use repository-relative POSIX separators: ${inputPath}`,
-				inputPath,
+				`Path must use repository-relative POSIX separators: ${validatedInputPath}`,
+				validatedInputPath,
 			)
 		}
 
-		candidate = inputPath
+		candidate = validatedInputPath
 	}
 
 	if (candidate === '.') {
@@ -82,8 +92,8 @@ export function normalizeRepositoryPath(repository: Repository, inputPath: strin
 	) {
 		throw new RepositoryPathError(
 			'not-normalized',
-			`Path must be an unambiguous normalized repository-relative path: ${inputPath}`,
-			inputPath,
+			`Path must be an unambiguous normalized repository-relative path: ${validatedInputPath}`,
+			validatedInputPath,
 		)
 	}
 
@@ -91,11 +101,13 @@ export function normalizeRepositoryPath(repository: Repository, inputPath: strin
 }
 
 export function repositoryPathsRelate(left: string, right: string): boolean {
+	const validatedLeft = parseCoreInput(z.string(), left, 'left repository path')
+	const validatedRight = parseCoreInput(z.string(), right, 'right repository path')
 	return (
-		left === '' ||
-		right === '' ||
-		left === right ||
-		left.startsWith(`${right}/`) ||
-		right.startsWith(`${left}/`)
+		validatedLeft === '' ||
+		validatedRight === '' ||
+		validatedLeft === validatedRight ||
+		validatedLeft.startsWith(`${validatedRight}/`) ||
+		validatedRight.startsWith(`${validatedLeft}/`)
 	)
 }

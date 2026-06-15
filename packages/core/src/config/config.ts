@@ -5,9 +5,12 @@ import {
 	type Config,
 	ConfigSchema,
 	TASK_PRIORITIES,
+	TASK_STATUSES,
 	type TaskPriority,
 	type TaskStatus,
 } from '@taskset/contracts'
+import * as z from 'zod'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export const CONFIG_FILE_NAME = 'taskset.config.ts'
 export const DATA_DIRECTORY_NAME = '.taskset'
@@ -41,6 +44,29 @@ export interface Repository {
 	readonly snapshotsDirectory: string
 	readonly config: ResolvedConfig
 }
+
+export const RepositorySchema = z.strictObject({
+	rootDirectory: z.string().min(1),
+	configPath: z.string().min(1),
+	dataDirectory: z.string().min(1),
+	tasksDirectory: z.string().min(1),
+	generatedDirectory: z.string().min(1),
+	snapshotsDirectory: z.string().min(1),
+	config: z.strictObject({
+		schemaVersion: z.literal(1),
+		project: z.strictObject({ name: z.string().min(1) }).optional(),
+		tasks: z.strictObject({
+			defaults: z.strictObject({
+				status: z.enum(TASK_STATUSES),
+				priority: z.enum(TASK_PRIORITIES).optional(),
+				labels: z.array(z.string()),
+			}),
+			priorities: z.array(z.enum(TASK_PRIORITIES)).min(1),
+		}),
+	}),
+}) satisfies z.ZodType<Repository>
+
+export const RepositoryDirectorySchema = z.string().min(1, 'Directory must not be empty')
 
 export type ConfigErrorCode = 'config-not-found' | 'config-load' | 'config-schema'
 
@@ -138,7 +164,7 @@ function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
 }
 
 export function defineConfig(config: Config): Config {
-	return freezeConfig(ConfigSchema.parse(config))
+	return freezeConfig(parseCoreInput(ConfigSchema, config, 'configuration'))
 }
 
 async function importConfig(configPath: string): Promise<unknown> {
@@ -165,7 +191,9 @@ async function importConfig(configPath: string): Promise<unknown> {
 }
 
 export async function loadRepository(rootDirectory: string): Promise<Repository> {
-	const resolvedRoot = path.resolve(rootDirectory)
+	const resolvedRoot = path.resolve(
+		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository root'),
+	)
 	const configPath = path.join(resolvedRoot, CONFIG_FILE_NAME)
 
 	try {
@@ -211,7 +239,12 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 }
 
 export async function discoverRepository(startDirectory = process.cwd()): Promise<Repository> {
-	let currentDirectory = path.resolve(startDirectory)
+	const validatedStartDirectory = parseCoreInput(
+		RepositoryDirectorySchema,
+		startDirectory,
+		'repository discovery',
+	)
+	let currentDirectory = path.resolve(validatedStartDirectory)
 
 	while (true) {
 		const configPath = path.join(currentDirectory, CONFIG_FILE_NAME)
@@ -230,8 +263,8 @@ export async function discoverRepository(startDirectory = process.cwd()): Promis
 		if (parentDirectory === currentDirectory) {
 			throw new ConfigError(
 				'config-not-found',
-				`No ${CONFIG_FILE_NAME} was found from ${path.resolve(startDirectory)} upward`,
-				{ startDirectory: path.resolve(startDirectory) },
+				`No ${CONFIG_FILE_NAME} was found from ${path.resolve(validatedStartDirectory)} upward`,
+				{ startDirectory: path.resolve(validatedStartDirectory) },
 			)
 		}
 

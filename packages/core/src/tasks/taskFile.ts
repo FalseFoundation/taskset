@@ -5,6 +5,8 @@ import {
 	TaskMetadataSchema,
 } from '@taskset/contracts'
 import { FrontmatterError, parseDate, parseFrontmatter, serializeFrontmatter } from '@taskset/utils'
+import * as z from 'zod'
+import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type TaskFileErrorCode = 'frontmatter' | 'schema' | 'validation'
 
@@ -16,6 +18,10 @@ export interface TaskFileIssue {
 export interface ParseTaskFileOptions {
 	readonly filePath?: string
 }
+
+export const ParseTaskFileOptionsSchema = z.strictObject({
+	filePath: z.string().min(1).optional(),
+}) satisfies z.ZodType<ParseTaskFileOptions>
 
 export class TaskFileError extends Error {
 	readonly code: TaskFileErrorCode
@@ -227,15 +233,17 @@ function schemaIssues(error: {
  * Reads validate but never migrate or repair canonical input.
  */
 export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}): TaskFile {
+	const validatedSource = parseCoreInput(z.string(), source, 'task file source')
+	const validatedOptions = parseCoreInput(ParseTaskFileOptionsSchema, options, 'task file options')
 	let parsedFrontmatter: ReturnType<typeof parseFrontmatter>
 
 	try {
-		parsedFrontmatter = parseFrontmatter(source)
+		parsedFrontmatter = parseFrontmatter(validatedSource)
 	} catch (error) {
 		if (error instanceof FrontmatterError) {
 			throw new TaskFileError('frontmatter', error.message, {
 				cause: error,
-				filePath: options.filePath,
+				filePath: validatedOptions.filePath,
 			})
 		}
 
@@ -247,12 +255,12 @@ export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}
 	if (!metadataResult.success) {
 		throw new TaskFileError('schema', 'Task metadata does not match the canonical schema', {
 			cause: metadataResult.error,
-			filePath: options.filePath,
+			filePath: validatedOptions.filePath,
 			issues: schemaIssues(metadataResult.error),
 		})
 	}
 
-	validateTaskMetadata(metadataResult.data, options.filePath)
+	validateTaskMetadata(metadataResult.data, validatedOptions.filePath)
 
 	return freezeTaskFile({
 		metadata: metadataResult.data,
@@ -265,17 +273,18 @@ export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}
  * and exactly one final newline.
  */
 export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions = {}): string {
+	const validatedOptions = parseCoreInput(ParseTaskFileOptionsSchema, options, 'task file options')
 	const taskResult = TaskFileSchema.safeParse(task)
 
 	if (!taskResult.success) {
 		throw new TaskFileError('schema', 'Task file does not match the canonical schema', {
 			cause: taskResult.error,
-			filePath: options.filePath,
+			filePath: validatedOptions.filePath,
 			issues: schemaIssues(taskResult.error),
 		})
 	}
 
-	validateTaskMetadata(taskResult.data.metadata, options.filePath)
+	validateTaskMetadata(taskResult.data.metadata, validatedOptions.filePath)
 
 	const { metadata } = taskResult.data
 	const orderedMetadata: Record<string, unknown> = {
