@@ -1,5 +1,11 @@
 # @taskset/core
 
+## 1.2.0
+
+### Minor Changes
+
+- Add duplicate, planning-range, and timestamp-range task filters with documented path composition and grouped impact results.
+
 ## 1.1.0
 
 ### Minor Changes

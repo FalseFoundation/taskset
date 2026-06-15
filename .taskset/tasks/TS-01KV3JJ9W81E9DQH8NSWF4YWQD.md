@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV3JJ9W81E9DQH8NSWF4YWQD
 title: Complete metadata query filters and integration coverage
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-14 17:23 UTC
-updatedAt: 2026-06-14 17:23 UTC
+updatedAt: 2026-06-15 20:45 UTC
 labels:
   - search
   - cli

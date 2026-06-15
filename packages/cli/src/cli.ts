@@ -28,6 +28,7 @@ import {
 	TASK_SORT_DIRECTIONS,
 	TASK_SORT_KEYS,
 	type TaskQuery,
+	TaskQuerySchema,
 	type TaskRecord,
 	type UpdateTaskInput,
 	updateTask,
@@ -57,8 +58,10 @@ Metadata options:
 
 List query options:
   --status --priority --label --owner --assignee --reviewer --team --risk
-  --project --depends-on --related --parent --file --directory
-  --due-before --due-after --search --sort --direction
+  --project --depends-on --related --duplicate --parent --file --directory
+  --estimate-min --estimate-max --effort-min --effort-max
+  --due-before --due-after --created-before --created-after
+  --updated-before --updated-after --search --sort --direction
   --impact --include-derived --json
 `
 
@@ -220,11 +223,20 @@ const ListValuesSchema = z.strictObject({
 	project: StringListSchema.optional(),
 	'depends-on': TaskIdSchema.optional(),
 	related: TaskIdSchema.optional(),
+	duplicate: TaskIdSchema.optional(),
 	parent: TaskIdSchema.optional(),
 	file: StringListSchema.optional(),
 	directory: StringListSchema.optional(),
+	'estimate-min': z.coerce.number().finite().nonnegative().optional(),
+	'estimate-max': z.coerce.number().finite().nonnegative().optional(),
+	'effort-min': z.coerce.number().finite().nonnegative().optional(),
+	'effort-max': z.coerce.number().finite().nonnegative().optional(),
 	'due-before': TaskTimestampSchema.optional(),
 	'due-after': TaskTimestampSchema.optional(),
+	'created-before': TaskTimestampSchema.optional(),
+	'created-after': TaskTimestampSchema.optional(),
+	'updated-before': TaskTimestampSchema.optional(),
+	'updated-after': TaskTimestampSchema.optional(),
 	search: z.string().optional(),
 	sort: z.enum(TASK_SORT_KEYS).optional(),
 	direction: z.enum(TASK_SORT_DIRECTIONS).optional(),
@@ -703,11 +715,20 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					project: { type: 'string', multiple: true },
 					'depends-on': { type: 'string' },
 					related: { type: 'string' },
+					duplicate: { type: 'string' },
 					parent: { type: 'string' },
 					file: { type: 'string', multiple: true },
 					directory: { type: 'string', multiple: true },
+					'estimate-min': { type: 'string' },
+					'estimate-max': { type: 'string' },
+					'effort-min': { type: 'string' },
+					'effort-max': { type: 'string' },
 					'due-before': { type: 'string' },
 					'due-after': { type: 'string' },
+					'created-before': { type: 'string' },
+					'created-after': { type: 'string' },
+					'updated-before': { type: 'string' },
+					'updated-after': { type: 'string' },
 					search: { type: 'string' },
 					sort: { type: 'string' },
 					direction: { type: 'string' },
@@ -716,28 +737,41 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				},
 			})
 			const values = parseSchema(ListValuesSchema, parsed.values, 'task list options')
-			const query: TaskQuery = {
-				...(values.status ? { statuses: values.status } : {}),
-				...(values.priority ? { priorities: values.priority } : {}),
-				...(values.label ? { labels: values.label } : {}),
-				...(values.owner ? { owners: values.owner } : {}),
-				...(values.assignee ? { assignees: values.assignee } : {}),
-				...(values.reviewer ? { reviewers: values.reviewer } : {}),
-				...(values.team ? { teams: values.team } : {}),
-				...(values.risk ? { risks: values.risk } : {}),
-				...(values.project ? { projects: values.project } : {}),
-				...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
-				...(values.related ? { related: values.related } : {}),
-				...(values.parent ? { parent: values.parent } : {}),
-				...(values.file ? { files: values.file } : {}),
-				...(values.directory ? { directories: values.directory } : {}),
-				...(values['due-before'] ? { dueBefore: values['due-before'] } : {}),
-				...(values['due-after'] ? { dueAfter: values['due-after'] } : {}),
-				...(values.search !== undefined ? { text: values.search } : {}),
-				...(values.sort ? { sortBy: values.sort } : {}),
-				...(values.direction ? { direction: values.direction } : {}),
-				...(values.impact ? { impact: true } : {}),
-			}
+			const query = parseSchema(
+				TaskQuerySchema,
+				{
+					...(values.status ? { statuses: values.status } : {}),
+					...(values.priority ? { priorities: values.priority } : {}),
+					...(values.label ? { labels: values.label } : {}),
+					...(values.owner ? { owners: values.owner } : {}),
+					...(values.assignee ? { assignees: values.assignee } : {}),
+					...(values.reviewer ? { reviewers: values.reviewer } : {}),
+					...(values.team ? { teams: values.team } : {}),
+					...(values.risk ? { risks: values.risk } : {}),
+					...(values.project ? { projects: values.project } : {}),
+					...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
+					...(values.related ? { related: values.related } : {}),
+					...(values.duplicate ? { duplicate: values.duplicate } : {}),
+					...(values.parent ? { parent: values.parent } : {}),
+					...(values.file ? { files: values.file } : {}),
+					...(values.directory ? { directories: values.directory } : {}),
+					...(values['estimate-min'] !== undefined ? { estimateMin: values['estimate-min'] } : {}),
+					...(values['estimate-max'] !== undefined ? { estimateMax: values['estimate-max'] } : {}),
+					...(values['effort-min'] !== undefined ? { effortMin: values['effort-min'] } : {}),
+					...(values['effort-max'] !== undefined ? { effortMax: values['effort-max'] } : {}),
+					...(values['due-before'] ? { dueBefore: values['due-before'] } : {}),
+					...(values['due-after'] ? { dueAfter: values['due-after'] } : {}),
+					...(values['created-before'] ? { createdBefore: values['created-before'] } : {}),
+					...(values['created-after'] ? { createdAfter: values['created-after'] } : {}),
+					...(values['updated-before'] ? { updatedBefore: values['updated-before'] } : {}),
+					...(values['updated-after'] ? { updatedAfter: values['updated-after'] } : {}),
+					...(values.search !== undefined ? { text: values.search } : {}),
+					...(values.sort ? { sortBy: values.sort } : {}),
+					...(values.direction ? { direction: values.direction } : {}),
+					...(values.impact ? { impact: true } : {}),
+				} satisfies TaskQuery,
+				'task list query',
+			)
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
 			const result = await queryTasks(repository, query)
 			const graph = values['include-derived'] ? (await buildTaskIndex(repository)).graph : undefined

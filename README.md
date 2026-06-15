@@ -113,6 +113,7 @@ semantics. The CLI exposes scriptable forms:
 ```bash
 pnpm exec taskset task list --status doing --label core --json
 pnpm exec taskset task list --file packages/core --impact --json
+pnpm exec taskset task list --estimate-min 30 --estimate-max 120 --risk high
 pnpm exec taskset doctor --json
 pnpm exec taskset task update <task-id> --priority urgent
 pnpm exec taskset task delete <task-id> --remove-dependencies --json

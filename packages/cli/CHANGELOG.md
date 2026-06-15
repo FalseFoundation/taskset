@@ -1,5 +1,16 @@
 # @taskset/cli
 
+## 1.1.0
+
+### Minor Changes
+
+- Add duplicate, planning-range, and timestamp-range task filters with documented path composition and grouped impact results.
+
+### Patch Changes
+
+- Updated dependencies
+  - @taskset/core@1.2.0
+
 ## 1.0.1
 
 ### Patch Changes

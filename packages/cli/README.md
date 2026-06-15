@@ -20,7 +20,12 @@ Supported command groups:
 - `taskset migrate --to 2`
 
 Use `task list --file <path> --impact` for direct and transitive code-impact
-queries. `tasks-for-file` was removed in the schema v2 release.
+queries. Repeated path values use OR, distinct filter categories use AND,
+repeated labels require every label, and planning or timestamp ranges are
+inclusive. Filters include
+`--estimate-min`/`--estimate-max`, `--effort-min`/`--effort-max`,
+`--duplicate`, and due/created/updated before/after bounds. `tasks-for-file`
+was removed in the schema v2 release.
 
 Exit code `0` means success, `1` means a repository or domain failure, and `2`
 means invalid CLI usage. Commands reserve stdout for requested output and send

@@ -38,29 +38,74 @@ export type TaskSortKey = (typeof TASK_SORT_KEYS)[number]
 export type TaskSortDirection = (typeof TASK_SORT_DIRECTIONS)[number]
 
 const StringListSchema = z.array(z.string().min(1))
+const NonnegativeNumberSchema = z.number().finite().nonnegative()
 
-export const TaskQuerySchema = z.strictObject({
-	statuses: z.array(TaskStatusSchema).optional(),
-	priorities: z.array(TaskPrioritySchema).optional(),
-	labels: StringListSchema.optional(),
-	owners: StringListSchema.optional(),
-	assignees: StringListSchema.optional(),
-	reviewers: StringListSchema.optional(),
-	teams: StringListSchema.optional(),
-	risks: z.array(TaskRiskSchema).optional(),
-	projects: StringListSchema.optional(),
-	dependsOn: TaskIdSchema.optional(),
-	related: TaskIdSchema.optional(),
-	parent: TaskIdSchema.optional(),
-	files: StringListSchema.optional(),
-	directories: StringListSchema.optional(),
-	dueBefore: TaskTimestampSchema.optional(),
-	dueAfter: TaskTimestampSchema.optional(),
-	text: z.string().optional(),
-	sortBy: z.enum(TASK_SORT_KEYS).optional(),
-	direction: z.enum(TASK_SORT_DIRECTIONS).optional(),
-	impact: z.boolean().optional(),
-})
+export const TaskQuerySchema = z
+	.strictObject({
+		statuses: z.array(TaskStatusSchema).optional(),
+		priorities: z.array(TaskPrioritySchema).optional(),
+		labels: StringListSchema.optional(),
+		owners: StringListSchema.optional(),
+		assignees: StringListSchema.optional(),
+		reviewers: StringListSchema.optional(),
+		teams: StringListSchema.optional(),
+		risks: z.array(TaskRiskSchema).optional(),
+		projects: StringListSchema.optional(),
+		dependsOn: TaskIdSchema.optional(),
+		related: TaskIdSchema.optional(),
+		duplicate: TaskIdSchema.optional(),
+		parent: TaskIdSchema.optional(),
+		files: StringListSchema.optional(),
+		directories: StringListSchema.optional(),
+		estimateMin: NonnegativeNumberSchema.optional(),
+		estimateMax: NonnegativeNumberSchema.optional(),
+		effortMin: NonnegativeNumberSchema.optional(),
+		effortMax: NonnegativeNumberSchema.optional(),
+		dueBefore: TaskTimestampSchema.optional(),
+		dueAfter: TaskTimestampSchema.optional(),
+		createdBefore: TaskTimestampSchema.optional(),
+		createdAfter: TaskTimestampSchema.optional(),
+		updatedBefore: TaskTimestampSchema.optional(),
+		updatedAfter: TaskTimestampSchema.optional(),
+		text: z.string().optional(),
+		sortBy: z.enum(TASK_SORT_KEYS).optional(),
+		direction: z.enum(TASK_SORT_DIRECTIONS).optional(),
+		impact: z.boolean().optional(),
+	})
+	.superRefine((query, context) => {
+		for (const [minimumKey, maximumKey, label] of [
+			['estimateMin', 'estimateMax', 'estimate'],
+			['effortMin', 'effortMax', 'effort'],
+		] as const) {
+			const minimum = query[minimumKey]
+			const maximum = query[maximumKey]
+
+			if (minimum !== undefined && maximum !== undefined && minimum > maximum) {
+				context.addIssue({
+					code: 'custom',
+					path: [maximumKey],
+					message: `${label} maximum must be greater than or equal to its minimum`,
+				})
+			}
+		}
+
+		for (const [afterKey, beforeKey, label] of [
+			['dueAfter', 'dueBefore', 'due date'],
+			['createdAfter', 'createdBefore', 'created timestamp'],
+			['updatedAfter', 'updatedBefore', 'updated timestamp'],
+		] as const) {
+			const after = query[afterKey] ? parseDate(query[afterKey]) : undefined
+			const before = query[beforeKey] ? parseDate(query[beforeKey]) : undefined
+
+			if (after !== undefined && before !== undefined && after > before) {
+				context.addIssue({
+					code: 'custom',
+					path: [beforeKey],
+					message: `${label} before value must be greater than or equal to its after value`,
+				})
+			}
+		}
+	})
 
 export type TaskQuery = z.infer<typeof TaskQuerySchema>
 
@@ -221,6 +266,18 @@ export function queryTaskRecords(
 	const direction = validatedQuery.direction ?? 'asc'
 	const dueBefore = validatedQuery.dueBefore ? parseDate(validatedQuery.dueBefore) : undefined
 	const dueAfter = validatedQuery.dueAfter ? parseDate(validatedQuery.dueAfter) : undefined
+	const createdBefore = validatedQuery.createdBefore
+		? parseDate(validatedQuery.createdBefore)
+		: undefined
+	const createdAfter = validatedQuery.createdAfter
+		? parseDate(validatedQuery.createdAfter)
+		: undefined
+	const updatedBefore = validatedQuery.updatedBefore
+		? parseDate(validatedQuery.updatedBefore)
+		: undefined
+	const updatedAfter = validatedQuery.updatedAfter
+		? parseDate(validatedQuery.updatedAfter)
+		: undefined
 	const filtered = records.filter((record) => {
 		const metadata = record.task.metadata
 		const v2 = versionTwoMetadata(record)
@@ -275,6 +332,10 @@ export function queryTaskRecords(
 			return false
 		}
 
+		if (validatedQuery.duplicate && !v2?.duplicates?.includes(validatedQuery.duplicate)) {
+			return false
+		}
+
 		if (validatedQuery.parent && v2?.parent !== validatedQuery.parent) {
 			return false
 		}
@@ -284,12 +345,70 @@ export function queryTaskRecords(
 		}
 
 		const dueTimestamp = v2?.dueDate ? parseDate(v2.dueDate) : undefined
+		const createdTimestamp = parseDate(metadata.createdAt)
+		const updatedTimestamp = parseDate(metadata.updatedAt)
+
+		if (
+			validatedQuery.estimateMin !== undefined &&
+			(v2?.estimate === undefined || v2.estimate < validatedQuery.estimateMin)
+		) {
+			return false
+		}
+
+		if (
+			validatedQuery.estimateMax !== undefined &&
+			(v2?.estimate === undefined || v2.estimate > validatedQuery.estimateMax)
+		) {
+			return false
+		}
+
+		if (
+			validatedQuery.effortMin !== undefined &&
+			(v2?.effort === undefined || v2.effort < validatedQuery.effortMin)
+		) {
+			return false
+		}
+
+		if (
+			validatedQuery.effortMax !== undefined &&
+			(v2?.effort === undefined || v2.effort > validatedQuery.effortMax)
+		) {
+			return false
+		}
 
 		if (dueBefore !== undefined && (dueTimestamp === undefined || dueTimestamp > dueBefore)) {
 			return false
 		}
 
 		if (dueAfter !== undefined && (dueTimestamp === undefined || dueTimestamp < dueAfter)) {
+			return false
+		}
+
+		if (
+			createdBefore !== undefined &&
+			(createdTimestamp === undefined || createdTimestamp > createdBefore)
+		) {
+			return false
+		}
+
+		if (
+			createdAfter !== undefined &&
+			(createdTimestamp === undefined || createdTimestamp < createdAfter)
+		) {
+			return false
+		}
+
+		if (
+			updatedBefore !== undefined &&
+			(updatedTimestamp === undefined || updatedTimestamp > updatedBefore)
+		) {
+			return false
+		}
+
+		if (
+			updatedAfter !== undefined &&
+			(updatedTimestamp === undefined || updatedTimestamp < updatedAfter)
+		) {
 			return false
 		}
 

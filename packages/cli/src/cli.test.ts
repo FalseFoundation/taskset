@@ -330,4 +330,86 @@ describe('runCli', () => {
 		expect(output.stderr).toContain('clear-owner')
 		expect(output.stderr).toContain('Cannot set and clear owner in the same update')
 	})
+
+	it('supports repeated path filters, planning ranges, duplicate filters, and derived JSON', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const targetOutput = createOutput()
+		await runCli(['task', 'create', '--title', 'Duplicate target'], {
+			cwd,
+			stdout: targetOutput.writeStdout,
+		})
+		const targetId = targetOutput.stdout.trim()
+		const directOutput = createOutput()
+		await runCli(
+			[
+				'task',
+				'create',
+				'--title',
+				'Direct match',
+				'--estimate',
+				'90',
+				'--effort',
+				'3',
+				'--duplicate',
+				targetId,
+				'--file',
+				'packages/core/src/index.ts',
+				'--directory',
+				'packages/core',
+			],
+			{ cwd, stdout: directOutput.writeStdout },
+		)
+		const directId = directOutput.stdout.trim()
+		const impactedOutput = createOutput()
+		await runCli(['task', 'create', '--title', 'Impacted', '--depends-on', directId], {
+			cwd,
+			stdout: impactedOutput.writeStdout,
+		})
+		const impactedId = impactedOutput.stdout.trim()
+		const output = createOutput()
+
+		expect(
+			await runCli(
+				[
+					'task',
+					'list',
+					'--file',
+					'packages/missing',
+					'--file',
+					'packages/core',
+					'--directory',
+					'packages/core/src',
+					'--estimate-min',
+					'90',
+					'--estimate-max',
+					'90',
+					'--effort-min',
+					'3',
+					'--effort-max',
+					'3',
+					'--duplicate',
+					targetId,
+					'--impact',
+					'--include-derived',
+					'--json',
+				],
+				{ cwd, stdout: output.writeStdout, stderr: output.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(output.stdout)).toMatchObject({
+			direct: [{ id: directId, derived: { blocks: [impactedId] } }],
+			impacted: [{ id: impactedId, derived: { blockedBy: [directId] } }],
+		})
+
+		const invalidRange = createOutput()
+		expect(
+			await runCli(['task', 'list', '--estimate-min', '10', '--estimate-max', '5'], {
+				cwd,
+				stdout: invalidRange.writeStdout,
+				stderr: invalidRange.writeStderr,
+			}),
+		).toBe(2)
+		expect(invalidRange.stderr).toContain('estimate-max')
+	})
 })

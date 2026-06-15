@@ -111,15 +111,33 @@ target in one transaction.
 
 ## Queries And Derived State
 
-`task list` supports metadata, text, file, and directory filters. File and
-directory matching uses normalized containment:
+`task list` supports metadata, relationship, planning range, timestamp range,
+text, file, and directory filters. Numeric and timestamp ranges are inclusive:
 
 ```bash
 taskset task list --file packages/core --impact --json
+taskset task list --estimate-min 30 --estimate-max 120 --risk high
+taskset task list --duplicate TS-01J00000000000000000000000
 ```
 
-With `--impact`, other filters select direct matches first, then the graph adds
-tasks that transitively depend on them.
+Repeated enum, person, project, file, and directory values use OR within the
+same option. Repeated labels require every requested label. Different filter
+categories compose with AND. For example, two `--file` values match either
+path, while adding `--owner` requires both the path match and owner match.
+`--file` is the unified containment query over task files and task directories;
+`--directory` matches only canonical directory metadata. All path inputs are
+normalized relative to the repository before matching.
+
+Planning filters are `--estimate-min`, `--estimate-max`, `--effort-min`, and
+`--effort-max`. Timestamp filters are `--due-before`, `--due-after`,
+`--created-before`, `--created-after`, `--updated-before`, and
+`--updated-after`. Title and Markdown body use `--search`. Exact task IDs use
+`task show` or relationship filters rather than a redundant list ID filter.
+
+With `--impact`, every direct filter is applied first, then the graph adds tasks
+that transitively depend on those direct matches. JSON output uses
+`{ "direct": [...], "impacted": [...] }`; `--include-derived` adds relationship
+projections to records in both groups.
 
 `.taskset/cache/` and `.taskset/generated/` are disposable. Generated status,
 priority, project, and assignee indexes are deterministic projections and
