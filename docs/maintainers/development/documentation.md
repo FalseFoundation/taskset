@@ -40,13 +40,17 @@ Why:
 ## Integration
 
 `apps/www/content` is a repository-relative symlink to `../../docs`. Nextra's
-standard catch-all App Router page renders the content without copying it or
-maintaining a second source tree.
+standard content-directory loader renders that source without copying it or
+maintaining a second source tree. The top-level usage docs route filters
+`docs/maintainers/` out of its primary navigation, and the dedicated
+`/maintainers` route renders the same canonical maintainer Markdown with its own
+page map.
 
-The docs and blog themes use separate route layouts and receive their own MDX
-component sets. Do not merge both themes in the global `mdx-components.tsx`;
-their wrapper components own different page contracts. Blog Markdown is loaded
-from `apps/www/posts/` through the app-local post registry.
+Usage docs, maintainer docs, and blog pages use separate route layouts and
+receive their own MDX component sets. Do not merge docs and blog themes in the
+global `mdx-components.tsx`; their wrapper components own different page
+contracts. Blog Markdown is loaded from `apps/www/posts/` through the app-local
+post registry.
 
 Run the Next.js development and production builds in webpack mode. Turbopack
 does not reliably discover newly added Markdown through the external content

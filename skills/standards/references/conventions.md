@@ -325,6 +325,8 @@ For Kanban and Office:
   website's post registry.
 - Keep contributor, architecture, ADR, testing, and technology documentation
   in `docs/maintainers/`.
+- Render maintainer documentation through the website's dedicated
+  `/maintainers` route and keep it out of the primary usage-docs navigation.
 - Keep a concise `README.md` in each package and app describing ownership,
   dependencies, and current contents.
 - Keep the root `README.md` focused on installing, configuring, and using

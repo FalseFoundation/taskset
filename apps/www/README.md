@@ -4,15 +4,18 @@
 
 The canonical documentation source is the repository root `docs/` directory.
 The app exposes that directory through the `content` symlink and renders it
-with Nextra's standard content-directory route. Chronological release and
-project posts are canonical in the app-local `posts/` directory. Do not copy
-documentation into the application or posts into `docs/`.
+with Nextra's standard content-directory loader. Top-level usage docs and
+`docs/maintainers/` share that source tree but use separate route layouts and
+navigation. Chronological release and project posts are canonical in the
+app-local `posts/` directory. Do not copy documentation into the application or
+posts into `docs/`.
 
 Current contents:
 
 - a Next.js App Router scaffold under `src/app/`
 - Nextra with the stock docs and blog themes
-- one catch-all route for root `docs/` Markdown
+- one catch-all route for top-level usage docs
+- a dedicated `/maintainers` route for `docs/maintainers/` Markdown
 - `/posts` routes backed by app-local Markdown in `posts/`
 - app-local Next.js configuration
 

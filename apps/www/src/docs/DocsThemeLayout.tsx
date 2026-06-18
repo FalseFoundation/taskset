@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { getPageMap } from 'nextra/page-map'
 import { Footer, Layout, Navbar } from 'nextra-theme-docs'
 import 'nextra-theme-docs/style.css'
+import type { PageMapItem } from 'nextra'
 import type { ReactNode } from 'react'
-import { FooterContent } from '../../shared/FooterContent.tsx'
+import { FooterContent } from '../shared/FooterContent.tsx'
 
-const DOCS_REPOSITORY_BASE = 'https://github.com/FalseFoundation/taskset/tree/main/docs'
+const DOCS_REPOSITORY_BASE = 'https://github.com/FalseFoundation/taskset/tree/main'
 
 const navbar = (
 	<Navbar logo={<b>Taskset</b>}>
@@ -18,11 +18,16 @@ const footer = (
 	</Footer>
 )
 
-export default async function DocsLayout({ children }: { children: ReactNode }) {
+interface DocsThemeLayoutProps {
+	readonly children: ReactNode
+	readonly pageMap: PageMapItem[]
+}
+
+export function DocsThemeLayout({ children, pageMap }: DocsThemeLayoutProps) {
 	return (
 		<Layout
 			navbar={navbar}
-			pageMap={await getPageMap()}
+			pageMap={pageMap}
 			docsRepositoryBase={DOCS_REPOSITORY_BASE}
 			footer={footer}
 		>

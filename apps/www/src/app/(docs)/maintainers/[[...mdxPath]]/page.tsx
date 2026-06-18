@@ -2,7 +2,11 @@ import type { MDXWrapper } from 'nextra'
 import type { MDXComponents } from 'nextra/mdx-components'
 import { generateStaticParamsFor, importPage } from 'nextra/pages'
 import { useMDXComponents as getDocsComponents } from 'nextra-theme-docs'
-import { toUsageStaticParams, withRepositoryFilePath } from '../../../docs/pageMap.ts'
+import {
+	toMaintainersStaticParams,
+	withMaintainersPrefix,
+	withRepositoryFilePath,
+} from '../../../../docs/pageMap.ts'
 
 interface PageProps {
 	readonly params: Promise<{
@@ -13,12 +17,12 @@ interface PageProps {
 const generateContentStaticParams = generateStaticParamsFor('mdxPath')
 
 export async function generateStaticParams() {
-	return toUsageStaticParams(await generateContentStaticParams())
+	return toMaintainersStaticParams(await generateContentStaticParams())
 }
 
 export async function generateMetadata(props: PageProps) {
 	const params = await props.params
-	const { metadata } = await importPage(params.mdxPath)
+	const { metadata } = await importPage(withMaintainersPrefix(params.mdxPath))
 
 	return metadata
 }
@@ -29,7 +33,8 @@ const Wrapper = docsWrapper as MDXWrapper
 
 export default async function Page(props: PageProps) {
 	const params = await props.params
-	const { default: MDXContent, toc, metadata, sourceCode } = await importPage(params.mdxPath)
+	const sourcePath = withMaintainersPrefix(params.mdxPath)
+	const { default: MDXContent, toc, metadata, sourceCode } = await importPage(sourcePath)
 
 	return (
 		<Wrapper toc={toc} metadata={withRepositoryFilePath(metadata)} sourceCode={sourceCode}>

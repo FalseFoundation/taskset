@@ -305,8 +305,10 @@ maintainer section visibly separate from the primary usage flow.
 
 `apps/www/` renders `docs/` through Nextra. Its `content` symlink points to the
 root `docs/` directory so the app does not maintain a copied documentation
-tree. Chronological release and project posts are a separate website-owned
-content type stored canonically in `apps/www/posts/`.
+tree. Top-level usage docs and `docs/maintainers/` use separate route layouts
+and page maps so their navigation stays audience-specific. Chronological
+release and project posts are a separate website-owned content type stored
+canonically in `apps/www/posts/`.
 
 Use plain Markdown by default. Use MDX only when a page needs an interactive
 component. Keep frontmatter compatible with the documentation renderer.

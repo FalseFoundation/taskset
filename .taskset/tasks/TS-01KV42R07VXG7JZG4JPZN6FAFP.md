@@ -1,10 +1,10 @@
 ---
 id: TS-01KV42R07VXG7JZG4JPZN6FAFP
 title: Move maintainer documentation into a separate docs route
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-14 22:06 UTC
-updatedAt: 2026-06-14 22:06 UTC
+updatedAt: 2026-06-18 16:37 UTC
 labels:
   - docs
   - website

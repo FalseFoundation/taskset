@@ -24,8 +24,11 @@ material have different audiences and should remain visibly separated.
   and blog themes.
 - Expose root `docs/` as the app's Nextra `content` directory through a
   repository-relative symlink.
+- Render top-level usage docs and `docs/maintainers/` through separate route
+  layouts and page maps so their navigation stays audience-specific.
 - Keep chronological release and project posts under `apps/www/posts/`.
-- Isolate docs and blog layouts and MDX component sets by route.
+- Isolate usage docs, maintainer docs, and blog layouts and MDX component sets
+  by route.
 - Keep the Nextra configuration and layout close to the upstream defaults.
 
 Nextra supports App Router content-directory routing and typed `_meta.ts`
@@ -44,9 +47,11 @@ becoming contributor handbooks.
 
 ## Implementation Contract
 
-`apps/www/content` points to `../../docs`. Nextra's catch-all App Router page
-loads that content directory directly. The app may generate `.next/`, search
-data, and static output, but none of those become documentation source.
+`apps/www/content` points to `../../docs`. The usage docs catch-all route loads
+top-level content and excludes `docs/maintainers/` from its page map. The
+`/maintainers` route loads the same content directory with a maintainer-rooted
+page map. The app may generate `.next/`, search data, and static output, but
+none of those become documentation source.
 
 `apps/www/posts/` is the source for blog Markdown. An app-local registry maps
 each post to `/posts/[slug]` so static export can enumerate routes without
@@ -61,5 +66,5 @@ Nextra components; docs and blog routes apply their own theme components.
 - New posts must be added to the app-local static post registry.
 - MDX components remain owned by `apps/www`.
 - Maintainer documentation is reviewed from `docs/maintainers/` and remains in
-  its own Nextra navigation section.
+  its own `/maintainers` navigation section.
 - Broken links and invalid frontmatter should fail CI.

@@ -4,5 +4,4 @@ export default {
 	configuration: 'Configuration',
 	'cli-reference': 'CLI Reference',
 	'task-files': 'Task Files',
-	maintainers: 'Maintainers',
 }

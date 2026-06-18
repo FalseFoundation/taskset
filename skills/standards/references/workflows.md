@@ -144,7 +144,9 @@ Turbopack does not reliably discover new files through the external `docs/`
 content symlink.
 
 The website renders canonical documentation from the `apps/www/content`
-symlink and canonical blog posts from `apps/www/posts/`. Add each post to
+symlink and canonical blog posts from `apps/www/posts/`. Top-level usage docs
+and `docs/maintainers/` use separate route layouts and page maps; keep
+maintainer material out of the primary usage-docs navigation. Add each post to
 `apps/www/src/blog/posts.ts` so `/posts/[slug]` remains statically enumerable.
 Docs and blog routes use separate Nextra theme wrappers.
 

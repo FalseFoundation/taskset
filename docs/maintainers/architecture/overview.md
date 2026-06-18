@@ -96,7 +96,9 @@ history or a second source of truth.
 
 The root `docs/` tree contains canonical user guidance and maintainer guidance.
 User pages stay at the top level. Maintainer material lives under
-`docs/maintainers/`. `apps/www` renders both with Nextra. See the
+`docs/maintainers/`. `apps/www` renders usage docs and maintainer docs from the
+same content symlink but exposes them through separate route layouts and
+navigation. See the
 [documentation platform decision](decisions/0001-documentation-platform.md).
 
 ## Decisions
