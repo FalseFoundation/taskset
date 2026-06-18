@@ -25,6 +25,10 @@ Load only the references relevant to the task:
   TanStack frontend tools, TypeScript/NestJS and Rust backend choices, and
   MariaDB/PostgreSQL database defaults
 
+If a referenced skill file does not exist, report the missing file, state which
+decisions cannot be made without it, and continue only with rules defined in
+this skill; do not infer conventions from absence.
+
 `agents/openai.yaml` is discovery and UI metadata. Do not load it as an
 instruction reference.
 
@@ -44,9 +48,11 @@ instruction reference.
    validation, weakens deterministic file behavior, or crosses package
    ownership without a contract.
 6. If a requested change appears unreasonable, internally contradictory,
-   destructive, or incompatible with established product contracts, explain
-   the concrete concern and ask for explicit confirmation before implementing
-   it.
+  destructive, or incompatible with established product contracts, explain
+  the concrete concern and ask for explicit confirmation before implementing
+  it. If the request still does not yield a concrete completion condition,
+  ask one focused question about the single most consequential missing piece
+  before implementing anything.
 7. Recover decisions from the repository before asking questions. Ask only when
    a consequential product or data-format decision remains unresolved.
 8. Treat related work as one dependency graph. Keep schemas, core behavior,
@@ -69,6 +75,11 @@ When repository sources disagree, use this order:
 3. Current implementation and tests.
 4. Current first-party documentation and this skill.
 5. Product plans and historical notes for intent only.
+
+If current user constraints conflict with a non-negotiable product invariant
+listed in Preserve Product Invariants, the invariant takes precedence. Explain
+the conflict to the user and request an explicit override with rationale before
+proceeding.
 
 The repository is currently an early scaffold. Do not turn accidental manifest
 mistakes, empty packages, or placeholder dependencies into conventions. Report
@@ -116,7 +127,9 @@ Use the architecture appropriate to the owning surface:
   Office, extension, TUI, and CLI.
 - Use a small DDD-style modular monolith for `@taskset/core` and any future
   server runtime. Organize by domain module first, then separate domain,
-  application, and infrastructure only where each layer has real behavior.
+  application, and infrastructure layers within a module only when each layer
+  contains at least one type, function, or class that is not a direct
+  delegation to another layer and that has independent test coverage.
 - Keep domain modules in one deployable codebase until independent deployment
   is justified. Do not introduce microservices, message brokers, or distributed
   persistence for organizational aesthetics.
@@ -127,8 +140,9 @@ Use the architecture appropriate to the owning surface:
   architecture and engineering guidance in `docs/maintainers/`.
 - Keep canonical website blog posts in `apps/www/posts/`; do not duplicate them
   in `docs/`.
-- Promote code to a shared package only when more than one owner needs the same
-  stable responsibility.
+- Promote code to a shared package only when two or more distinct packages
+  require the same logic and that logic has a defined, versioned interface that
+  is not expected to change with each consuming feature's evolution.
 - Keep client-specific state and presentation in the client. Keep shared domain
   rules in core.
 
@@ -137,61 +151,61 @@ files, packages, exports, public types, entity fields, commands, or scripts.
 
 ## Execute Safely
 
-Before editing:
-
-- Run `git status --short --branch`.
-- Identify user-owned changes and work with them.
-- Search for existing contracts, helpers, schemas, commands, and tests.
-- Determine whether each target is owned source, canonical Taskset data,
-  generated output, or cache.
-
-While editing:
-
-- Keep changes in the owning layer and update required dependents.
-- Use `workspace:*` for internal dependencies.
-- Declare each imported dependency in the importing package manifest.
-- Consume workspace code through package exports, never sibling `src/` paths.
-- Do not use TypeScript `paths` to bypass package boundaries.
-- Do not hand-edit generated output or caches.
-- Use structured YAML and Markdown parsers for entity files.
-- Keep serialization deterministic and filesystem writes failure-safe.
-- Add the smallest tests that prove the behavior and important edge cases.
-- Prefer test-first work for domain rules, bug fixes, parsers, migrations, and
-  lifecycle transitions. Do not write ceremonial tests before exploratory
-  spikes or trivial configuration changes.
-
-Read [workflows.md](references/workflows.md) for current commands and validation.
-
-## Verify by Risk
-
-Run the narrowest useful check first, then broaden:
-
-1. Focused unit or fixture test.
-2. Owning package test and type/build check.
-3. Root Biome check and relevant Turbo tasks.
-4. Cross-package integration test.
-5. CLI, MCP, filesystem, or UI workflow test when behavior crosses those
-   boundaries.
-
-For persisted data behavior, include malformed input, round-trip stability,
-path normalization, graph integrity, and interrupted-write cases as relevant.
-Never claim a check passed unless it ran successfully.
-
-## Finish the Whole Change
-
-Before completion:
-
-- Run `git diff --check` and review the scoped diff.
-- Confirm canonical `.taskset/` files remain the only persistent authority.
-- Confirm package dependencies point inward toward contracts, utilities, and
-  core, not sideways between clients.
-- Update `docs/` and this skill when the change alters product behavior,
-  architecture, commands, persisted formats, or repository workflows.
-- Add a Changeset when release policy is configured and versioned behavior
-  changed.
-- Do not add a Changeset for skill-only, test-only, formatting-only, or internal
-  documentation changes.
-- Report behavior, affected boundaries, checks run, and pre-existing failures.
+1. [always] Before editing:
+   - Run `git status --short --branch`.
+   - Identify user-owned changes and work with them.
+   - Search for existing contracts, helpers, schemas, commands, and tests.
+   - Determine whether each target is owned source, canonical Taskset data,
+     generated output, or cache.
+   - Read [workflows.md](references/workflows.md) for current commands and
+     validation.
+2. [always] While editing:
+   - Keep changes in the owning layer and update required dependents.
+   - Use `workspace:*` for internal dependencies.
+   - Declare each imported dependency in the importing package manifest.
+   - Consume workspace code through package exports, never sibling `src/`
+     paths.
+   - Do not use TypeScript `paths` to bypass package boundaries.
+   - Do not hand-edit generated output or caches.
+   - Use structured YAML and Markdown parsers for entity files.
+   - Keep serialization deterministic and filesystem writes failure-safe.
+   - Prefer test-first work for domain rules, bug fixes, parsers, migrations,
+     and lifecycle transitions. During exploratory spikes, defer tests until
+     the approach stabilizes, then add the minimum focused tests before the
+     change is complete.
+   - Add the minimum number of focused tests that assert the specified behavior
+     and cover task-specific edge cases such as malformed input, boundary
+     values, and failure paths where applicable. Do not add tests for
+     implementation details or untested assumptions.
+3. [always] Verify by risk:
+   - Run the narrowest useful check first, then broaden.
+   - Focused unit or fixture test.
+   - Owning package test and type/build check.
+   - Root Biome check and relevant Turbo tasks.
+   - Cross-package integration test.
+   - CLI, MCP, filesystem, or UI workflow test when behavior crosses those
+     boundaries.
+   - For persisted data behavior, include malformed input, round-trip
+     stability, path normalization, graph integrity, and interrupted-write
+     cases as relevant.
+   - Never claim a check passed unless it ran successfully.
+4. [always] Before completion:
+   - Run `git diff --check` and review the scoped diff.
+   - Confirm canonical `.taskset/` files remain the only persistent authority.
+   - Confirm package dependencies point inward toward contracts, utilities,
+     and core, not sideways between clients.
+   - Update `docs/` and this skill when the change alters product behavior,
+     architecture, commands, persisted formats, or repository workflows.
+   - Add a Changeset when release policy is configured and versioned behavior
+     changed.
+   - If release policy configuration is absent or ambiguous, report the gap
+     and do not add a Changeset. If it is unclear whether a behavior change is
+     versioned, default to adding a Changeset with a patch bump and note the
+     uncertainty in the Changeset summary.
+   - Do not add a Changeset for skill-only, test-only, formatting-only, or
+     internal documentation changes.
+   - Report behavior, affected boundaries, checks run, and pre-existing
+     failures.
 
 Read [release.md](references/release.md) for compatibility and definition of
 done.
