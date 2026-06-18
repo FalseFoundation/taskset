@@ -1,5 +1,19 @@
 # @taskset/core
 
+## 2.1.0
+
+### Minor Changes
+
+- 042a622: Add optional task `order` metadata for user-controlled sequencing. The CLI can
+  set, clear, and sort by order; core queries and generated views sort ordered
+  tasks first, place unordered tasks after them, and use task IDs as the
+  deterministic tie breaker.
+
+### Patch Changes
+
+- Updated dependencies [042a622]
+  - @taskset/contracts@2.1.0
+
 ## 2.0.0
 
 ### Major Changes
