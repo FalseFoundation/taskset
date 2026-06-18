@@ -152,7 +152,6 @@ Use YAML frontmatter for machine metadata and Markdown for human context:
 
 ```markdown
 ---
-schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
@@ -177,11 +176,11 @@ Describe why the work exists.
 
 Rules:
 
-- Require `schemaVersion`, `id`, `title`, `status`, `createdAt`, and
-  `updatedAt`.
-- Read schema versions 1 and 2. Serialize new and modified tasks as v2.
-- Accept schema v2 people, planning, canonical relationship, path, and project
-  metadata only through the shared strict schema.
+- Require `id`, `title`, `status`, `createdAt`, and `updatedAt`.
+- Read and serialize one strict versionless task shape. Reject versioned task
+  frontmatter instead of silently migrating or repairing it.
+- Accept people, planning, canonical relationship, path, and project metadata
+  only through the shared strict schema.
 - Use `todo`, `doing`, `blocked`, `done`, and `canceled` for task status.
 - Use `low`, `medium`, `high`, and `urgent` for task priority.
 - Priority is the sole measure of task importance. Do not add a second,
@@ -229,9 +228,8 @@ task-specific wrappers such as `parseTaskDate`.
 - Keep CLI commands thin: parse arguments, call core, render results, map errors
   to exit codes.
 - Current CLI commands are `taskset init`, `taskset config`, `taskset doctor`,
-  `taskset generate`, `taskset migrate`, `taskset snapshot create`, `list`,
-  `restore`, and `taskset task create`, `list`, `show`, `update`, `status`, and
-  `delete`.
+  `taskset generate`, `taskset snapshot create`, `list`, `restore`, and
+  `taskset task create`, `list`, `show`, `update`, `status`, and `delete`.
 - Reserve stdout for requested output and stderr for diagnostics.
 - Avoid interactive prompts when flags or stdin make automation possible.
 - Provide deterministic structured output before integrations depend on parsing

@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NZD46FSPVR472D30QW99
 title: Add repository doctor diagnostics
 status: done

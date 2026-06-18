@@ -87,14 +87,12 @@ function buildViewFiles(records: readonly TaskRecord[]): ReadonlyMap<string, str
 			addGroup(priority, metadata.priority, record)
 		}
 
-		if (metadata.schemaVersion === 2) {
-			for (const value of metadata.projects ?? []) {
-				addGroup(project, value, record)
-			}
+		for (const value of metadata.projects ?? []) {
+			addGroup(project, value, record)
+		}
 
-			for (const value of metadata.assignees ?? []) {
-				addGroup(assignee, value, record)
-			}
+		for (const value of metadata.assignees ?? []) {
+			addGroup(assignee, value, record)
 		}
 	}
 

@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NZD416CWN7205WZ88NZ9
 title: Add guarded task deletion and removal commands
 status: done

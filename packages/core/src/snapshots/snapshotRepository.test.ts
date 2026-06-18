@@ -30,7 +30,6 @@ describe('snapshot repository', () => {
 		await writeFile(
 			taskPath,
 			`---
-schemaVersion: 1
 id: ${taskId}
 title: Original
 status: todo
@@ -76,7 +75,6 @@ Body.
 		const repository = await initializeRepository(rootDirectory)
 		const taskPath = path.join(repository.tasksDirectory, `${taskId}.md`)
 		const original = `---
-schemaVersion: 2
 id: ${taskId}
 title: Current
 status: todo
@@ -105,7 +103,6 @@ Current.
 
 		const missingId = 'TS-01J00000000000000000000001'
 		const invalidSource = `---
-schemaVersion: 2
 id: ${taskId}
 title: Invalid graph
 status: todo
@@ -143,7 +140,6 @@ Invalid.
 		const repository = await initializeRepository(rootDirectory)
 		const taskPath = path.join(repository.tasksDirectory, `${taskId}.md`)
 		const original = `---
-schemaVersion: 2
 id: ${taskId}
 title: Original
 status: todo
@@ -206,7 +202,6 @@ Body.
 		await writeFile(
 			taskPath,
 			`---
-schemaVersion: 2
 id: ${taskId}
 title: Original
 status: todo

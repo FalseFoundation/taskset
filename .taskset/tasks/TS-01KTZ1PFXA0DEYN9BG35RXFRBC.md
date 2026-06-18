@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1PFXA0DEYN9BG35RXFRBC
 title: Build a disposable task index with deterministic rebuilds
 status: done

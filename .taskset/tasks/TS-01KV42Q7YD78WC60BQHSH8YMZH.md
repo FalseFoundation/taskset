@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV42Q7YD78WC60BQHSH8YMZH
 title: Add explicit task ordering and ordered generated views
 status: todo

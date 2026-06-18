@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GB7VGCKYAB6DT07HJTVT9
 title: Document complex runtime APIs and algorithms
 status: done

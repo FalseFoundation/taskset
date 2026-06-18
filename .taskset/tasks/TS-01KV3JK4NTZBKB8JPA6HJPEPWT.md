@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3JK4NTZBKB8JPA6HJPEPWT
 title: Add a complete CLI command reference
 status: done

@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NBDS4SZ094ZM082NSD5S
 title: Add task filtering, sorting, and search queries
 status: done

@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV42QJ2EVWG9D9K97NK7FM5T
 title: Design memorable collision-resistant task IDs
 status: todo
@@ -20,7 +19,7 @@ files:
   - packages/cli/src/cli.ts
   - docs/task-files.md
   - skills/standards/references/architecture.md
-  - skills/standards/references/conventions.md 
+  - skills/standards/references/conventions.md
 ---
 
 ## Context

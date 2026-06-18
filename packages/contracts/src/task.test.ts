@@ -8,7 +8,6 @@ import {
 } from './task.ts'
 
 const validV1Metadata = {
-	schemaVersion: 1,
 	id: 'TS-01J00000000000000000000000',
 	title: 'Add deterministic task parsing',
 	status: 'doing',
@@ -22,7 +21,6 @@ const validV1Metadata = {
 
 const validV2Metadata = {
 	...validV1Metadata,
-	schemaVersion: 2,
 	owner: 'platform',
 	assignees: ['maintainer'],
 	reviewers: ['reviewer'],
@@ -39,8 +37,7 @@ const validV2Metadata = {
 } as const
 
 describe('TaskMetadataSchema', () => {
-	it('accepts strict schema versions 1 and 2', () => {
-		expect(TaskMetadataSchema.parse(validV1Metadata)).toEqual(validV1Metadata)
+	it('accepts the strict canonical task shape', () => {
 		expect(TaskMetadataSchema.parse(validV2Metadata)).toEqual(validV2Metadata)
 		expect(TASK_STATUSES).toContain('doing')
 		expect(TASK_PRIORITIES).toContain('high')
@@ -48,7 +45,7 @@ describe('TaskMetadataSchema', () => {
 	})
 
 	it.each([
-		['schemaVersion', { ...validV1Metadata, schemaVersion: 3 }],
+		['schemaVersion', { ...validV1Metadata, schemaVersion: 2 }],
 		['id', { ...validV1Metadata, id: 'TS-1' }],
 		['status', { ...validV1Metadata, status: 'in-progress' }],
 		['priority', { ...validV1Metadata, priority: 'critical' }],
@@ -63,10 +60,7 @@ describe('TaskMetadataSchema', () => {
 		expect(TaskMetadataSchema.safeParse(metadata).success).toBe(false)
 	})
 
-	it('keeps v1 strict while allowing v2 fields only in v2', () => {
-		expect(TaskMetadataSchema.safeParse({ ...validV1Metadata, owner: 'platform' }).success).toBe(
-			false,
-		)
+	it('rejects unknown derived fields', () => {
 		expect(TaskMetadataSchema.safeParse({ ...validV2Metadata, blocks: [] }).success).toBe(false)
 	})
 

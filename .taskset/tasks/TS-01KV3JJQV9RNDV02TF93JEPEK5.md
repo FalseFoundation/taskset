@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3JJQV9RNDV02TF93JEPEK5
 title: Complete focused TSDoc and complex-code comment audit
 status: done

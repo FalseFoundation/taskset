@@ -166,16 +166,15 @@ export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskG
 			{ field: 'dependsOn' as const, values: metadata.dependsOn ?? [] },
 			{
 				field: 'related' as const,
-				values: metadata.schemaVersion === 2 ? (metadata.related ?? []) : [],
+				values: metadata.related ?? [],
 			},
 			{
 				field: 'duplicates' as const,
-				values: metadata.schemaVersion === 2 ? (metadata.duplicates ?? []) : [],
+				values: metadata.duplicates ?? [],
 			},
 			{
 				field: 'parent' as const,
-				values:
-					metadata.schemaVersion === 2 && metadata.parent !== undefined ? [metadata.parent] : [],
+				values: metadata.parent !== undefined ? [metadata.parent] : [],
 			},
 		]
 
@@ -215,7 +214,7 @@ export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskG
 			duplicateIds,
 			(record) => {
 				const { metadata } = record.task
-				return metadata.schemaVersion === 2 && metadata.parent ? [metadata.parent] : []
+				return metadata.parent ? [metadata.parent] : []
 			},
 			{ code: 'parent-cycle', field: 'parent', label: 'parent' },
 		),
@@ -271,7 +270,7 @@ export class TaskGraph {
 		)) {
 			const { metadata } = record.task
 			const taskId = metadata.id
-			const parent = metadata.schemaVersion === 2 && metadata.parent ? [metadata.parent] : []
+			const parent = metadata.parent ? [metadata.parent] : []
 			recordsById.set(taskId, record)
 			dependencies.set(taskId, [...(metadata.dependsOn ?? [])])
 			blocks.set(taskId, [])

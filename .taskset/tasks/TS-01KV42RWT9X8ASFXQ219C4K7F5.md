@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV42RWT9X8ASFXQ219C4K7F5
 title: Expand defineConfig with statuses and validated project options
 status: done

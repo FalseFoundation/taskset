@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAKX29CNB1HT3XBB51R5N
 title: Unify file and directory impact queries in task list
 status: done

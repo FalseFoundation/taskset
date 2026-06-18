@@ -55,7 +55,6 @@ src/
 ├── graph/
 ├── generated/
 ├── indexing/
-├── migrations/
 ├── projects/
 ├── search/
 ├── snapshots/
@@ -84,9 +83,9 @@ larger or more advanced workloads. No database becomes canonical Taskset state.
 
 ## Persistence Projections
 
-Canonical tasks live in `.taskset/tasks/`. Schema v1 remains readable while new
-and modified tasks use v2. Migration is explicit, dry-run by default, and
-snapshots before atomic apply.
+Canonical tasks live in `.taskset/tasks/` as strict versionless Markdown
+entities. Versioned task frontmatter is rejected instead of being silently
+rewritten.
 
 `.taskset/generated/` contains deterministic status, priority, project, and
 assignee indexes. `.taskset/cache/` and generated views are disposable.

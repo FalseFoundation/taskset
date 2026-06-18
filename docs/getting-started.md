@@ -77,13 +77,9 @@ non-mutating pass.
 pnpm exec taskset generate
 pnpm exec taskset snapshot create
 pnpm exec taskset snapshot list
-pnpm exec taskset migrate --to 2
-pnpm exec taskset migrate --to 2 --apply
 ```
 
-Migration previews by default. Applying it snapshots canonical tasks first,
-then rewrites schema v1 files to v2 atomically. Snapshot restore also previews
-unless `--apply` is present.
+Snapshot restore previews by default unless `--apply` is present.
 
 ## Complete Or Remove Work
 

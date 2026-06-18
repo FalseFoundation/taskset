@@ -293,9 +293,8 @@ before migrations, restore operations, imports, repairs, or bulk mutation:
 - restore is explicit and conflict-aware
 - snapshots do not replace Git commits, reflogs, or normal backups
 
-`taskset migrate --to 2` and snapshot restore preview by default. Migration
-`--apply` creates a snapshot before atomically rewriting tasks. Restore requires
-`--apply` and atomically reconciles canonical task files.
+Snapshot restore previews by default. Restore requires `--apply` and atomically
+reconciles canonical task files.
 
 ## Documentation Architecture
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { parseTaskFile, serializeTaskFile, TaskFileError } from './taskFile.ts'
 
 const canonicalSource = `---
-schemaVersion: 1
 id: TS-01J00000000000000000000000
 title: Add deterministic task parsing
 status: doing
@@ -26,7 +25,6 @@ describe('parseTaskFile', () => {
 		const task = parseTaskFile(canonicalSource, { filePath: '.taskset/tasks/parsing.md' })
 
 		expect(task.metadata).toEqual({
-			schemaVersion: 1,
 			id: 'TS-01J00000000000000000000000',
 			title: 'Add deterministic task parsing',
 			status: 'doing',
@@ -45,7 +43,6 @@ describe('parseTaskFile', () => {
 
 	it('normalizes CRLF and frontmatter key order without losing Markdown', () => {
 		const source = `---\r
-schemaVersion: 1\r
 files:\r
   - packages/core/src/tasks/taskFile.ts\r
 updatedAt: 2026-06-12 01:02 UTC\r
@@ -63,7 +60,6 @@ Unicode: سلام\r
 		const task = parseTaskFile(source)
 
 		expect(serializeTaskFile(task)).toBe(`---
-schemaVersion: 1
 id: TS-01J00000000000000000000000
 title: Add deterministic task parsing
 status: doing
@@ -152,9 +148,8 @@ describe('serializeTaskFile', () => {
 		expect(serializeTaskFile(parseTaskFile(source))).toBe(source)
 	})
 
-	it('round-trips schema v2 metadata in deterministic order', () => {
+	it('round-trips full metadata in deterministic order', () => {
 		const source = canonicalSource
-			.replace('schemaVersion: 1', 'schemaVersion: 2')
 			.replace(
 				'createdAt: 2026-06-12',
 				`owner: platform

@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GB9E6BV83SNAN0GQ76W56
 title: Improve public package documentation and homepage links
 status: done

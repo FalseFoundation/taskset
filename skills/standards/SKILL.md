@@ -99,8 +99,8 @@ Non-negotiable rules:
   the silent source of truth.
 - Persisted format changes require explicit compatibility and migration
   decisions.
-- Canonical task files read strict schema versions 1 and 2. New and modified
-  tasks serialize as v2; unsupported versions and unknown fields are rejected.
+- Canonical task files use one strict versionless metadata shape. Versioned
+  task frontmatter and unknown fields are rejected.
 - `taskset.config.ts` marks the repository root and configures validated project
   metadata and task creation defaults. It never relocates canonical
   `.taskset/` data or becomes a second task store.

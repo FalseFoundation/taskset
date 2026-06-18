@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3JHWQZ6814GY5CY68AX9FW
 title: Harden migration snapshot and generated-view failure paths
 status: done

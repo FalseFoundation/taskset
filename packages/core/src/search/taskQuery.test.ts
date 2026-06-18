@@ -39,7 +39,6 @@ function record(
 ): TaskRecord {
 	const task: TaskFile = {
 		metadata: {
-			schemaVersion: 2,
 			id,
 			title,
 			status: options.status ?? 'todo',

@@ -1,17 +1,15 @@
 import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
 
-export const TASK_SCHEMA_VERSIONS = [1, 2] as const
 export const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'canceled'] as const
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
 export const TASK_RISKS = ['low', 'medium', 'high', 'critical'] as const
 
-export type TaskSchemaVersion = (typeof TASK_SCHEMA_VERSIONS)[number]
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskPriority = (typeof TASK_PRIORITIES)[number]
 export type TaskRisk = (typeof TASK_RISKS)[number]
 
-interface TaskMetadataBase {
+export interface TaskMetadata {
 	readonly id: string
 	readonly title: string
 	readonly status: TaskStatus
@@ -21,14 +19,6 @@ interface TaskMetadataBase {
 	readonly labels?: readonly string[]
 	readonly dependsOn?: readonly string[]
 	readonly files?: readonly string[]
-}
-
-export interface TaskMetadataV1 extends TaskMetadataBase {
-	readonly schemaVersion: 1
-}
-
-export interface TaskMetadataV2 extends TaskMetadataBase {
-	readonly schemaVersion: 2
 	readonly owner?: string
 	readonly assignees?: readonly string[]
 	readonly reviewers?: readonly string[]
@@ -43,8 +33,6 @@ export interface TaskMetadataV2 extends TaskMetadataBase {
 	readonly directories?: readonly string[]
 	readonly projects?: readonly string[]
 }
-
-export type TaskMetadata = TaskMetadataV1 | TaskMetadataV2
 
 export interface TaskFile {
 	readonly metadata: TaskMetadata
@@ -84,7 +72,7 @@ const uniqueArray = <T>(schema: z.ZodType<T>) =>
 		.array(schema)
 		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 
-const TaskMetadataBaseShape = {
+export const TaskMetadataSchema = z.strictObject({
 	id: TaskIdSchema,
 	title: TaskTitleSchema,
 	status: TaskStatusSchema,
@@ -94,16 +82,6 @@ const TaskMetadataBaseShape = {
 	labels: uniqueArray(TrimmedValueSchema).optional(),
 	dependsOn: uniqueArray(TaskIdSchema).optional(),
 	files: uniqueArray(TrimmedValueSchema).optional(),
-}
-
-export const TaskMetadataV1Schema = z.strictObject({
-	schemaVersion: z.literal(1),
-	...TaskMetadataBaseShape,
-}) satisfies z.ZodType<TaskMetadataV1>
-
-export const TaskMetadataV2Schema = z.strictObject({
-	schemaVersion: z.literal(2),
-	...TaskMetadataBaseShape,
 	owner: TrimmedValueSchema.optional(),
 	assignees: uniqueArray(TrimmedValueSchema).optional(),
 	reviewers: uniqueArray(TrimmedValueSchema).optional(),
@@ -117,16 +95,7 @@ export const TaskMetadataV2Schema = z.strictObject({
 	parent: TaskIdSchema.optional(),
 	directories: uniqueArray(TrimmedValueSchema).optional(),
 	projects: uniqueArray(TrimmedValueSchema).optional(),
-}) satisfies z.ZodType<TaskMetadataV2>
-
-/**
- * Read-compatible canonical metadata union. Version-specific schemas remain
- * strict so unknown fields cannot be silently discarded.
- */
-export const TaskMetadataSchema = z.discriminatedUnion('schemaVersion', [
-	TaskMetadataV1Schema,
-	TaskMetadataV2Schema,
-]) satisfies z.ZodType<TaskMetadata>
+}) satisfies z.ZodType<TaskMetadata>
 
 /** Canonical task document contract: validated metadata plus authored Markdown. */
 export const TaskFileSchema = z.strictObject({

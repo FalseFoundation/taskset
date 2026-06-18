@@ -18,7 +18,6 @@ import {
 	generateViews,
 	initializeRepository,
 	listSnapshots,
-	migrateTasks,
 	normalizeRepositoryPath,
 	queryTasks,
 	RepositoryPathError,
@@ -40,7 +39,6 @@ const USAGE = `Usage:
   taskset config [--json] [--cwd <path>]
   taskset doctor [--json] [--cwd <path>]
   taskset generate [--json] [--cwd <path>]
-  taskset migrate --to 2 [--apply] [--json] [--cwd <path>]
   taskset snapshot create|list [--json] [--cwd <path>]
   taskset snapshot restore <snapshot-id> [--apply] [--json] [--cwd <path>]
   taskset task create --title <title> [metadata options]
@@ -541,45 +539,6 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					? `${JSON.stringify(result, null, 2)}\n`
 					: `Generated ${result.files.length} views in ${result.directory}\n`,
 			)
-			return 0
-		}
-
-		if (command === 'migrate') {
-			const parsed = parseArgs({
-				args: commandArgs,
-				allowPositionals: false,
-				options: {
-					...commonOptionDefinitions,
-					to: { type: 'string' },
-					apply: { type: 'boolean' },
-				},
-			})
-			const values = parseSchema(
-				z.strictObject({
-					to: z.literal('2'),
-					apply: z.boolean().optional(),
-					cwd: CwdSchema,
-					json: JsonSchema,
-				}),
-				parsed.values,
-				'migrate options',
-			)
-			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
-			const result = await migrateTasks(repository, {
-				to: 2,
-				apply: values.apply,
-				onWarning,
-			})
-
-			if (values.json) {
-				stdout(`${JSON.stringify(result, null, 2)}\n`)
-			} else {
-				stdout(
-					`${result.applied ? 'Migrated' : 'Would migrate'} ${result.changes.length} tasks to schema 2${
-						result.snapshotId ? ` (snapshot ${result.snapshotId})` : ''
-					}\n`,
-				)
-			}
 			return 0
 		}
 

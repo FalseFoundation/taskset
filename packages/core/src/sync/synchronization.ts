@@ -71,35 +71,19 @@ function taskData(record: TaskRecord): SyncTaskData {
 		...(metadata.labels ? { labels: Object.freeze([...metadata.labels]) } : {}),
 		...(metadata.dependsOn ? { dependsOn: Object.freeze([...metadata.dependsOn]) } : {}),
 		...(metadata.files ? { files: Object.freeze([...metadata.files]) } : {}),
-		...(metadata.schemaVersion === 2 && metadata.owner ? { owner: metadata.owner } : {}),
-		...(metadata.schemaVersion === 2 && metadata.assignees
-			? { assignees: Object.freeze([...metadata.assignees]) }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.reviewers
-			? { reviewers: Object.freeze([...metadata.reviewers]) }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.team ? { team: metadata.team } : {}),
-		...(metadata.schemaVersion === 2 && metadata.estimate !== undefined
-			? { estimate: metadata.estimate }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.effort !== undefined
-			? { effort: metadata.effort }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.risk ? { risk: metadata.risk } : {}),
-		...(metadata.schemaVersion === 2 && metadata.dueDate ? { dueDate: metadata.dueDate } : {}),
-		...(metadata.schemaVersion === 2 && metadata.related
-			? { related: Object.freeze([...metadata.related]) }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.duplicates
-			? { duplicates: Object.freeze([...metadata.duplicates]) }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.parent ? { parent: metadata.parent } : {}),
-		...(metadata.schemaVersion === 2 && metadata.directories
-			? { directories: Object.freeze([...metadata.directories]) }
-			: {}),
-		...(metadata.schemaVersion === 2 && metadata.projects
-			? { projects: Object.freeze([...metadata.projects]) }
-			: {}),
+		...(metadata.owner ? { owner: metadata.owner } : {}),
+		...(metadata.assignees ? { assignees: Object.freeze([...metadata.assignees]) } : {}),
+		...(metadata.reviewers ? { reviewers: Object.freeze([...metadata.reviewers]) } : {}),
+		...(metadata.team ? { team: metadata.team } : {}),
+		...(metadata.estimate !== undefined ? { estimate: metadata.estimate } : {}),
+		...(metadata.effort !== undefined ? { effort: metadata.effort } : {}),
+		...(metadata.risk ? { risk: metadata.risk } : {}),
+		...(metadata.dueDate ? { dueDate: metadata.dueDate } : {}),
+		...(metadata.related ? { related: Object.freeze([...metadata.related]) } : {}),
+		...(metadata.duplicates ? { duplicates: Object.freeze([...metadata.duplicates]) } : {}),
+		...(metadata.parent ? { parent: metadata.parent } : {}),
+		...(metadata.directories ? { directories: Object.freeze([...metadata.directories]) } : {}),
+		...(metadata.projects ? { projects: Object.freeze([...metadata.projects]) } : {}),
 		body: record.task.body,
 	})
 }
@@ -617,7 +601,6 @@ function taskFromData(
 ): TaskFile {
 	return {
 		metadata: {
-			schemaVersion: 2,
 			id: taskId,
 			title: data.title,
 			status: data.status,

@@ -92,7 +92,6 @@ pnpm taskset task create --title "Describe the work"
 pnpm taskset task list --file packages/core --impact
 pnpm taskset task status <task-id> doing
 pnpm taskset snapshot create
-pnpm taskset migrate --to 2
 pnpm taskset doctor
 ```
 
@@ -231,7 +230,7 @@ Taskset repository safety snapshots.
 
 - valid and invalid enum values
 - required and optional fields
-- defaults, v1/v2 reads, and v2 writes
+- defaults and versionless task reads/writes
 - forward and backward compatibility fixtures
 
 ### Parsing and serialization
@@ -251,7 +250,7 @@ Taskset repository safety snapshots.
 - duplicate IDs and filename collisions
 - path traversal and symlink boundaries
 - explicit timestamps through a test clock
-- migration dry runs, pre-apply snapshots, restore previews, and atomic apply
+- restore previews and atomic apply
 
 ### Graph and search
 
@@ -282,8 +281,8 @@ For persisted format changes:
 
 1. Add old-format fixtures.
 2. Define read compatibility and write behavior.
-3. Implement an explicit migration when rewriting is required.
-4. Verify migration idempotence.
+3. Implement an explicit compatibility path when rewriting is required.
+4. Verify compatibility behavior and rollback safety.
 5. Preserve a recoverable backup or fail before mutation.
 6. Document user-visible consequences.
 

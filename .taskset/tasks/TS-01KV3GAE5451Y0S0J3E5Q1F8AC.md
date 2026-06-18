@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAE5451Y0S0J3E5Q1F8AC
 title: Move strict date handling to generic utilities
 status: done

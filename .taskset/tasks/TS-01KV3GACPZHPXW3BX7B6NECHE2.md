@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GACPZHPXW3BX7B6NECHE2
 title: Adopt Zod validation at public boundaries
 status: done

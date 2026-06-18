@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAJFG7S9T0Z8AQYJG8M5D
 title: Expand task relationship graph projections
 status: done

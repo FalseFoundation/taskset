@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1PFXA3DM2M1TDZPY6DNJD
 title: Implement synchronization planning and atomic apply
 status: done

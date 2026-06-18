@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAN9RCARCRR6DHBNE12TG
 title: Generate disposable task metadata views
 status: done

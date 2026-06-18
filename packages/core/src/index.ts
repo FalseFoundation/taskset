@@ -45,13 +45,6 @@ export {
 	TaskIndex,
 } from './indexing/taskIndex.ts'
 export {
-	type MigrateTasksOptions,
-	MigrateTasksOptionsSchema,
-	migrateTasks,
-	type TaskMigrationChange,
-	type TaskMigrationResult,
-} from './migrations/taskMigration.ts'
-export {
 	normalizeRepositoryPath,
 	RepositoryPathError,
 	type RepositoryPathErrorCode,

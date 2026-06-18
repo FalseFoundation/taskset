@@ -278,7 +278,6 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		expect(JSON.parse(createOutputState.stdout)).toMatchObject({
-			schemaVersion: 2,
 			owner: 'platform',
 			assignees: ['maintainer'],
 			projects: ['taskset'],

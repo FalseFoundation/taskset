@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3JJ9W81E9DQH8NSWF4YWQD
 title: Complete metadata query filters and integration coverage
 status: done

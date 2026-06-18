@@ -143,10 +143,6 @@ function compareOptional<T>(
 	return compare(left, right)
 }
 
-function versionTwoMetadata(record: TaskRecord) {
-	return record.task.metadata.schemaVersion === 2 ? record.task.metadata : undefined
-}
-
 function compareRecords(
 	left: TaskRecord,
 	right: TaskRecord,
@@ -155,8 +151,6 @@ function compareRecords(
 ): number {
 	const leftMetadata = left.task.metadata
 	const rightMetadata = right.task.metadata
-	const leftV2 = versionTwoMetadata(left)
-	const rightV2 = versionTwoMetadata(right)
 	let comparison = 0
 
 	switch (sortBy) {
@@ -176,36 +170,36 @@ function compareRecords(
 			)
 			break
 		case 'owner':
-			comparison = compareOptional(leftV2?.owner, rightV2?.owner, compareText)
+			comparison = compareOptional(leftMetadata.owner, rightMetadata.owner, compareText)
 			break
 		case 'team':
-			comparison = compareOptional(leftV2?.team, rightV2?.team, compareText)
+			comparison = compareOptional(leftMetadata.team, rightMetadata.team, compareText)
 			break
 		case 'estimate':
 			comparison = compareOptional(
-				leftV2?.estimate,
-				rightV2?.estimate,
+				leftMetadata.estimate,
+				rightMetadata.estimate,
 				(leftValue, rightValue) => leftValue - rightValue,
 			)
 			break
 		case 'effort':
 			comparison = compareOptional(
-				leftV2?.effort,
-				rightV2?.effort,
+				leftMetadata.effort,
+				rightMetadata.effort,
 				(leftValue, rightValue) => leftValue - rightValue,
 			)
 			break
 		case 'risk':
 			comparison = compareOptional<TaskRisk>(
-				leftV2?.risk,
-				rightV2?.risk,
+				leftMetadata.risk,
+				rightMetadata.risk,
 				(leftRisk, rightRisk) => TASK_RISKS.indexOf(leftRisk) - TASK_RISKS.indexOf(rightRisk),
 			)
 			break
 		case 'dueDate':
 			comparison = compareOptional(
-				leftV2?.dueDate,
-				rightV2?.dueDate,
+				leftMetadata.dueDate,
+				rightMetadata.dueDate,
 				(leftValue, rightValue) => (parseDate(leftValue) ?? 0) - (parseDate(rightValue) ?? 0),
 			)
 			break
@@ -230,7 +224,7 @@ function includesAny(values: readonly string[] | undefined, filters: readonly st
 
 function matchesPathFilters(record: TaskRecord, query: TaskQuery): boolean {
 	const metadata = record.task.metadata
-	const directories = metadata.schemaVersion === 2 ? (metadata.directories ?? []) : []
+	const directories = metadata.directories ?? []
 	const allPaths = [...(metadata.files ?? []), ...directories]
 
 	if (
@@ -287,7 +281,6 @@ export function queryTaskRecords(
 		: undefined
 	const filtered = records.filter((record) => {
 		const metadata = record.task.metadata
-		const v2 = versionTwoMetadata(record)
 
 		if (validatedQuery.statuses && !validatedQuery.statuses.includes(metadata.status)) {
 			return false
@@ -307,27 +300,30 @@ export function queryTaskRecords(
 			return false
 		}
 
-		if (validatedQuery.owners && (!v2?.owner || !validatedQuery.owners.includes(v2.owner))) {
+		if (
+			validatedQuery.owners &&
+			(!metadata.owner || !validatedQuery.owners.includes(metadata.owner))
+		) {
 			return false
 		}
 
-		if (validatedQuery.assignees && !includesAny(v2?.assignees, validatedQuery.assignees)) {
+		if (validatedQuery.assignees && !includesAny(metadata.assignees, validatedQuery.assignees)) {
 			return false
 		}
 
-		if (validatedQuery.reviewers && !includesAny(v2?.reviewers, validatedQuery.reviewers)) {
+		if (validatedQuery.reviewers && !includesAny(metadata.reviewers, validatedQuery.reviewers)) {
 			return false
 		}
 
-		if (validatedQuery.teams && (!v2?.team || !validatedQuery.teams.includes(v2.team))) {
+		if (validatedQuery.teams && (!metadata.team || !validatedQuery.teams.includes(metadata.team))) {
 			return false
 		}
 
-		if (validatedQuery.risks && (!v2?.risk || !validatedQuery.risks.includes(v2.risk))) {
+		if (validatedQuery.risks && (!metadata.risk || !validatedQuery.risks.includes(metadata.risk))) {
 			return false
 		}
 
-		if (validatedQuery.projects && !includesAny(v2?.projects, validatedQuery.projects)) {
+		if (validatedQuery.projects && !includesAny(metadata.projects, validatedQuery.projects)) {
 			return false
 		}
 
@@ -335,15 +331,15 @@ export function queryTaskRecords(
 			return false
 		}
 
-		if (validatedQuery.related && !v2?.related?.includes(validatedQuery.related)) {
+		if (validatedQuery.related && !metadata.related?.includes(validatedQuery.related)) {
 			return false
 		}
 
-		if (validatedQuery.duplicate && !v2?.duplicates?.includes(validatedQuery.duplicate)) {
+		if (validatedQuery.duplicate && !metadata.duplicates?.includes(validatedQuery.duplicate)) {
 			return false
 		}
 
-		if (validatedQuery.parent && v2?.parent !== validatedQuery.parent) {
+		if (validatedQuery.parent && metadata.parent !== validatedQuery.parent) {
 			return false
 		}
 
@@ -351,34 +347,34 @@ export function queryTaskRecords(
 			return false
 		}
 
-		const dueTimestamp = v2?.dueDate ? parseDate(v2.dueDate) : undefined
+		const dueTimestamp = metadata.dueDate ? parseDate(metadata.dueDate) : undefined
 		const createdTimestamp = parseDate(metadata.createdAt)
 		const updatedTimestamp = parseDate(metadata.updatedAt)
 
 		if (
 			validatedQuery.estimateMin !== undefined &&
-			(v2?.estimate === undefined || v2.estimate < validatedQuery.estimateMin)
+			(metadata.estimate === undefined || metadata.estimate < validatedQuery.estimateMin)
 		) {
 			return false
 		}
 
 		if (
 			validatedQuery.estimateMax !== undefined &&
-			(v2?.estimate === undefined || v2.estimate > validatedQuery.estimateMax)
+			(metadata.estimate === undefined || metadata.estimate > validatedQuery.estimateMax)
 		) {
 			return false
 		}
 
 		if (
 			validatedQuery.effortMin !== undefined &&
-			(v2?.effort === undefined || v2.effort < validatedQuery.effortMin)
+			(metadata.effort === undefined || metadata.effort < validatedQuery.effortMin)
 		) {
 			return false
 		}
 
 		if (
 			validatedQuery.effortMax !== undefined &&
-			(v2?.effort === undefined || v2.effort > validatedQuery.effortMax)
+			(metadata.effort === undefined || metadata.effort > validatedQuery.effortMax)
 		) {
 			return false
 		}

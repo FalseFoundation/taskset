@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAFMVPMBQP0KBYMX9H0VN
 title: Add snapshot-backed task schema migration
 status: done

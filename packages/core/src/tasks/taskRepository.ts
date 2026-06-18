@@ -467,7 +467,7 @@ export async function readTask(repository: Repository, taskId: string): Promise<
 }
 
 /**
- * Creates a schema-v2 task after applying repository defaults and validating
+ * Creates a canonical task after applying repository defaults and validating
  * the resulting graph. The canonical write is exclusive; cache invalidation
  * and generated-view refresh are best effort.
  */
@@ -497,7 +497,6 @@ export async function createTask(
 
 	const task: TaskFile = {
 		metadata: {
-			schemaVersion: 2,
 			id: taskId,
 			title: validatedInput.title,
 			status,
@@ -599,7 +598,6 @@ export async function updateTask(
 		)
 	}
 
-	const currentV2 = current.metadata.schemaVersion === 2 ? current.metadata : undefined
 	const nextStatus = validatedInput.status ?? current.metadata.status
 	const nextPriority =
 		validatedInput.priority === null
@@ -612,27 +610,26 @@ export async function updateTask(
 	const updatedTask: TaskFile = {
 		metadata: {
 			...current.metadata,
-			schemaVersion: 2,
 			...(validatedInput.title !== undefined ? { title: validatedInput.title } : {}),
 			status: nextStatus,
 			...(nextPriority !== undefined ? { priority: nextPriority } : { priority: undefined }),
-			owner: resolveOptional(validatedInput.owner, currentV2?.owner),
-			assignees: validatedInput.assignees ?? currentV2?.assignees,
-			reviewers: validatedInput.reviewers ?? currentV2?.reviewers,
-			team: resolveOptional(validatedInput.team, currentV2?.team),
-			estimate: resolveOptional(validatedInput.estimate, currentV2?.estimate),
-			effort: resolveOptional(validatedInput.effort, currentV2?.effort),
-			risk: resolveOptional<TaskRisk>(validatedInput.risk, currentV2?.risk),
-			dueDate: resolveOptional(validatedInput.dueDate, currentV2?.dueDate),
+			owner: resolveOptional(validatedInput.owner, current.metadata.owner),
+			assignees: validatedInput.assignees ?? current.metadata.assignees,
+			reviewers: validatedInput.reviewers ?? current.metadata.reviewers,
+			team: resolveOptional(validatedInput.team, current.metadata.team),
+			estimate: resolveOptional(validatedInput.estimate, current.metadata.estimate),
+			effort: resolveOptional(validatedInput.effort, current.metadata.effort),
+			risk: resolveOptional<TaskRisk>(validatedInput.risk, current.metadata.risk),
+			dueDate: resolveOptional(validatedInput.dueDate, current.metadata.dueDate),
 			updatedAt: formatDate(validatedOptions.now?.() ?? new Date()),
 			...(validatedInput.labels !== undefined ? { labels: validatedInput.labels } : {}),
 			...(validatedInput.dependsOn !== undefined ? { dependsOn: validatedInput.dependsOn } : {}),
-			related: validatedInput.related ?? currentV2?.related,
-			duplicates: validatedInput.duplicates ?? currentV2?.duplicates,
-			parent: resolveOptional(validatedInput.parent, currentV2?.parent),
+			related: validatedInput.related ?? current.metadata.related,
+			duplicates: validatedInput.duplicates ?? current.metadata.duplicates,
+			parent: resolveOptional(validatedInput.parent, current.metadata.parent),
 			...(validatedInput.files !== undefined ? { files: validatedInput.files } : {}),
-			directories: validatedInput.directories ?? currentV2?.directories,
-			projects: validatedInput.projects ?? currentV2?.projects,
+			directories: validatedInput.directories ?? current.metadata.directories,
+			projects: validatedInput.projects ?? current.metadata.projects,
 		},
 		body: validatedInput.body ?? current.body,
 	}
@@ -699,10 +696,9 @@ export async function deleteTask(
 		const { metadata } = record.task
 		return (
 			metadata.dependsOn?.includes(validatedTaskId) === true ||
-			(metadata.schemaVersion === 2 &&
-				(metadata.related?.includes(validatedTaskId) === true ||
-					metadata.duplicates?.includes(validatedTaskId) === true ||
-					metadata.parent === validatedTaskId))
+			metadata.related?.includes(validatedTaskId) === true ||
+			metadata.duplicates?.includes(validatedTaskId) === true ||
+			metadata.parent === validatedTaskId
 		)
 	})
 
@@ -726,7 +722,6 @@ export async function deleteTask(
 				record.task.metadata.id,
 			)
 			const currentTask = parseTaskFile(originalContents, { filePath: record.relativePath })
-			const currentV2 = currentTask.metadata.schemaVersion === 2 ? currentTask.metadata : undefined
 
 			const repairedTask: TaskFile = {
 				metadata: {
@@ -735,15 +730,16 @@ export async function deleteTask(
 					dependsOn: currentTask.metadata.dependsOn?.filter(
 						(dependencyId) => dependencyId !== validatedTaskId,
 					),
-					...(currentV2
-						? {
-								related: currentV2.related?.filter((relatedId) => relatedId !== validatedTaskId),
-								duplicates: currentV2.duplicates?.filter(
-									(duplicateId) => duplicateId !== validatedTaskId,
-								),
-								parent: currentV2.parent === validatedTaskId ? undefined : currentV2.parent,
-							}
-						: {}),
+					related: currentTask.metadata.related?.filter(
+						(relatedId) => relatedId !== validatedTaskId,
+					),
+					duplicates: currentTask.metadata.duplicates?.filter(
+						(duplicateId) => duplicateId !== validatedTaskId,
+					),
+					parent:
+						currentTask.metadata.parent === validatedTaskId
+							? undefined
+							: currentTask.metadata.parent,
 				},
 				body: currentTask.body,
 			}

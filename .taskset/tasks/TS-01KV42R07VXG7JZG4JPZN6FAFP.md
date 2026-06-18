@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV42R07VXG7JZG4JPZN6FAFP
 title: Move maintainer documentation into a separate docs route
 status: todo

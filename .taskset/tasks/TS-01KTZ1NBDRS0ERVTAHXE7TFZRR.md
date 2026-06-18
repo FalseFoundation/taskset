@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NBDRS0ERVTAHXE7TFZRR
 title: Define conflict-aware synchronization contracts
 status: done

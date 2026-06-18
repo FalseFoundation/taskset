@@ -104,12 +104,12 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 		['labels', metadata.labels],
 		['dependsOn', metadata.dependsOn],
 		['files', metadata.files],
-		['assignees', metadata.schemaVersion === 2 ? metadata.assignees : undefined],
-		['reviewers', metadata.schemaVersion === 2 ? metadata.reviewers : undefined],
-		['related', metadata.schemaVersion === 2 ? metadata.related : undefined],
-		['duplicates', metadata.schemaVersion === 2 ? metadata.duplicates : undefined],
-		['directories', metadata.schemaVersion === 2 ? metadata.directories : undefined],
-		['projects', metadata.schemaVersion === 2 ? metadata.projects : undefined],
+		['assignees', metadata.assignees],
+		['reviewers', metadata.reviewers],
+		['related', metadata.related],
+		['duplicates', metadata.duplicates],
+		['directories', metadata.directories],
+		['projects', metadata.projects],
 	] as const) {
 		if (!values) {
 			continue
@@ -124,9 +124,9 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 
 	for (const [field, values] of [
 		['labels', metadata.labels],
-		['assignees', metadata.schemaVersion === 2 ? metadata.assignees : undefined],
-		['reviewers', metadata.schemaVersion === 2 ? metadata.reviewers : undefined],
-		['projects', metadata.schemaVersion === 2 ? metadata.projects : undefined],
+		['assignees', metadata.assignees],
+		['reviewers', metadata.reviewers],
+		['projects', metadata.projects],
 	] as const) {
 		for (const value of values ?? []) {
 			if (value !== value.trim()) {
@@ -139,24 +139,22 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 		throw validationError('dependsOn', 'a task cannot depend on itself', filePath)
 	}
 
-	if (metadata.schemaVersion === 2) {
-		for (const [field, taskIds] of [
-			['related', metadata.related],
-			['duplicates', metadata.duplicates],
-		] as const) {
-			if (taskIds?.includes(metadata.id)) {
-				throw validationError(field, 'a task cannot relate to itself', filePath)
-			}
+	for (const [field, taskIds] of [
+		['related', metadata.related],
+		['duplicates', metadata.duplicates],
+	] as const) {
+		if (taskIds?.includes(metadata.id)) {
+			throw validationError(field, 'a task cannot relate to itself', filePath)
 		}
+	}
 
-		if (metadata.parent === metadata.id) {
-			throw validationError('parent', 'a task cannot be its own parent', filePath)
-		}
+	if (metadata.parent === metadata.id) {
+		throw validationError('parent', 'a task cannot be its own parent', filePath)
 	}
 
 	for (const [field, paths] of [
 		['files', metadata.files],
-		['directories', metadata.schemaVersion === 2 ? metadata.directories : undefined],
+		['directories', metadata.directories],
 	] as const) {
 		for (const value of paths ?? []) {
 			if (isRepositoryRelativePosixPath(value)) {
@@ -173,29 +171,6 @@ function validateTaskMetadata(metadata: TaskMetadata, filePath?: string): void {
 }
 
 function freezeTaskFile(task: TaskFile): TaskFile {
-	const versionTwoLists =
-		task.metadata.schemaVersion === 2
-			? {
-					...(task.metadata.assignees !== undefined
-						? { assignees: Object.freeze([...task.metadata.assignees]) }
-						: {}),
-					...(task.metadata.reviewers !== undefined
-						? { reviewers: Object.freeze([...task.metadata.reviewers]) }
-						: {}),
-					...(task.metadata.related !== undefined
-						? { related: Object.freeze([...task.metadata.related]) }
-						: {}),
-					...(task.metadata.duplicates !== undefined
-						? { duplicates: Object.freeze([...task.metadata.duplicates]) }
-						: {}),
-					...(task.metadata.directories !== undefined
-						? { directories: Object.freeze([...task.metadata.directories]) }
-						: {}),
-					...(task.metadata.projects !== undefined
-						? { projects: Object.freeze([...task.metadata.projects]) }
-						: {}),
-				}
-			: {}
 	const metadata = Object.freeze({
 		...task.metadata,
 		...(task.metadata.labels !== undefined
@@ -207,7 +182,24 @@ function freezeTaskFile(task: TaskFile): TaskFile {
 		...(task.metadata.files !== undefined
 			? { files: Object.freeze([...task.metadata.files]) }
 			: {}),
-		...versionTwoLists,
+		...(task.metadata.assignees !== undefined
+			? { assignees: Object.freeze([...task.metadata.assignees]) }
+			: {}),
+		...(task.metadata.reviewers !== undefined
+			? { reviewers: Object.freeze([...task.metadata.reviewers]) }
+			: {}),
+		...(task.metadata.related !== undefined
+			? { related: Object.freeze([...task.metadata.related]) }
+			: {}),
+		...(task.metadata.duplicates !== undefined
+			? { duplicates: Object.freeze([...task.metadata.duplicates]) }
+			: {}),
+		...(task.metadata.directories !== undefined
+			? { directories: Object.freeze([...task.metadata.directories]) }
+			: {}),
+		...(task.metadata.projects !== undefined
+			? { projects: Object.freeze([...task.metadata.projects]) }
+			: {}),
 	})
 
 	return Object.freeze({
@@ -229,7 +221,7 @@ function schemaIssues(error: {
 }
 
 /**
- * Parses strict v1 or v2 task metadata while preserving the Markdown body.
+ * Parses strict canonical task metadata while preserving the Markdown body.
  * Reads validate but never migrate or repair canonical input.
  */
 export function parseTaskFile(source: string, options: ParseTaskFileOptions = {}): TaskFile {
@@ -288,7 +280,6 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 
 	const { metadata } = taskResult.data
 	const orderedMetadata: Record<string, unknown> = {
-		schemaVersion: metadata.schemaVersion,
 		id: metadata.id,
 		title: metadata.title,
 		status: metadata.status,
@@ -298,38 +289,36 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 		orderedMetadata.priority = metadata.priority
 	}
 
-	if (metadata.schemaVersion === 2) {
-		if (metadata.owner !== undefined) {
-			orderedMetadata.owner = metadata.owner
-		}
+	if (metadata.owner !== undefined) {
+		orderedMetadata.owner = metadata.owner
+	}
 
-		if (metadata.assignees !== undefined) {
-			orderedMetadata.assignees = metadata.assignees
-		}
+	if (metadata.assignees !== undefined) {
+		orderedMetadata.assignees = metadata.assignees
+	}
 
-		if (metadata.reviewers !== undefined) {
-			orderedMetadata.reviewers = metadata.reviewers
-		}
+	if (metadata.reviewers !== undefined) {
+		orderedMetadata.reviewers = metadata.reviewers
+	}
 
-		if (metadata.team !== undefined) {
-			orderedMetadata.team = metadata.team
-		}
+	if (metadata.team !== undefined) {
+		orderedMetadata.team = metadata.team
+	}
 
-		if (metadata.estimate !== undefined) {
-			orderedMetadata.estimate = metadata.estimate
-		}
+	if (metadata.estimate !== undefined) {
+		orderedMetadata.estimate = metadata.estimate
+	}
 
-		if (metadata.effort !== undefined) {
-			orderedMetadata.effort = metadata.effort
-		}
+	if (metadata.effort !== undefined) {
+		orderedMetadata.effort = metadata.effort
+	}
 
-		if (metadata.risk !== undefined) {
-			orderedMetadata.risk = metadata.risk
-		}
+	if (metadata.risk !== undefined) {
+		orderedMetadata.risk = metadata.risk
+	}
 
-		if (metadata.dueDate !== undefined) {
-			orderedMetadata.dueDate = metadata.dueDate
-		}
+	if (metadata.dueDate !== undefined) {
+		orderedMetadata.dueDate = metadata.dueDate
 	}
 
 	orderedMetadata.createdAt = metadata.createdAt
@@ -343,32 +332,28 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 		orderedMetadata.dependsOn = metadata.dependsOn
 	}
 
-	if (metadata.schemaVersion === 2) {
-		if (metadata.related !== undefined) {
-			orderedMetadata.related = metadata.related
-		}
+	if (metadata.related !== undefined) {
+		orderedMetadata.related = metadata.related
+	}
 
-		if (metadata.duplicates !== undefined) {
-			orderedMetadata.duplicates = metadata.duplicates
-		}
+	if (metadata.duplicates !== undefined) {
+		orderedMetadata.duplicates = metadata.duplicates
+	}
 
-		if (metadata.parent !== undefined) {
-			orderedMetadata.parent = metadata.parent
-		}
+	if (metadata.parent !== undefined) {
+		orderedMetadata.parent = metadata.parent
 	}
 
 	if (metadata.files !== undefined) {
 		orderedMetadata.files = metadata.files
 	}
 
-	if (metadata.schemaVersion === 2) {
-		if (metadata.directories !== undefined) {
-			orderedMetadata.directories = metadata.directories
-		}
+	if (metadata.directories !== undefined) {
+		orderedMetadata.directories = metadata.directories
+	}
 
-		if (metadata.projects !== undefined) {
-			orderedMetadata.projects = metadata.projects
-		}
+	if (metadata.projects !== undefined) {
+		orderedMetadata.projects = metadata.projects
 	}
 
 	return serializeFrontmatter(orderedMetadata, taskResult.data.body)

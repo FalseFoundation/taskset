@@ -10,7 +10,6 @@ metadata and the Markdown body owns durable human context.
 
 ```markdown
 ---
-schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
@@ -47,10 +46,10 @@ Explain why the task exists.
 
 ## Canonical Data
 
-Required fields are `schemaVersion`, `id`, `title`, `status`, `createdAt`, and
-`updatedAt`. Task IDs are immutable `TS-` prefixed ULIDs.
+Required fields are `id`, `title`, `status`, `createdAt`, and `updatedAt`.
+Task IDs are immutable `TS-` prefixed ULIDs.
 
-Schema v2 supports these optional fields:
+Task files use one strict versionless metadata shape. Optional fields:
 
 - Planning: `priority`, `estimate` in integer minutes, `effort` as a finite
   nonnegative number, `risk`, and `dueDate`
@@ -66,17 +65,15 @@ millisecond ISO UTC timestamps remain readable.
 Unknown fields, invalid enum values, self-links, duplicate list values, path
 traversal, and an `updatedAt` earlier than `createdAt` are rejected.
 
-## Compatibility And Migration
+## Compatibility Cutover
 
-Taskset reads schema versions 1 and 2. New and modified tasks serialize as v2.
-
-```bash
-taskset migrate --to 2
-taskset migrate --to 2 --apply
-```
-
-Migration previews by default. Applying it creates an immutable snapshot and
-atomically rewrites v1 files. Reads never silently rewrite canonical data.
+Task metadata no longer carries `schemaVersion`. Versioned task frontmatter is
+invalid input and fails with a schema diagnostic rather than being silently
+rewritten. Repositories created with earlier Taskset releases must convert
+task files by removing only the `schemaVersion` field from task frontmatter
+while preserving all other metadata and Markdown body content. Take a Git
+commit or `taskset snapshot create` checkpoint before converting existing
+repositories.
 
 ## Relationships
 

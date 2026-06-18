@@ -85,8 +85,8 @@ Human output is the config file path. JSON output contains:
 taskset doctor [--json] [--cwd <path>]
 ```
 
-Validates the repository without modifying files. It scans canonical task files,
-schema metadata, paths, and graph relationships.
+Validates the repository without modifying files. It scans canonical task
+metadata, paths, and graph relationships.
 
 Human success output:
 
@@ -119,26 +119,6 @@ Generated <count> views in <directory>
 
 JSON output is the generated-views result with the target directory and written
 files.
-
-### `migrate`
-
-```bash
-taskset migrate --to 2 [--apply] [--json] [--cwd <path>]
-```
-
-Previews or applies migration of readable schema v1 tasks to schema v2. The
-default is a dry run. Use `--apply` to mutate canonical files. Applying a
-migration creates an immutable snapshot first.
-
-Human output:
-
-```text
-Would migrate <count> tasks to schema 2
-Migrated <count> tasks to schema 2 (snapshot <snapshot-id>)
-```
-
-JSON output is the migration result, including `applied`, `changes`, and an
-optional `snapshotId`.
 
 ## Snapshot Commands
 
@@ -227,8 +207,8 @@ Array options are repeatable.
 taskset task create --title <title> [metadata options] [--json] [--cwd <path>]
 ```
 
-Creates a schema v2 task file using repository defaults for omitted configured
-fields.
+Creates a versionless task file using repository defaults for omitted
+configured fields.
 
 Human output is the task ID. JSON output is a task record containing
 `relativePath` and metadata fields.
@@ -390,10 +370,10 @@ alongside the deleted task record.
 
 ## Generated-View Warnings
 
-Task creation, update, status changes, deletion, migration apply, and snapshot
-restore apply mutate canonical Markdown first and then refresh disposable
-generated views. If that refresh fails after the canonical mutation succeeds,
-the command still succeeds and writes a stderr warning:
+Task creation, update, status changes, deletion, and snapshot restore apply
+mutate canonical Markdown first and then refresh disposable generated views. If
+that refresh fails after the canonical mutation succeeds, the command still
+succeeds and writes a stderr warning:
 
 ```text
 warning: <message>
@@ -403,11 +383,14 @@ Run `taskset generate` later to rebuild generated views explicitly.
 
 ## Compatibility Notes
 
-`tasks-for-file` was removed in the schema v2 command surface. Use:
+`tasks-for-file` was removed. Use:
 
 ```bash
 taskset task list --file <path> --impact
 ```
 
-Schema v2 migration and snapshot restore preview by default. Pass `--apply`
-only when the displayed plan is the mutation you intend to commit.
+Task files are versionless. Frontmatter that still contains `schemaVersion` is
+invalid and must be converted by removing that field while preserving the rest
+of the task metadata and Markdown body. Snapshot restore previews by default;
+pass `--apply` only when the displayed plan is the mutation you intend to
+commit.

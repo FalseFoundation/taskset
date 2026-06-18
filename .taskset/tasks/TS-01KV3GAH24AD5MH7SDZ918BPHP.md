@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV3GAH24AD5MH7SDZ918BPHP
 title: Introduce task metadata schema version 2
 status: done

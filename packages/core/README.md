@@ -19,16 +19,16 @@ const result = await queryTasks(repository, {
 })
 ```
 
-Core owns repository discovery, strict task parsing, schema v1/v2
-compatibility, deterministic serialization, atomic mutations, lifecycle rules,
-relationship projections, path queries, diagnostics, synchronization,
-snapshots, migrations, indexing, and generated views.
+Core owns repository discovery, strict versionless task parsing, deterministic
+serialization, atomic mutations, lifecycle rules, relationship projections,
+path queries, diagnostics, synchronization, snapshots, indexing, and generated
+views.
 
 Key public operations include:
 
 - `createTask`, `readTask`, `updateTask`, `deleteTask`, and `listTasks`
 - `queryTasks`, `buildTaskGraph`, `buildTaskIndex`, and `diagnoseRepository`
-- `createSnapshot`, `listSnapshots`, `restoreSnapshot`, and `migrateTasks`
+- `createSnapshot`, `listSnapshots`, and `restoreSnapshot`
 - `generateViews`
 
 Public operation inputs are validated with exported Zod schemas where

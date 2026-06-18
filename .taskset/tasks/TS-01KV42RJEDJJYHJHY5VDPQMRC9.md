@@ -1,5 +1,4 @@
 ---
-schemaVersion: 2
 id: TS-01KV42RJEDJJYHJHY5VDPQMRC9
 title: Add GitHub and npm icon links to docs and blog
 status: todo

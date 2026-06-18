@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NZD1B9BGWTCS4CM9ZDEK
 title: Add file-to-task and impact analysis queries
 status: done

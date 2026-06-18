@@ -1,11 +1,10 @@
 ---
-schemaVersion: 2
 id: TS-01KV42PWW5Y7R4ACASSVBNPXQK
 title: Remove task schema versions and unify the canonical format
-status: todo
+status: done
 priority: urgent
 createdAt: 2026-06-14 22:05 UTC
-updatedAt: 2026-06-14 22:05 UTC
+updatedAt: 2026-06-18 15:44 UTC
 labels:
   - contracts
   - schema
@@ -14,7 +13,10 @@ files:
   - packages/contracts/src/task.ts
   - packages/core/src/tasks/taskFile.ts
   - packages/core/src/tasks/taskRepository.ts
-  - packages/core/src/migrations
+  - packages/core/src/graph/taskGraph.ts
+  - packages/core/src/search/taskQuery.ts
+  - packages/core/src/sync/synchronization.ts
+  - packages/cli/src/cli.ts
   - docs/task-files.md
   - skills/standards/references/architecture.md
   - skills/standards/references/conventions.md

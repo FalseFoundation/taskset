@@ -15,7 +15,6 @@ afterEach(async () => {
 
 function taskSource(id: string, dependsOn = ''): string {
 	return `---
-schemaVersion: 1
 id: ${id}
 title: Fixture
 status: todo

@@ -13,7 +13,6 @@ function task(
 ): TaskRecord {
 	const value: TaskFile = {
 		metadata: {
-			schemaVersion: 2,
 			id,
 			title: id,
 			status: 'todo',

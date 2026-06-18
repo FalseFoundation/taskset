@@ -83,7 +83,7 @@ level.
 - path traversal and symlink boundaries
 - broken graph references and cycles
 - interrupted writes and stale updates
-- old-format fixtures and migration idempotence
+- old-format fixtures and compatibility rollback behavior
 
 Vitest code snapshots are acceptable for small stable serialized output or
 diagnostics. They are unrelated to Taskset safety snapshots.

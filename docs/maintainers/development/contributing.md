@@ -41,7 +41,7 @@ editing generated or derived state.
 - Use feature-based architecture in UI and interaction surfaces.
 - Add dependencies to the package that imports them.
 - Preserve deterministic serialization and human-authored Markdown.
-- Prefer test-first work for domain rules, parsers, migrations, transitions,
+- Prefer test-first work for domain rules, parsers, compatibility changes, transitions,
   and bug fixes.
 
 ## Finish The Work

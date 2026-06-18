@@ -1,5 +1,4 @@
 ---
-schemaVersion: 1
 id: TS-01KTZ1NBDRQ5Y2T9NCV0D7HZ6H
 title: Build the task dependency graph and integrity validation
 status: done
