@@ -10,15 +10,19 @@ rules, not as a substitute for reading the code involved.
 
 ## Skill Resources
 
-Load only the references relevant to the task:
+Load only the references relevant to the task. The top-level reference files
+are routing maps; after reading the relevant map, load only the topic files it
+names for the work in front of you:
 
-- [architecture.md](references/architecture.md): product vision, source of
-  truth, package ownership, dependency flow, client FBA, modular core and server
-  code, snapshots, documentation, and storage boundaries
-- [conventions.md](references/conventions.md): naming, TypeScript, Markdown
-  entities, UI, scripts, tests, and documentation
-- [workflows.md](references/workflows.md): environment, pnpm, Turbo, validation,
-  and Taskset-specific test strategy
+- [architecture.md](references/architecture.md): route to product/source,
+  ownership/dependency, client/server, storage/snapshot, documentation, and
+  generated-source architecture references
+- [conventions.md](references/conventions.md): route to design, naming,
+  TypeScript, task entity, interface/UI, backend/tooling, test, and
+  documentation convention references
+- [workflows.md](references/workflows.md): route to environment, pnpm, Turbo,
+  dependency, docs-site, validation, Vitest, persisted-data, and Git workflow
+  references
 - [release.md](references/release.md): Changesets, compatibility, commit
   language, and completion requirements
 - [`docs/maintainers/technology.md`](../../docs/maintainers/technology.md): preferred
@@ -87,9 +91,9 @@ them and follow the intended `@taskset/<directory-name>` ownership model.
 
 ## Preserve Product Invariants
 
-Read [architecture.md](references/architecture.md) before changing package
-boundaries, entity formats, filesystem behavior, graph semantics, or interface
-contracts.
+Read [architecture.md](references/architecture.md), then the task-relevant
+architecture topic file, before changing package boundaries, entity formats,
+filesystem behavior, graph semantics, or interface contracts.
 
 Non-negotiable rules:
 
@@ -146,8 +150,9 @@ Use the architecture appropriate to the owning surface:
 - Keep client-specific state and presentation in the client. Keep shared domain
   rules in core.
 
-Read [conventions.md](references/conventions.md) before adding or renaming source
-files, packages, exports, public types, entity fields, commands, or scripts.
+Read [conventions.md](references/conventions.md), then the task-relevant
+conventions topic file, before adding or renaming source files, packages,
+exports, public types, entity fields, commands, or scripts.
 
 ## Execute Safely
 
@@ -157,8 +162,8 @@ files, packages, exports, public types, entity fields, commands, or scripts.
    - Search for existing contracts, helpers, schemas, commands, and tests.
    - Determine whether each target is owned source, canonical Taskset data,
      generated output, or cache.
-   - Read [workflows.md](references/workflows.md) for current commands and
-     validation.
+   - Read [workflows.md](references/workflows.md), then the task-relevant
+     workflow topic file, for current commands and validation.
 2. [always] While editing:
    - Keep changes in the owning layer and update required dependents.
    - Use `workspace:*` for internal dependencies.

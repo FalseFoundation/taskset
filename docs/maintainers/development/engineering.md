@@ -47,7 +47,8 @@ verified. Source exports remain available for types and development tooling.
   Vite; add a Vite build only for a browser package or a demonstrated bundling
   requirement.
 - Keep one repository standards skill while usage and maintenance rules share
-  product contracts. Split a separate user skill only when it has a distinct
+  product contracts. Keep its references split by topic so agents can load only
+  the relevant guidance. Split a separate user skill only when it has a distinct
   audience, installation path, and lifecycle.
 
 ## Task Semantics
