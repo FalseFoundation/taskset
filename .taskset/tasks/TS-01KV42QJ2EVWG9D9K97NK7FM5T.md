@@ -3,8 +3,9 @@ id: TS-01KV42QJ2EVWG9D9K97NK7FM5T
 title: Design memorable collision-resistant task IDs
 status: todo
 priority: urgent
+order: 20
 createdAt: 2026-06-14 22:06 UTC
-updatedAt: 2026-06-14 22:06 UTC
+updatedAt: 2026-06-18 17:29 UTC
 labels:
   - contracts
   - identifiers

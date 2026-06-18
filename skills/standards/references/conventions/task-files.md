@@ -12,6 +12,7 @@ id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
 priority: high
+order: 10
 createdAt: 2026-06-12
 updatedAt: 2026-06-12 09:30 UTC
 labels:
@@ -41,6 +42,9 @@ Rules:
 - Use `low`, `medium`, `high`, and `urgent` for task priority.
 - Priority is the sole measure of task importance. Do not add a second,
   overlapping importance field.
+- `order` is the sole user-controlled sequence field. It is an optional finite
+  nonnegative number. Lower values sort first, missing values sort after
+  ordered tasks, and duplicate values fall back to task ID ordering.
 - Repository configuration may select and order the active values from that
   vocabulary. Defaults and task creation must respect the configured list.
 - Define one canonical representation for each field.

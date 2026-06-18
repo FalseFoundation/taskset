@@ -3,8 +3,9 @@ id: TS-01KVDVJ4ZGEYG59BCQESTGQ743
 title: Audit usage docs, maintainer docs, and READMEs for current behavior
 status: todo
 priority: high
+order: 60
 createdAt: 2026-06-18 17:13 UTC
-updatedAt: 2026-06-18 17:13 UTC
+updatedAt: 2026-06-18 17:29 UTC
 labels:
   - docs
   - readme

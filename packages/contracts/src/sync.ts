@@ -17,6 +17,7 @@ export const SYNC_TASK_FIELDS = [
 	'title',
 	'status',
 	'priority',
+	'order',
 	'labels',
 	'dependsOn',
 	'files',
@@ -44,6 +45,7 @@ export interface SyncTaskData {
 	readonly title: string
 	readonly status: TaskStatus
 	readonly priority?: TaskPriority
+	readonly order?: number
 	readonly labels?: readonly string[]
 	readonly dependsOn?: readonly string[]
 	readonly files?: readonly string[]
@@ -158,6 +160,7 @@ export const SyncTaskDataSchema = z.strictObject({
 	title: TaskTitleSchema,
 	status: TaskStatusSchema,
 	priority: TaskPrioritySchema.optional(),
+	order: z.number().finite().nonnegative().optional(),
 	labels: uniqueArray(TrimmedValueSchema).optional(),
 	dependsOn: uniqueArray(TaskIdSchema).optional(),
 	files: uniqueArray(TrimmedValueSchema).optional(),

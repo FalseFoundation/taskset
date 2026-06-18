@@ -14,6 +14,7 @@ export interface TaskMetadata {
 	readonly title: string
 	readonly status: TaskStatus
 	readonly priority?: TaskPriority
+	readonly order?: number
 	readonly createdAt: string
 	readonly updatedAt: string
 	readonly labels?: readonly string[]
@@ -77,6 +78,7 @@ export const TaskMetadataSchema = z.strictObject({
 	title: TaskTitleSchema,
 	status: TaskStatusSchema,
 	priority: TaskPrioritySchema.optional(),
+	order: z.number().finite().nonnegative().optional(),
 	createdAt: TaskTimestampSchema,
 	updatedAt: TaskTimestampSchema,
 	labels: uniqueArray(TrimmedValueSchema).optional(),

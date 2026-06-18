@@ -43,7 +43,27 @@ function encodedFileName(value: string): string {
 
 function taskLink(record: TaskRecord): string {
 	const { metadata } = record.task
-	return `- [${metadata.id}: ${metadata.title}](../../tasks/${metadata.id}.md)`
+	const orderPrefix = metadata.order !== undefined ? `[${metadata.order}] ` : ''
+	return `- ${orderPrefix}[${metadata.id}: ${metadata.title}](../../tasks/${metadata.id}.md)`
+}
+
+function compareViewRecords(left: TaskRecord, right: TaskRecord): number {
+	const leftOrder = left.task.metadata.order
+	const rightOrder = right.task.metadata.order
+
+	if (leftOrder !== rightOrder) {
+		if (leftOrder === undefined) {
+			return 1
+		}
+
+		if (rightOrder === undefined) {
+			return -1
+		}
+
+		return leftOrder - rightOrder
+	}
+
+	return left.task.metadata.id.localeCompare(right.task.metadata.id)
 }
 
 function addGroup(groups: Map<string, TaskRecord[]>, value: string, record: TaskRecord): void {
@@ -61,9 +81,7 @@ function renderGroups(
 	for (const [value, records] of [...groups.entries()].sort(([left], [right]) =>
 		left.localeCompare(right),
 	)) {
-		const lines = [...records]
-			.sort((left, right) => left.task.metadata.id.localeCompare(right.task.metadata.id))
-			.map(taskLink)
+		const lines = [...records].sort(compareViewRecords).map(taskLink)
 		files.set(
 			`${category}/${encodedFileName(value)}`,
 			`# ${category[0]?.toUpperCase()}${category.slice(1)}: ${value}\n\n${lines.join('\n')}\n`,

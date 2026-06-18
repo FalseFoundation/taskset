@@ -179,6 +179,7 @@ Array options are repeatable.
 | `--title <title>` | `title` | Required for create, optional for update. |
 | `--status <status>` | `status` | One of `todo`, `doing`, `blocked`, `done`, `canceled`. |
 | `--priority <priority>` | `priority` | One of `low`, `medium`, `high`, `urgent`. |
+| `--order <number>` | `order` | Nonnegative finite number. Lower values sort first. |
 | `--label <label>` | `labels` | Repeatable. |
 | `--depends-on <task-id>` | `dependsOn` | Repeatable. |
 | `--file <path>` | `files` | Repeatable; normalized to a repository-relative POSIX path. |
@@ -257,8 +258,10 @@ Filter options:
 | `--impact` | Add tasks that transitively depend on direct matches. |
 | `--include-derived` | Include derived relationship projections in JSON output. |
 
-Sort keys are `id`, `title`, `status`, `priority`, `owner`, `team`, `estimate`,
-`effort`, `risk`, `dueDate`, `createdAt`, and `updatedAt`.
+Sort keys are `id`, `title`, `status`, `priority`, `order`, `owner`, `team`,
+`estimate`, `effort`, `risk`, `dueDate`, `createdAt`, and `updatedAt`. With
+`--sort order`, tasks without `order` sort after ordered tasks; duplicate
+values fall back to task ID ordering.
 
 Different filter categories compose with AND. Repeated enum, person, project,
 file, and directory values use OR within their category. Repeated labels are
@@ -325,6 +328,7 @@ Clear options:
 | Option | Effect |
 | --- | --- |
 | `--clear-priority` | Remove `priority`. |
+| `--clear-order` | Remove `order`. |
 | `--clear-labels` | Replace `labels` with an empty list. |
 | `--clear-dependencies` | Replace `dependsOn` with an empty list. |
 | `--clear-files` | Replace `files` with an empty list. |

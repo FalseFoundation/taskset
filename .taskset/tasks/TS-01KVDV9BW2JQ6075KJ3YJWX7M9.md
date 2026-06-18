@@ -3,8 +3,9 @@ id: TS-01KVDV9BW2JQ6075KJ3YJWX7M9
 title: Expose maintainer docs in the docs menu
 status: todo
 priority: medium
+order: 50
 createdAt: 2026-06-18 17:08 UTC
-updatedAt: 2026-06-18 17:08 UTC
+updatedAt: 2026-06-18 17:29 UTC
 labels:
   - docs
   - website

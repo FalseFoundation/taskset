@@ -24,6 +24,7 @@ export const TASK_SORT_KEYS = [
 	'title',
 	'status',
 	'priority',
+	'order',
 	'owner',
 	'team',
 	'estimate',
@@ -167,6 +168,13 @@ function compareRecords(
 				rightMetadata.priority,
 				(leftPriority, rightPriority) =>
 					TASK_PRIORITIES.indexOf(leftPriority) - TASK_PRIORITIES.indexOf(rightPriority),
+			)
+			break
+		case 'order':
+			comparison = compareOptional(
+				leftMetadata.order,
+				rightMetadata.order,
+				(leftValue, rightValue) => leftValue - rightValue,
 			)
 			break
 		case 'owner':

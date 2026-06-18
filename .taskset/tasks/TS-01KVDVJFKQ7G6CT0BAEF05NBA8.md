@@ -3,8 +3,9 @@ id: TS-01KVDVJFKQ7G6CT0BAEF05NBA8
 title: Require documentation updates with related changes
 status: todo
 priority: medium
+order: 70
 createdAt: 2026-06-18 17:13 UTC
-updatedAt: 2026-06-18 17:13 UTC
+updatedAt: 2026-06-18 17:29 UTC
 labels:
   - docs
   - workflow

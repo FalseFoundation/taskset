@@ -49,7 +49,7 @@ const USAGE = `Usage:
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
 
 Metadata options:
-  --status --priority --owner --team --estimate --effort --risk --due-date
+  --status --priority --order --owner --team --estimate --effort --risk --due-date
   --label --assignee --reviewer --depends-on --related --duplicate
   --parent --file --directory --project --body
   Repeat array options. Update commands also accept matching --clear-* options.
@@ -105,6 +105,7 @@ const CreateValuesSchema = z.strictObject({
 	title: TrimmedStringSchema,
 	status: TaskStatusSchema.optional(),
 	priority: TaskPrioritySchema.optional(),
+	order: z.coerce.number().finite().nonnegative().optional(),
 	label: StringListSchema.optional(),
 	'depends-on': TaskIdListSchema.optional(),
 	file: StringListSchema.optional(),
@@ -128,6 +129,7 @@ const CreateValuesSchema = z.strictObject({
 
 const UPDATE_CLEAR_PAIRS = [
 	['priority', 'clear-priority'],
+	['order', 'clear-order'],
 	['label', 'clear-labels'],
 	['depends-on', 'clear-dependencies'],
 	['file', 'clear-files'],
@@ -151,6 +153,7 @@ const UpdateValuesSchema = z
 		title: TrimmedStringSchema.optional(),
 		status: TaskStatusSchema.optional(),
 		priority: TaskPrioritySchema.optional(),
+		order: z.coerce.number().finite().nonnegative().optional(),
 		label: StringListSchema.optional(),
 		'depends-on': TaskIdListSchema.optional(),
 		file: StringListSchema.optional(),
@@ -169,6 +172,7 @@ const UpdateValuesSchema = z
 		project: StringListSchema.optional(),
 		body: z.string().optional(),
 		'clear-priority': z.boolean().optional(),
+		'clear-order': z.boolean().optional(),
 		'clear-labels': z.boolean().optional(),
 		'clear-dependencies': z.boolean().optional(),
 		'clear-files': z.boolean().optional(),
@@ -250,6 +254,7 @@ const metadataOptionDefinitions = {
 	file: { type: 'string', multiple: true },
 	label: { type: 'string', multiple: true },
 	priority: { type: 'string' },
+	order: { type: 'string' },
 	status: { type: 'string' },
 	title: { type: 'string' },
 	owner: { type: 'string' },
@@ -370,6 +375,11 @@ function updateInputFromValues(
 			? { priority: null }
 			: values.priority !== undefined
 				? { priority: values.priority }
+				: {}),
+		...(values['clear-order']
+			? { order: null }
+			: values.order !== undefined
+				? { order: values.order }
 				: {}),
 		...(values['clear-labels']
 			? { labels: [] }
@@ -630,6 +640,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					title: values.title,
 					...(values.status ? { status: values.status } : {}),
 					...(values.priority ? { priority: values.priority } : {}),
+					...(values.order !== undefined ? { order: values.order } : {}),
 					...(values.label ? { labels: values.label } : {}),
 					...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
 					...(values.file ? { files: normalizeMutationPaths(repository, values.file) } : {}),

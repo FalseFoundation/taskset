@@ -24,6 +24,7 @@ describe('generated views', () => {
 			repository,
 			{
 				title: 'Indexed',
+				order: 20,
 				priority: 'high',
 				assignees: ['maintainer'],
 				projects: ['alpha/beta'],
@@ -42,7 +43,7 @@ describe('generated views', () => {
 		expect(second.fingerprint).toBe(first.fingerprint)
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'status', 'todo.md'), 'utf8'),
-		).toContain(taskId)
+		).toContain(`- [20] [${taskId}: Indexed](../../tasks/${taskId}.md)`)
 		expect(
 			await readFile(
 				path.join(repository.generatedDirectory, 'project', 'alpha%2Fbeta.md'),

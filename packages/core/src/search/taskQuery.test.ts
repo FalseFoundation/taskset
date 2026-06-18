@@ -30,6 +30,7 @@ function record(
 		readonly files?: readonly string[]
 		readonly labels?: readonly string[]
 		readonly owner?: string
+		readonly order?: number
 		readonly priority?: 'low' | 'medium' | 'high' | 'urgent'
 		readonly projects?: readonly string[]
 		readonly risk?: 'low' | 'medium' | 'high' | 'critical'
@@ -43,6 +44,7 @@ function record(
 			title,
 			status: options.status ?? 'todo',
 			...(options.priority ? { priority: options.priority } : {}),
+			...(options.order !== undefined ? { order: options.order } : {}),
 			createdAt: options.createdAt ?? '2026-06-12',
 			updatedAt: options.updatedAt ?? '2026-06-12',
 			...(options.labels ? { labels: options.labels } : {}),
@@ -88,6 +90,24 @@ describe('task queries', () => {
 			}).map((item) => item.task.metadata.title),
 		).toEqual(['Alpha', 'Zulu'])
 		expect(queryTaskRecords(records, { labels: ['missing'] })).toEqual([])
+	})
+
+	it('sorts explicit task order before unordered tasks with ID tie fallback', () => {
+		const records = [
+			record('TS-01J00000000000000000000002', 'Unordered'),
+			record('TS-01J00000000000000000000001', 'Second', { order: 20 }),
+			record('TS-01J00000000000000000000000', 'First tie', { order: 10 }),
+			record('TS-01J00000000000000000000003', 'Second tie', { order: 10 }),
+		]
+
+		expect(
+			queryTaskRecords(records, { sortBy: 'order' }).map((item) => item.task.metadata.id),
+		).toEqual([
+			'TS-01J00000000000000000000000',
+			'TS-01J00000000000000000000003',
+			'TS-01J00000000000000000000001',
+			'TS-01J00000000000000000000002',
+		])
 	})
 
 	it('searches normalized Unicode titles and Markdown bodies', () => {

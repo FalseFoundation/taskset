@@ -53,6 +53,7 @@ verified. Source exports remain available for types and development tooling.
 
 ## Task Semantics
 
-Priority is Taskset's single ordering signal, and `urgent` is its highest value.
-A separate urgency scale is intentionally omitted because overlapping scales
-increase ambiguity and synchronization work.
+Priority is Taskset's importance signal, and `urgent` is its highest value.
+`order` is the optional user-controlled sequence signal. A separate urgency
+scale is intentionally omitted because overlapping importance scales increase
+ambiguity and synchronization work.

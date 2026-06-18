@@ -348,6 +348,8 @@ describe('runCli', () => {
 				'Direct match',
 				'--estimate',
 				'90',
+				'--order',
+				'20',
 				'--effort',
 				'3',
 				'--duplicate',
@@ -360,6 +362,12 @@ describe('runCli', () => {
 			{ cwd, stdout: directOutput.writeStdout },
 		)
 		const directId = directOutput.stdout.trim()
+		const orderedOutput = createOutput()
+		await runCli(['task', 'create', '--title', 'Ordered first', '--order', '10', '--json'], {
+			cwd,
+			stdout: orderedOutput.writeStdout,
+		})
+		const orderedId = JSON.parse(orderedOutput.stdout).id
 		const impactedOutput = createOutput()
 		await runCli(['task', 'create', '--title', 'Impacted', '--depends-on', directId], {
 			cwd,
@@ -400,6 +408,30 @@ describe('runCli', () => {
 			direct: [{ id: directId, derived: { blocks: [impactedId] } }],
 			impacted: [{ id: impactedId, derived: { blockedBy: [directId] } }],
 		})
+
+		const sortedOutput = createOutput()
+		expect(
+			await runCli(['task', 'list', '--sort', 'order', '--json'], {
+				cwd,
+				stdout: sortedOutput.writeStdout,
+				stderr: sortedOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(
+			JSON.parse(sortedOutput.stdout)
+				.map((item: { id: string }) => item.id)
+				.slice(0, 2),
+		).toEqual([orderedId, directId])
+
+		const clearOutput = createOutput()
+		expect(
+			await runCli(['task', 'update', orderedId, '--clear-order', '--json'], {
+				cwd,
+				stdout: clearOutput.writeStdout,
+				stderr: clearOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(clearOutput.stdout)).not.toHaveProperty('order')
 
 		const invalidRange = createOutput()
 		expect(

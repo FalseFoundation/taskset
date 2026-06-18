@@ -1,10 +1,11 @@
 ---
 id: TS-01KV42Q7YD78WC60BQHSH8YMZH
 title: Add explicit task ordering and ordered generated views
-status: todo
+status: done
 priority: high
+order: 10
 createdAt: 2026-06-14 22:06 UTC
-updatedAt: 2026-06-14 22:06 UTC
+updatedAt: 2026-06-18 17:34 UTC
 labels:
   - contracts
   - ordering

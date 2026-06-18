@@ -3,8 +3,9 @@ id: TS-01KV42RJEDJJYHJHY5VDPQMRC9
 title: Add GitHub and npm icon links to docs and blog
 status: todo
 priority: medium
+order: 40
 createdAt: 2026-06-14 22:06 UTC
-updatedAt: 2026-06-14 22:06 UTC
+updatedAt: 2026-06-18 17:29 UTC
 labels:
   - website
   - docs

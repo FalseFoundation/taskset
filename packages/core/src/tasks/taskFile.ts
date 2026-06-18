@@ -289,6 +289,10 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 		orderedMetadata.priority = metadata.priority
 	}
 
+	if (metadata.order !== undefined) {
+		orderedMetadata.order = metadata.order
+	}
+
 	if (metadata.owner !== undefined) {
 		orderedMetadata.owner = metadata.owner
 	}

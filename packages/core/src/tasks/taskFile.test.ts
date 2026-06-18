@@ -6,6 +6,7 @@ id: TS-01J00000000000000000000000
 title: Add deterministic task parsing
 status: doing
 priority: high
+order: 10
 createdAt: 2026-06-12
 updatedAt: 2026-06-12 01:02 UTC
 labels:
@@ -29,6 +30,7 @@ describe('parseTaskFile', () => {
 			title: 'Add deterministic task parsing',
 			status: 'doing',
 			priority: 'high',
+			order: 10,
 			createdAt: '2026-06-12',
 			updatedAt: '2026-06-12 01:02 UTC',
 			labels: ['core'],

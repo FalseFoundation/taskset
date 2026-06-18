@@ -14,6 +14,7 @@ id: TS-01J00000000000000000000000
 title: Add task validation
 status: doing
 priority: high
+order: 10
 owner: platform
 assignees:
   - maintainer
@@ -51,8 +52,8 @@ Task IDs are immutable `TS-` prefixed ULIDs.
 
 Task files use one strict versionless metadata shape. Optional fields:
 
-- Planning: `priority`, `estimate` in integer minutes, `effort` as a finite
-  nonnegative number, `risk`, and `dueDate`
+- Planning: `priority`, `order`, `estimate` in integer minutes, `effort` as a
+  finite nonnegative number, `risk`, and `dueDate`
 - People: `owner`, `assignees`, `reviewers`, and `team`
 - Relationships: `dependsOn`, `related`, `duplicates`, and `parent`
 - Scope: `labels`, `files`, `directories`, and `projects`
@@ -64,6 +65,10 @@ millisecond ISO UTC timestamps remain readable.
 
 Unknown fields, invalid enum values, self-links, duplicate list values, path
 traversal, and an `updatedAt` earlier than `createdAt` are rejected.
+
+`order` is the optional user-controlled sequence. Lower order values sort
+first. Missing values sort after ordered tasks, and duplicate order values fall
+back to deterministic task ID ordering.
 
 ## Compatibility Cutover
 
@@ -113,6 +118,7 @@ text, file, and directory filters. Numeric and timestamp ranges are inclusive:
 
 ```bash
 taskset task list --file packages/core --impact --json
+taskset task list --sort order
 taskset task list --estimate-min 30 --estimate-max 120 --risk high
 taskset task list --duplicate TS-01J00000000000000000000000
 ```
@@ -138,7 +144,8 @@ projections to records in both groups.
 
 `.taskset/cache/` and `.taskset/generated/` are disposable. Generated status,
 priority, project, and assignee indexes are deterministic projections and
-refresh on a best-effort basis after canonical mutations.
+refresh on a best-effort basis after canonical mutations. Generated views sort
+tasks by `order` when present and display ordered rows with the order value.
 
 ## Snapshots
 

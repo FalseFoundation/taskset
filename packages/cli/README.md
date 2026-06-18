@@ -24,8 +24,8 @@ queries. Repeated path values use OR, distinct filter categories use AND,
 repeated labels require every label, and planning or timestamp ranges are
 inclusive. Filters include
 `--estimate-min`/`--estimate-max`, `--effort-min`/`--effort-max`,
-`--duplicate`, and due/created/updated before/after bounds. `tasks-for-file`
-was removed.
+`--duplicate`, `--sort order`, and due/created/updated before/after bounds.
+`tasks-for-file` was removed.
 
 Exit code `0` means success, `1` means a repository or domain failure, and `2`
 means invalid CLI usage. Commands reserve stdout for requested output and send
