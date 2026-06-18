@@ -2,7 +2,7 @@
 	"name": "@taskset/contracts",
 	"type": "module",
 	"private": false,
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "Shared runtime schemas and TypeScript contracts for Taskset.",
 	"license": "MIT",
 	"author": {
