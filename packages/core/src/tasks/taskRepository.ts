@@ -257,6 +257,15 @@ function validateConfiguredPriority(
 	}
 }
 
+function validateConfiguredStatus(repository: Repository, status: TaskStatus): void {
+	if (!repository.config.tasks.statuses.includes(status)) {
+		throw new TaskRepositoryError(
+			'task-invalid',
+			`Status "${status}" is not enabled by taskset.config.ts`,
+		)
+	}
+}
+
 function mapGraphError(error: unknown): never {
 	if (error instanceof TaskGraphError) {
 		const diagnostic = error.diagnostics[0]
@@ -328,6 +337,10 @@ async function readTaskContents(
 	}
 }
 
+/**
+ * Generates a branch-safe Taskset ID by encoding the UTC millisecond timestamp
+ * and 80 random bits as an uppercase ULID.
+ */
 export function generateTaskId(
 	date = new Date(),
 	randomSource: (size: number) => Uint8Array = randomBytes,
@@ -366,6 +379,10 @@ export function generateTaskId(
 	return `TS-${characters.join('')}`
 }
 
+/**
+ * Reads and validates every canonical task file, rejecting duplicate IDs and
+ * returning records in stable ID order.
+ */
 export async function listTasks(repository: Repository): Promise<readonly TaskRecord[]> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task repository')
 	let entries: Dirent<string>[]
@@ -394,6 +411,7 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 
 		try {
 			const task = parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath })
+			validateConfiguredStatus(validatedRepository, task.metadata.status)
 			const existingPath = taskIds.get(task.metadata.id)
 
 			if (existingPath) {
@@ -431,6 +449,7 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 	)
 }
 
+/** Reads one validated task by immutable canonical ID. */
 export async function readTask(repository: Repository, taskId: string): Promise<TaskRecord> {
 	parseCoreInput(RepositorySchema, repository, 'task read repository')
 	const validatedTaskId = parseTaskId(taskId)
@@ -447,6 +466,11 @@ export async function readTask(repository: Repository, taskId: string): Promise<
 	return record
 }
 
+/**
+ * Creates a schema-v2 task after applying repository defaults and validating
+ * the resulting graph. The canonical write is exclusive; cache invalidation
+ * and generated-view refresh are best effort.
+ */
 export async function createTask(
 	repository: Repository,
 	input: CreateTaskInput,
@@ -465,8 +489,10 @@ export async function createTask(
 	const timestamp = formatDate(now)
 	const defaults = validatedRepository.config.tasks.defaults
 	const priority = validatedInput.priority ?? defaults.priority
+	const status = validatedInput.status ?? defaults.status
 	const labels = validatedInput.labels ?? defaults.labels
 
+	validateConfiguredStatus(validatedRepository, status)
 	validateConfiguredPriority(validatedRepository, priority)
 
 	const task: TaskFile = {
@@ -474,7 +500,7 @@ export async function createTask(
 			schemaVersion: 2,
 			id: taskId,
 			title: validatedInput.title,
-			status: validatedInput.status ?? defaults.status,
+			status,
 			...(priority ? { priority } : {}),
 			...(validatedInput.owner ? { owner: validatedInput.owner } : {}),
 			...(validatedInput.assignees?.length ? { assignees: validatedInput.assignees } : {}),
@@ -538,6 +564,10 @@ export async function createTask(
 	return freezeRecord(relativePath, parsedTask)
 }
 
+/**
+ * Atomically updates task metadata or Markdown while preserving unspecified
+ * values, enforcing lifecycle transitions, and revalidating the full graph.
+ */
 export async function updateTask(
 	repository: Repository,
 	taskId: string,
@@ -576,6 +606,7 @@ export async function updateTask(
 			? undefined
 			: (validatedInput.priority ?? current.metadata.priority)
 	validateStatusTransition(current.metadata.status, nextStatus)
+	validateConfiguredStatus(validatedRepository, nextStatus)
 	validateConfiguredPriority(validatedRepository, nextPriority)
 
 	const updatedTask: TaskFile = {
@@ -635,6 +666,10 @@ export async function updateTask(
 	return updatedRecord
 }
 
+/**
+ * Atomically deletes a task. Inbound canonical relationships block deletion
+ * unless `removeDependencies` requests their transactional repair.
+ */
 export async function deleteTask(
 	repository: Repository,
 	taskId: string,

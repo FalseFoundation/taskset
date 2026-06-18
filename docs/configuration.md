@@ -23,6 +23,7 @@ export default defineConfig({
 			priority: 'medium',
 			labels: ['taskset'],
 		},
+		statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 		priorities: ['low', 'medium', 'high', 'urgent'],
 	},
 })
@@ -34,6 +35,10 @@ export default defineConfig({
 - `project.name` is optional repository metadata.
 - `tasks.defaults.status`, `priority`, and `labels` are optional defaults used
   by task creation.
+- `tasks.statuses` selects and orders the repository's active status vocabulary
+  from Taskset's schema-version-1 values. Task creation, updates, lifecycle
+  changes, listing, generated views, and diagnostics reject or report task
+  statuses outside that list. The default status must be included.
 - `tasks.priorities` selects and orders the repository's active priority
   vocabulary from Taskset's schema-version-1 values. Task creation rejects a
   priority outside that list, and the default priority must be included.

@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV42RWT9X8ASFXQ219C4K7F5
 title: Expand defineConfig with statuses and validated project options
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-14 22:06 UTC
-updatedAt: 2026-06-14 22:06 UTC
+updatedAt: 2026-06-18 14:48 UTC
 labels:
   - config
   - contracts

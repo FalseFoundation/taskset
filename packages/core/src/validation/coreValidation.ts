@@ -5,6 +5,10 @@ export interface CoreValidationIssue {
 	readonly message: string
 }
 
+/**
+ * Stable public validation failure that exposes field-level issues without
+ * leaking Zod-specific error shapes to core consumers.
+ */
 export class CoreValidationError extends Error {
 	readonly operation: string
 	readonly issues: readonly CoreValidationIssue[]

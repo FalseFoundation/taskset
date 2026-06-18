@@ -21,6 +21,10 @@ function normalizeLineEndings(value: string): string {
 	return value.replace(/\r\n?/gu, '\n')
 }
 
+/**
+ * Parses strict YAML 1.2 frontmatter, rejects duplicate keys and aliases, and
+ * preserves the normalized Markdown body separately from untrusted attributes.
+ */
 export function parseFrontmatter(source: string): ParsedFrontmatter {
 	const normalizedSource = normalizeLineEndings(source).replace(/^\uFEFF/u, '')
 	const lines = normalizedSource.split('\n')
@@ -66,6 +70,10 @@ export function parseFrontmatter(source: string): ParsedFrontmatter {
 	}
 }
 
+/**
+ * Serializes caller-ordered attributes and a normalized Markdown body with LF
+ * endings and exactly one final newline.
+ */
 export function serializeFrontmatter(
 	attributes: Readonly<Record<string, unknown>>,
 	body: string,

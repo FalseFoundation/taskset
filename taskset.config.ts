@@ -11,6 +11,7 @@ export default defineConfig({
 			priority: 'medium',
 			labels: ['taskset'],
 		},
+		statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 		priorities: ['low', 'medium', 'high', 'urgent'],
 	},
 })

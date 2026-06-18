@@ -13,6 +13,7 @@ export interface TaskDefaultsConfig {
 
 export interface TasksConfig {
 	readonly defaults?: TaskDefaultsConfig
+	readonly statuses?: readonly TaskStatus[]
 	readonly priorities?: readonly TaskPriority[]
 }
 
@@ -45,6 +46,11 @@ function uniqueValues(values: readonly string[]): boolean {
 const TasksConfigSchema = z
 	.strictObject({
 		defaults: TaskDefaultsConfigSchema.optional(),
+		statuses: z
+			.array(z.enum(TASK_STATUSES))
+			.min(1, 'At least one status must be configured')
+			.refine(uniqueValues, 'Configured statuses must be unique')
+			.optional(),
 		priorities: z
 			.array(z.enum(TASK_PRIORITIES))
 			.min(1, 'At least one priority must be configured')
@@ -52,7 +58,16 @@ const TasksConfigSchema = z
 			.optional(),
 	})
 	.superRefine((tasks, context) => {
+		const defaultStatus = tasks.defaults?.status ?? 'todo'
 		const defaultPriority = tasks.defaults?.priority
+
+		if (tasks.statuses && !tasks.statuses.includes(defaultStatus)) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Default status must be included in configured statuses',
+				path: ['defaults', 'status'],
+			})
+		}
 
 		if (defaultPriority && tasks.priorities && !tasks.priorities.includes(defaultPriority)) {
 			context.addIssue({
@@ -63,6 +78,10 @@ const TasksConfigSchema = z
 		}
 	})
 
+/**
+ * Strict repository behavior configuration. It intentionally excludes storage
+ * relocation and canonical entity data.
+ */
 export const ConfigSchema = z.strictObject({
 	schemaVersion: z.literal(1),
 	project: ProjectConfigSchema.optional(),

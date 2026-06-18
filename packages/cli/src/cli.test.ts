@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -411,5 +411,33 @@ describe('runCli', () => {
 			}),
 		).toBe(2)
 		expect(invalidRange.stderr).toContain('estimate-max')
+	})
+
+	it('reports generated-view failures as warnings without failing canonical updates', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const created = createOutput()
+		await runCli(['task', 'create', '--title', 'Warning target'], {
+			cwd,
+			stdout: created.writeStdout,
+		})
+		const dataDirectory = path.join(cwd, '.taskset')
+		await chmod(dataDirectory, 0o555)
+		const output = createOutput()
+
+		try {
+			expect(
+				await runCli(['task', 'update', created.stdout.trim(), '--title', 'Updated'], {
+					cwd,
+					stdout: output.writeStdout,
+					stderr: output.writeStderr,
+				}),
+			).toBe(0)
+		} finally {
+			await chmod(dataDirectory, 0o755)
+		}
+
+		expect(output.stderr).toContain('warning:')
+		expect(output.stderr).toContain('generated views could not be refreshed')
 	})
 })

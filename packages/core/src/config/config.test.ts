@@ -76,9 +76,32 @@ export default config
 					priority: 'high',
 					labels: ['fixture'],
 				},
+				statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 				priorities: ['low', 'medium', 'high', 'urgent'],
 			},
 		})
+	})
+
+	it('resolves configured status ordering and validates defaults', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		await writeFile(
+			path.join(rootDirectory, CONFIG_FILE_NAME),
+			`export default {
+	schemaVersion: 1,
+	tasks: {
+		defaults: {
+			status: 'doing',
+		},
+		statuses: ['doing', 'todo'],
+	},
+}
+`,
+		)
+
+		const repository = await loadRepository(rootDirectory)
+
+		expect(repository.config.tasks.statuses).toEqual(['doing', 'todo'])
+		expect(repository.config.tasks.defaults.status).toBe('doing')
 	})
 
 	it('rejects an invalid default export with the config path', async () => {

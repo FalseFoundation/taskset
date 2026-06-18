@@ -7,6 +7,7 @@ import {
 	TaskPrioritySchema,
 	type TaskRisk,
 	TaskRiskSchema,
+	type TaskStatus,
 	TaskStatusSchema,
 	TaskTimestampSchema,
 } from '@taskset/contracts'
@@ -146,7 +147,12 @@ function versionTwoMetadata(record: TaskRecord) {
 	return record.task.metadata.schemaVersion === 2 ? record.task.metadata : undefined
 }
 
-function compareRecords(left: TaskRecord, right: TaskRecord, sortBy: TaskSortKey): number {
+function compareRecords(
+	left: TaskRecord,
+	right: TaskRecord,
+	sortBy: TaskSortKey,
+	statusOrder: readonly TaskStatus[] = TASK_STATUSES,
+): number {
 	const leftMetadata = left.task.metadata
 	const rightMetadata = right.task.metadata
 	const leftV2 = versionTwoMetadata(left)
@@ -159,7 +165,7 @@ function compareRecords(left: TaskRecord, right: TaskRecord, sortBy: TaskSortKey
 			break
 		case 'status':
 			comparison =
-				TASK_STATUSES.indexOf(leftMetadata.status) - TASK_STATUSES.indexOf(rightMetadata.status)
+				statusOrder.indexOf(leftMetadata.status) - statusOrder.indexOf(rightMetadata.status)
 			break
 		case 'priority':
 			comparison = compareOptional<TaskPriority>(
@@ -257,6 +263,7 @@ function validateQuery(query: TaskQuery): TaskQuery {
 export function queryTaskRecords(
 	records: readonly TaskRecord[],
 	query: TaskQuery = {},
+	options: { readonly statusOrder?: readonly TaskStatus[] } = {},
 ): readonly TaskRecord[] {
 	const validatedQuery = validateQuery(query)
 	const searchText = validatedQuery.text
@@ -425,10 +432,23 @@ export function queryTaskRecords(
 
 	return Object.freeze(
 		filtered.sort((left, right) => {
-			const comparison = compareRecords(left, right, sortBy)
+			const comparison = compareRecords(left, right, sortBy, options.statusOrder)
 			return direction === 'desc' ? -comparison : comparison
 		}),
 	)
+}
+
+function validateConfiguredStatuses(
+	repository: Repository,
+	statuses: readonly TaskStatus[] | undefined,
+): void {
+	const disabledStatus = statuses?.find(
+		(status) => !repository.config.tasks.statuses.includes(status),
+	)
+
+	if (disabledStatus) {
+		throw new TypeError(`Status "${disabledStatus}" is not enabled by taskset.config.ts`)
+	}
 }
 
 /**
@@ -440,6 +460,7 @@ export async function queryTasks(
 	query: TaskQuery = {},
 ): Promise<TaskQueryResult> {
 	const validatedQuery = validateQuery(query)
+	validateConfiguredStatuses(repository, validatedQuery.statuses)
 	const normalizedQuery: TaskQuery = {
 		...validatedQuery,
 		...(validatedQuery.files
@@ -456,7 +477,9 @@ export async function queryTasks(
 			: {}),
 	}
 	const records = await listTasks(repository)
-	const direct = queryTaskRecords(records, normalizedQuery)
+	const direct = queryTaskRecords(records, normalizedQuery, {
+		statusOrder: repository.config.tasks.statuses,
+	})
 	const directIds = new Set(direct.map((record) => record.task.metadata.id))
 	const impactedIds = new Set<string>()
 

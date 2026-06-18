@@ -227,6 +227,10 @@ export const SyncConflictSchema = z.strictObject({
 	message: z.string(),
 }) satisfies z.ZodType<SyncConflict>
 
+/**
+ * Provider-neutral synchronization plan contract. Changes and checkpoints are
+ * validated together before core applies local or adapter mutations.
+ */
 export const SyncPlanSchema = z.strictObject({
 	direction: SyncDirectionSchema,
 	deletionBehavior: SyncDeletionBehaviorSchema,

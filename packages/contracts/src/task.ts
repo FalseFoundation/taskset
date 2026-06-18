@@ -51,6 +51,7 @@ export interface TaskFile {
 	readonly body: string
 }
 
+/** Strict immutable ID contract shared by canonical files and public inputs. */
 export const TaskIdSchema = z
 	.string()
 	.regex(
@@ -118,11 +119,16 @@ export const TaskMetadataV2Schema = z.strictObject({
 	projects: uniqueArray(TrimmedValueSchema).optional(),
 }) satisfies z.ZodType<TaskMetadataV2>
 
+/**
+ * Read-compatible canonical metadata union. Version-specific schemas remain
+ * strict so unknown fields cannot be silently discarded.
+ */
 export const TaskMetadataSchema = z.discriminatedUnion('schemaVersion', [
 	TaskMetadataV1Schema,
 	TaskMetadataV2Schema,
 ]) satisfies z.ZodType<TaskMetadata>
 
+/** Canonical task document contract: validated metadata plus authored Markdown. */
 export const TaskFileSchema = z.strictObject({
 	metadata: TaskMetadataSchema,
 	body: z.string(),

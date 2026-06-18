@@ -25,11 +25,14 @@ Install the command-line package from npm as `@taskset/cli`.
 
 ## Current Status
 
-Taskset is pre-alpha. The CLI currently supports repository initialization,
-configuration inspection, and task creation, listing, and display.
+Taskset is pre-alpha. The CLI supports repository initialization, configuration
+inspection, validated task CRUD and lifecycle changes, repository diagnostics,
+generated views, snapshots, schema v2 migration, metadata queries, and
+file-impact analysis.
 
 ## Read Next
 
 - [Getting started](getting-started.md)
 - [Configuration](configuration.md)
+- [CLI reference](cli-reference.md)
 - [Task files](task-files.md)

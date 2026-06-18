@@ -334,6 +334,10 @@ export class TaskGraph {
 		return Object.freeze([...visited].sort(compareText))
 	}
 
+	/**
+	 * Projects canonical and transitive inverse relationships for one task
+	 * without persisting derived fields.
+	 */
 	derive(taskId: string): DerivedTaskRelationships {
 		const validatedTaskId = parseCoreInput(z.string().min(1), taskId, 'task graph task ID')
 

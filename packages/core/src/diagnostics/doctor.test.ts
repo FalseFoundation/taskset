@@ -49,4 +49,39 @@ describe('repository doctor', () => {
 		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toContain('dependency-cycle')
 		expect(await readFile(firstPath, 'utf8')).toBe(before)
 	})
+
+	it('reports task statuses disabled by configuration', async () => {
+		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-doctor-'))
+		temporaryDirectories.push(rootDirectory)
+		const repository = await initializeRepository(rootDirectory)
+		await writeFile(
+			repository.configPath,
+			`export default {
+	schemaVersion: 1,
+	tasks: {
+		defaults: {
+			status: 'doing',
+		},
+		statuses: ['doing'],
+	},
+}
+`,
+		)
+		const configuredRepository = await initializeRepository(rootDirectory)
+		await writeFile(
+			path.join(configuredRepository.tasksDirectory, 'todo.md'),
+			taskSource('TS-01J00000000000000000000000'),
+		)
+
+		const result = await diagnoseRepository(configuredRepository)
+
+		expect(result.valid).toBe(false)
+		expect(result.diagnostics).toContainEqual(
+			expect.objectContaining({
+				code: 'disabled-status',
+				field: 'status',
+				message: 'Status "todo" is not enabled by taskset.config.ts',
+			}),
+		)
+	})
 })

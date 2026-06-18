@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV3JJQV9RNDV02TF93JEPEK5
 title: Complete focused TSDoc and complex-code comment audit
-status: todo
+status: done
 priority: medium
 createdAt: 2026-06-14 17:23 UTC
-updatedAt: 2026-06-14 17:23 UTC
+updatedAt: 2026-06-15 20:52 UTC
 labels:
   - documentation
   - standards

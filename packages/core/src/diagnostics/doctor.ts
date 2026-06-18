@@ -14,6 +14,7 @@ export type RepositoryDiagnosticCode =
 	| 'frontmatter'
 	| 'schema'
 	| 'validation'
+	| 'disabled-status'
 	| 'duplicate-id'
 	| 'missing-dependency'
 	| 'missing-reference'
@@ -76,6 +77,10 @@ function taskFileDiagnostics(
 	}))
 }
 
+/**
+ * Scans every canonical task independently and returns all deterministic file,
+ * schema, path, duplicate-ID, and graph diagnostics without mutating data.
+ */
 export async function diagnoseRepository(repository: Repository): Promise<DoctorResult> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'repository diagnostics')
 	let entries: Dirent<string>[]
@@ -128,9 +133,24 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 		}
 
 		try {
+			const task = parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath })
+
+			if (!validatedRepository.config.tasks.statuses.includes(task.metadata.status)) {
+				diagnostics.push({
+					code: 'disabled-status',
+					severity: 'error',
+					path: relativePath,
+					field: 'status',
+					taskId: task.metadata.id,
+					message: `Status "${task.metadata.status}" is not enabled by taskset.config.ts`,
+					remediation:
+						'Enable the status in tasks.statuses or update the task to an enabled status.',
+				})
+			}
+
 			records.push({
 				relativePath,
-				task: parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath }),
+				task,
 			})
 		} catch (error) {
 			if (error instanceof TaskFileError) {

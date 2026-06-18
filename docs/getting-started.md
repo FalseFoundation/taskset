@@ -99,4 +99,5 @@ remove those inbound references and the task together.
 ## Next
 
 - [Configure task defaults](configuration.md)
+- [Use the complete CLI reference](cli-reference.md)
 - [Understand task files](task-files.md)

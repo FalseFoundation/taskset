@@ -36,6 +36,39 @@ describe('generateTaskId', () => {
 })
 
 describe('task repository', () => {
+	it('keeps canonical CRUD successful when generated view refreshes fail', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const failureRepository = Object.freeze({
+			...repository,
+			generatedDirectory: path.join(repository.dataDirectory, 'missing', 'generated'),
+		})
+		const warnings: string[] = []
+		const options = {
+			onWarning: (warning: { readonly message: string }) => warnings.push(warning.message),
+		}
+
+		const created = await createTask(
+			failureRepository,
+			{ title: 'Warning task' },
+			{ ...options, createId: () => 'TS-01J00000000000000000000009' },
+		)
+		const updated = await updateTask(
+			failureRepository,
+			created.task.metadata.id,
+			{ title: 'Updated' },
+			options,
+		)
+		const deleted = await deleteTask(failureRepository, updated.task.metadata.id, options)
+
+		expect(updated.task.metadata.title).toBe('Updated')
+		expect(deleted.task.metadata.id).toBe(created.task.metadata.id)
+		expect(warnings).toHaveLength(3)
+		expect(
+			warnings.every((warning) => warning.includes('generated views could not be refreshed')),
+		).toBe(true)
+	})
+
 	it('creates, lists, and reads canonical task files using config defaults', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
@@ -124,6 +157,45 @@ describe('task repository', () => {
 			code: 'task-invalid',
 			message: 'Priority "urgent" is not enabled by taskset.config.ts',
 		})
+	})
+
+	it('rejects statuses that are disabled by repository configuration', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		await writeFile(
+			repository.configPath,
+			`export default {
+	schemaVersion: 1,
+	tasks: {
+		statuses: ['todo', 'doing'],
+	},
+}
+`,
+		)
+		const configuredRepository = await initializeRepository(rootDirectory)
+		const id = 'TS-01J00000000000000000000000'
+
+		await expect(
+			createTask(configuredRepository, {
+				title: 'Use a disabled status',
+				status: 'blocked',
+			}),
+		).rejects.toMatchObject({
+			code: 'task-invalid',
+			message: 'Status "blocked" is not enabled by taskset.config.ts',
+		})
+
+		await createTask(
+			configuredRepository,
+			{ title: 'Allowed status', status: 'doing' },
+			{ createId: () => id },
+		)
+		await expect(updateTask(configuredRepository, id, { status: 'blocked' })).rejects.toMatchObject(
+			{
+				code: 'task-invalid',
+				message: 'Status "blocked" is not enabled by taskset.config.ts',
+			},
+		)
 	})
 
 	it('reports malformed canonical files during listing', async () => {

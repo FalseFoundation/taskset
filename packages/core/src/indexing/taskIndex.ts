@@ -89,6 +89,10 @@ function parseCachedIndex(source: string, fingerprint: string): readonly TaskRec
 	}
 }
 
+/**
+ * Immutable disposable read model over canonical task records. Its graph and
+ * fingerprint are derived at construction and contain no authoritative state.
+ */
 export class TaskIndex {
 	readonly records: readonly TaskRecord[]
 	readonly byId: ReadonlyMap<string, TaskRecord>
@@ -113,6 +117,11 @@ export class TaskIndex {
 	}
 }
 
+/**
+ * Rebuilds an index from canonical files. Optional cache reads are accepted
+ * only when their fingerprint matches; corrupt or unwritable cache state is
+ * ignored because it is never required for correctness.
+ */
 export async function buildTaskIndex(
 	repository: Repository,
 	options: BuildTaskIndexOptions = {},

@@ -1,7 +1,8 @@
 # @taskset/cli
 
 The public command-line adapter for Taskset. Full documentation is available at
-[taskset.false.foundation](https://taskset.false.foundation/).
+[taskset.false.foundation](https://taskset.false.foundation/), including the
+[complete CLI reference](../../docs/cli-reference.md).
 
 ```bash
 pnpm add --save-dev @taskset/cli

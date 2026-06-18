@@ -31,6 +31,7 @@ export interface ResolvedConfig {
 	}
 	readonly tasks: {
 		readonly defaults: ResolvedTaskDefaults
+		readonly statuses: readonly TaskStatus[]
 		readonly priorities: readonly TaskPriority[]
 	}
 }
@@ -61,6 +62,7 @@ export const RepositorySchema = z.strictObject({
 				priority: z.enum(TASK_PRIORITIES).optional(),
 				labels: z.array(z.string()),
 			}),
+			statuses: z.array(z.enum(TASK_STATUSES)).min(1),
 			priorities: z.array(z.enum(TASK_PRIORITIES)).min(1),
 		}),
 	}),
@@ -116,9 +118,11 @@ function freezeConfig(config: Config): Config {
 	const priorities = config.tasks?.priorities
 		? Object.freeze([...config.tasks.priorities])
 		: undefined
+	const statuses = config.tasks?.statuses ? Object.freeze([...config.tasks.statuses]) : undefined
 	const tasks = config.tasks
 		? Object.freeze({
 				...(defaults ? { defaults } : {}),
+				...(statuses ? { statuses } : {}),
 				...(priorities ? { priorities } : {}),
 			})
 		: undefined
@@ -142,6 +146,7 @@ function resolveConfig(config: Config): ResolvedConfig {
 				...(defaults?.priority ? { priority: defaults.priority } : {}),
 				labels: Object.freeze([...(defaults?.labels ?? [])]),
 			}),
+			statuses: Object.freeze([...(config.tasks?.statuses ?? TASK_STATUSES)]),
 			priorities: Object.freeze([...(config.tasks?.priorities ?? TASK_PRIORITIES)]),
 		}),
 	})
@@ -163,6 +168,10 @@ function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }
 
+/**
+ * Validates and freezes trusted repository configuration without resolving
+ * defaults or touching the filesystem.
+ */
 export function defineConfig(config: Config): Config {
 	return freezeConfig(parseCoreInput(ConfigSchema, config, 'configuration'))
 }
@@ -190,6 +199,11 @@ async function importConfig(configPath: string): Promise<unknown> {
 	}
 }
 
+/**
+ * Loads the config from an exact repository root and resolves immutable paths
+ * and defaults. The config module is trusted code, but its exported value is
+ * still validated against the strict shared schema.
+ */
 export async function loadRepository(rootDirectory: string): Promise<Repository> {
 	const resolvedRoot = path.resolve(
 		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository root'),
@@ -238,6 +252,10 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 	})
 }
 
+/**
+ * Walks upward from a starting directory until `taskset.config.ts` is found.
+ * Canonical `.taskset/` storage is always resolved relative to that root.
+ */
 export async function discoverRepository(startDirectory = process.cwd()): Promise<Repository> {
 	const validatedStartDirectory = parseCoreInput(
 		RepositoryDirectorySchema,

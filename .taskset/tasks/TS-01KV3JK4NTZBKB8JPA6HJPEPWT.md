@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV3JK4NTZBKB8JPA6HJPEPWT
 title: Add a complete CLI command reference
-status: todo
+status: done
 priority: medium
 createdAt: 2026-06-14 17:24 UTC
-updatedAt: 2026-06-14 17:24 UTC
+updatedAt: 2026-06-18 14:40 UTC
 labels:
   - docs
   - cli

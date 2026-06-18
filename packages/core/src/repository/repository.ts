@@ -24,6 +24,10 @@ function isExistingFile(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && 'code' in error && error.code === 'EEXIST'
 }
 
+/**
+ * Initializes the repository marker, canonical task directory, and disposable
+ * data ignore rules without replacing existing files.
+ */
 export async function initializeRepository(rootDirectory = process.cwd()): Promise<Repository> {
 	const resolvedRoot = path.resolve(
 		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository initialization'),

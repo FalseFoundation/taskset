@@ -137,6 +137,7 @@ User documentation:
 
 - [Getting started](docs/getting-started.md)
 - [Configuration](docs/configuration.md)
+- [CLI reference](docs/cli-reference.md)
 - [Task files](docs/task-files.md)
 
 The website in `apps/www` renders the same `docs/` files with Nextra.

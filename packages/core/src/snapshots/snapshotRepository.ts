@@ -4,8 +4,10 @@ import path from 'node:path'
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
+import { buildTaskGraph } from '../graph/taskGraph.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
-import { listTasks } from '../tasks/taskRepository.ts'
+import { parseTaskFile } from '../tasks/taskFile.ts'
+import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
 const SNAPSHOT_MANIFEST_VERSION = 1
@@ -15,6 +17,7 @@ const SnapshotIdSchema = z
 		/^\d{8}T\d{6}Z-[a-f0-9]{12}$/u,
 		'Expected a snapshot ID in the form YYYYMMDDTHHMMSSZ-<hash>',
 	)
+const SnapshotChecksumSchema = z.string().regex(/^[a-f0-9]{64}$/u)
 
 export const CreateSnapshotOptionsSchema = z.strictObject({
 	now: z.custom<() => Date>((value) => typeof value === 'function').optional(),
@@ -77,7 +80,13 @@ function snapshotArchivePath(repository: Repository, canonicalPath: string): str
 }
 
 function parseManifest(source: string, directoryName?: string): SnapshotManifest {
-	const value = JSON.parse(source) as Partial<SnapshotManifest>
+	let value: Partial<SnapshotManifest>
+
+	try {
+		value = JSON.parse(source) as Partial<SnapshotManifest>
+	} catch (error) {
+		throw new TypeError('Invalid Taskset snapshot manifest JSON', { cause: error })
+	}
 
 	if (
 		value.schemaVersion !== SNAPSHOT_MANIFEST_VERSION ||
@@ -98,13 +107,21 @@ function parseManifest(source: string, directoryName?: string): SnapshotManifest
 			typeof file !== 'object' ||
 			file === null ||
 			typeof file.path !== 'string' ||
-			typeof file.sha256 !== 'string'
+			typeof file.sha256 !== 'string' ||
+			!SnapshotChecksumSchema.safeParse(file.sha256).success
 		) {
 			throw new TypeError('Invalid Taskset snapshot file entry')
 		}
 
 		return Object.freeze({ path: file.path, sha256: file.sha256 })
 	})
+	const duplicatePath = files.find(
+		(file, index) => files.findIndex((candidate) => candidate.path === file.path) !== index,
+	)
+
+	if (duplicatePath) {
+		throw new TypeError(`Duplicate Taskset snapshot path: ${duplicatePath.path}`)
+	}
 
 	return Object.freeze({
 		schemaVersion: 1,
@@ -220,20 +237,31 @@ async function readSnapshotSources(
 		validatedId,
 	)
 	const sources = new Map<string, string>()
+	const records: TaskRecord[] = []
 
 	for (const file of manifest.files) {
-		const source = await readFile(
-			path.join(directory, snapshotArchivePath(repository, file.path)),
-			'utf8',
-		)
+		const archivePath = snapshotArchivePath(repository, file.path)
+
+		if (!archivePath.startsWith('tasks/') || !archivePath.endsWith('.md')) {
+			throw new TypeError(`Snapshot contains a non-task canonical path: ${file.path}`)
+		}
+
+		const source = await readFile(path.join(directory, archivePath), 'utf8')
 
 		if (digest(source) !== file.sha256) {
 			throw new TypeError(`Snapshot file checksum mismatch: ${file.path}`)
 		}
 
+		records.push(
+			Object.freeze({
+				relativePath: file.path,
+				task: parseTaskFile(source, { filePath: file.path }),
+			}),
+		)
 		sources.set(file.path, source)
 	}
 
+	buildTaskGraph(records)
 	return { manifest, sources }
 }
 

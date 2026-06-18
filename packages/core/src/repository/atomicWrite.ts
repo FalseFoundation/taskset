@@ -6,6 +6,11 @@ function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && 'code' in error && error.code === 'ENOENT'
 }
 
+/**
+ * Creates a file without overwriting an existing target by staging contents
+ * and hard-linking them into place. Temporary artifacts are removed on both
+ * success and failure.
+ */
 export async function atomicWriteFileExclusive(
 	targetPath: string,
 	contents: string,

@@ -100,6 +100,10 @@ export function normalizeRepositoryPath(repository: Repository, inputPath: strin
 	return normalized
 }
 
+/**
+ * Returns whether two normalized repository-relative paths are equal or one
+ * contains the other. The empty path represents the repository root.
+ */
 export function repositoryPathsRelate(left: string, right: string): boolean {
 	const validatedLeft = parseCoreInput(z.string(), left, 'left repository path')
 	const validatedRight = parseCoreInput(z.string(), right, 'right repository path')

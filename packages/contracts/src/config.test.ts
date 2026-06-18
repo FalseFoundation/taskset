@@ -14,6 +14,7 @@ describe('ConfigSchema', () => {
 					priority: 'medium',
 					labels: ['taskset'],
 				},
+				statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 				priorities: ['low', 'medium', 'high', 'urgent'],
 			},
 		} as const
@@ -30,6 +31,32 @@ describe('ConfigSchema', () => {
 			{
 				schemaVersion: 1,
 				tasks: { defaults: { labels: ['core', 'core'] } },
+			},
+		],
+		[
+			'duplicate configured statuses',
+			{
+				schemaVersion: 1,
+				tasks: { statuses: ['todo', 'todo'] },
+			},
+		],
+		[
+			'implicit default status outside configured statuses',
+			{
+				schemaVersion: 1,
+				tasks: {
+					statuses: ['doing', 'blocked'],
+				},
+			},
+		],
+		[
+			'default status outside configured statuses',
+			{
+				schemaVersion: 1,
+				tasks: {
+					defaults: { status: 'todo' },
+					statuses: ['doing', 'blocked'],
+				},
 			},
 		],
 		[

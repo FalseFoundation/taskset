@@ -2,10 +2,10 @@
 schemaVersion: 2
 id: TS-01KV3JHWQZ6814GY5CY68AX9FW
 title: Harden migration snapshot and generated-view failure paths
-status: todo
+status: done
 priority: high
 createdAt: 2026-06-14 17:23 UTC
-updatedAt: 2026-06-14 17:23 UTC
+updatedAt: 2026-06-15 20:51 UTC
 labels:
   - migration
   - snapshot
