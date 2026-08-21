@@ -99,7 +99,7 @@ compatibility, migration, or verification needs explanation.
 Review these surfaces before release:
 
 - Markdown and frontmatter read compatibility
-- schema defaults, enums, and validation strictness
+- defaults, enums, and validation strictness
 - generated filenames and entity IDs
 - CLI command names, flags, output, and exit codes
 - MCP tool names, input schemas, and result shapes

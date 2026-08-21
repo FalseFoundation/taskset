@@ -46,7 +46,7 @@ describe('TaskMetadataSchema', () => {
 	})
 
 	it.each([
-		['schemaVersion', { ...validV1Metadata, schemaVersion: 2 }],
+		['unknown metadata fields', { ...validV1Metadata, blocks: [] }],
 		['id', { ...validV1Metadata, id: 'TS-1' }],
 		['status', { ...validV1Metadata, status: 'in-progress' }],
 		['priority', { ...validV1Metadata, priority: 'critical' }],
@@ -60,10 +60,6 @@ describe('TaskMetadataSchema', () => {
 		['assignees', { ...validV2Metadata, assignees: ['maintainer', 'maintainer'] }],
 	])('rejects an invalid %s', (_, metadata) => {
 		expect(TaskMetadataSchema.safeParse(metadata).success).toBe(false)
-	})
-
-	it('rejects unknown derived fields', () => {
-		expect(TaskMetadataSchema.safeParse({ ...validV2Metadata, blocks: [] }).success).toBe(false)
 	})
 
 	it('accepts documented legacy ISO timestamps', () => {

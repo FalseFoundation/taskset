@@ -25,9 +25,7 @@ describe('initializeRepository', () => {
 		const repository = await initializeRepository(rootDirectory)
 
 		expect(await readFile(path.join(rootDirectory, CONFIG_FILE_NAME), 'utf8')).toBe(
-			`export default {
-	schemaVersion: 1,
-}
+			`export default {}
 `,
 		)
 		await expect(access(repository.tasksDirectory)).resolves.toBeUndefined()

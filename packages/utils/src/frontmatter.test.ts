@@ -29,7 +29,7 @@ describe('serializeFrontmatter', () => {
 	it('uses stable object order, canonical line endings, and one final newline', () => {
 		const serialized = serializeFrontmatter(
 			{
-				schemaVersion: 1,
+				format: 1,
 				id: 'TS-01J00000000000000000000000',
 				title: 'Add parsing',
 				labels: ['core', 'docs'],
@@ -39,7 +39,7 @@ describe('serializeFrontmatter', () => {
 		)
 
 		expect(serialized).toBe(`---
-schemaVersion: 1
+format: 1
 id: TS-01J00000000000000000000000
 title: Add parsing
 labels:

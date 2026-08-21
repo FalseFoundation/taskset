@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { ConfigSchema } from './config.ts'
 
 describe('ConfigSchema', () => {
-	it('accepts the versioned repository configuration', () => {
+	it('accepts the versionless repository configuration', () => {
 		const config = {
-			schemaVersion: 1,
 			project: {
 				name: 'taskset',
 			},
@@ -23,27 +22,23 @@ describe('ConfigSchema', () => {
 	})
 
 	it.each([
-		['unsupported schema version', { schemaVersion: 2 }],
-		['unknown fields', { schemaVersion: 1, storage: '.tasks' }],
-		['empty project name', { schemaVersion: 1, project: { name: '' } }],
+		['unknown fields', { storage: '.tasks' }],
+		['empty project name', { project: { name: '' } }],
 		[
 			'duplicate default labels',
 			{
-				schemaVersion: 1,
 				tasks: { defaults: { labels: ['core', 'core'] } },
 			},
 		],
 		[
 			'duplicate configured statuses',
 			{
-				schemaVersion: 1,
 				tasks: { statuses: ['todo', 'todo'] },
 			},
 		],
 		[
 			'implicit default status outside configured statuses',
 			{
-				schemaVersion: 1,
 				tasks: {
 					statuses: ['doing', 'blocked'],
 				},
@@ -52,7 +47,6 @@ describe('ConfigSchema', () => {
 		[
 			'default status outside configured statuses',
 			{
-				schemaVersion: 1,
 				tasks: {
 					defaults: { status: 'todo' },
 					statuses: ['doing', 'blocked'],
@@ -62,14 +56,12 @@ describe('ConfigSchema', () => {
 		[
 			'duplicate configured priorities',
 			{
-				schemaVersion: 1,
 				tasks: { priorities: ['high', 'high'] },
 			},
 		],
 		[
 			'default priority outside configured priorities',
 			{
-				schemaVersion: 1,
 				tasks: {
 					defaults: { priority: 'medium' },
 					priorities: ['high', 'urgent'],

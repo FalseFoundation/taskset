@@ -72,13 +72,12 @@ back to deterministic task ID ordering.
 
 ## Compatibility Cutover
 
-Task metadata no longer carries `schemaVersion`. Versioned task frontmatter is
-invalid input and fails with a schema diagnostic rather than being silently
-rewritten. Repositories created with earlier Taskset releases must convert
-task files by removing only the `schemaVersion` field from task frontmatter
-while preserving all other metadata and Markdown body content. Take a Git
-commit or `taskset snapshot create` checkpoint before converting existing
-repositories.
+Task metadata is versionless. Versioned task frontmatter is invalid input and
+fails with a schema diagnostic rather than being silently rewritten.
+Repositories created with earlier Taskset releases must convert task files by
+removing only the legacy version field from task frontmatter while preserving
+all other metadata and Markdown body content. Take a Git commit or
+`taskset snapshot create` checkpoint before converting existing repositories.
 
 ## Relationships
 
@@ -142,10 +141,11 @@ that transitively depend on those direct matches. JSON output uses
 `{ "direct": [...], "impacted": [...] }`; `--include-derived` adds relationship
 projections to records in both groups.
 
-`.taskset/cache/` and `.taskset/generated/` are disposable. Generated status,
-priority, project, and assignee indexes are deterministic projections and
-refresh on a best-effort basis after canonical mutations. Generated views sort
-tasks by `order` when present and display ordered rows with the order value.
+`.taskset/cache/` and `.taskset/generated/` are disposable. Generated metadata
+indexes are deterministic projections for every supported task metadata field
+and refresh on a best-effort basis after canonical mutations. Generated views
+sort tasks by `order` when present and display ordered rows with the order
+value.
 
 ## Snapshots
 

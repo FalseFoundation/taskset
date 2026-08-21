@@ -8,7 +8,6 @@ describe('public core validation', () => {
 	it('normalizes Zod failures into stable field-level issues', () => {
 		expect(() =>
 			defineConfig({
-				schemaVersion: 1,
 				tasks: { priorities: [] },
 			}),
 		).toThrow(

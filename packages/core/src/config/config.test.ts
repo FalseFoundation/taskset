@@ -27,12 +27,10 @@ afterEach(async () => {
 describe('defineConfig', () => {
 	it('validates configuration at authoring time', () => {
 		const config = defineConfig({
-			schemaVersion: 1,
 			project: { name: 'taskset' },
 		})
 
 		expect(config).toEqual({
-			schemaVersion: 1,
 			project: { name: 'taskset' },
 		})
 		expect(Object.isFrozen(config)).toBe(true)
@@ -47,7 +45,6 @@ describe('taskset.config.ts loading', () => {
 		await writeFile(
 			path.join(rootDirectory, CONFIG_FILE_NAME),
 			`const config: object = {
-	schemaVersion: 1,
 	project: { name: 'fixture' },
 	tasks: {
 		defaults: {
@@ -68,7 +65,6 @@ export default config
 		expect(repository.dataDirectory).toBe(path.join(rootDirectory, '.taskset'))
 		expect(repository.tasksDirectory).toBe(path.join(rootDirectory, '.taskset', 'tasks'))
 		expect(repository.config).toEqual({
-			schemaVersion: 1,
 			project: { name: 'fixture' },
 			tasks: {
 				defaults: {
@@ -87,7 +83,6 @@ export default config
 		await writeFile(
 			path.join(rootDirectory, CONFIG_FILE_NAME),
 			`export default {
-	schemaVersion: 1,
 	tasks: {
 		defaults: {
 			status: 'doing',
@@ -107,7 +102,7 @@ export default config
 	it('rejects an invalid default export with the config path', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const configPath = path.join(rootDirectory, CONFIG_FILE_NAME)
-		await writeFile(configPath, 'export default { schemaVersion: 2 }\n')
+		await writeFile(configPath, 'export default { storage: ".taskset" }\n')
 
 		await expect(loadRepository(rootDirectory)).rejects.toMatchObject({
 			code: 'config-schema',

@@ -1,7 +1,6 @@
 import { defineConfig } from '@taskset/core'
 
 export default defineConfig({
-	schemaVersion: 1,
 	project: {
 		name: 'taskset',
 	},

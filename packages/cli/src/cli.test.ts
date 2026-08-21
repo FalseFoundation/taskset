@@ -107,9 +107,7 @@ describe('runCli', () => {
 		).toBe(0)
 		expect(JSON.parse(configOutput.stdout)).toMatchObject({
 			rootDirectory: cwd,
-			config: {
-				schemaVersion: 1,
-			},
+			config: {},
 		})
 	})
 
@@ -291,7 +289,7 @@ describe('runCli', () => {
 				stderr: generateOutput.writeStderr,
 			}),
 		).toBe(0)
-		expect(JSON.parse(generateOutput.stdout).files).toContain('assignee/maintainer.md')
+		expect(JSON.parse(generateOutput.stdout).files).toContain('assignees/maintainer.md')
 
 		const snapshotOutput = createOutput()
 		expect(

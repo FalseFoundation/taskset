@@ -2,7 +2,7 @@
 	"name": "@taskset/cli",
 	"type": "module",
 	"private": false,
-	"version": "2.1.0",
+	"version": "3.0.0",
 	"description": "The scriptable command-line interface for Taskset.",
 	"license": "MIT",
 	"author": {
@@ -55,8 +55,8 @@
 	},
 	"devDependencies": {
 		"@taskset/configs": "workspace:*",
-		"@types/node": "^25.9.3",
-		"typescript": "^6.0.3",
-		"vitest": "^4.1.8"
+		"@types/node": "^26.2.0",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11"
 	}
 }

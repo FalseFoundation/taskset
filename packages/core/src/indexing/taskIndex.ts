@@ -11,11 +11,9 @@ import { parseTaskFile, serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
-const TASK_INDEX_SCHEMA_VERSION = 1
 const TASK_INDEX_CACHE_NAME = 'task-index-v1.json'
 
 interface SerializedTaskIndex {
-	readonly schemaVersion: 1
 	readonly fingerprint: string
 	readonly records: readonly {
 		readonly relativePath: string
@@ -46,7 +44,6 @@ function fingerprintRecords(records: readonly TaskRecord[]): string {
 
 function serializeIndex(records: readonly TaskRecord[], fingerprint: string): SerializedTaskIndex {
 	return {
-		schemaVersion: TASK_INDEX_SCHEMA_VERSION,
 		fingerprint,
 		records: records.map((record) => ({
 			relativePath: record.relativePath,
@@ -59,11 +56,7 @@ function parseCachedIndex(source: string, fingerprint: string): readonly TaskRec
 	try {
 		const value = JSON.parse(source) as Partial<SerializedTaskIndex>
 
-		if (
-			value.schemaVersion !== TASK_INDEX_SCHEMA_VERSION ||
-			value.fingerprint !== fingerprint ||
-			!Array.isArray(value.records)
-		) {
+		if (value.fingerprint !== fingerprint || !Array.isArray(value.records)) {
 			return undefined
 		}
 

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -29,6 +29,8 @@ describe('task index', () => {
 		)
 		const first = await buildTaskIndex(repository, { cache: true })
 		const cachePath = path.join(repository.dataDirectory, 'cache', 'task-index-v1.json')
+		const cache = JSON.parse(await readFile(cachePath, 'utf8')) as Record<string, unknown>
+		expect(Object.keys(cache).sort()).toEqual(['fingerprint', 'records'])
 		await writeFile(cachePath, '{broken')
 		const rebuilt = await buildTaskIndex(repository, { cache: true })
 		await rm(path.dirname(cachePath), { recursive: true })

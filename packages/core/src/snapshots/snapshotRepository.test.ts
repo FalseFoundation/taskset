@@ -45,7 +45,18 @@ Body.
 		})
 
 		expect(snapshot.id).toMatch(/^20260612T010203Z-[a-f0-9]{12}$/u)
+		expect(Object.keys(snapshot).sort()).toEqual(['createdAt', 'files', 'id'])
 		expect((await listSnapshots(repository))[0]?.id).toBe(snapshot.id)
+		expect(
+			Object.keys(
+				JSON.parse(
+					await readFile(
+						path.join(repository.snapshotsDirectory, snapshot.id, 'manifest.json'),
+						'utf8',
+					),
+				) as Record<string, unknown>,
+			).sort(),
+		).toEqual(['createdAt', 'files', 'id'])
 		await expect(
 			access(path.join(repository.snapshotsDirectory, snapshot.id, 'tasks', `${taskId}.md`)),
 		).resolves.toBeUndefined()

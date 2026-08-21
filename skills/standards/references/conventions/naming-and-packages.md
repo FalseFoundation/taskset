@@ -56,9 +56,9 @@ taskset context-bundle
 ```
 
 The root usage configuration is exactly `taskset.config.ts`. Export a
-`schemaVersion: 1` object, preferably through `defineConfig` from
-`@taskset/core`. Keep configuration fields behavioral; never use config to
-redirect canonical entity storage outside `.taskset/`.
+versionless object, preferably through `defineConfig` from `@taskset/core`.
+Keep configuration fields behavioral; never use config to redirect canonical
+entity storage outside `.taskset/`.
 
 Entity field names use `camelCase`. Status, priority, and type values use stable
 lowercase tokens such as `doing`, `high`, and `feature`.

@@ -10,9 +10,7 @@ allowBuilds:
   sharp: true
 
 minimumReleaseAgeExclude:
-  - postcss@8.5.10
   - esbuild@0.28.1
 
 overrides:
-  nextra-theme-docs>zod: 4.3.6
-  nextra>zod: 4.3.6
+  esbuild: 0.28.1

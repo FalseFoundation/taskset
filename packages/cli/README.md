@@ -36,5 +36,5 @@ diagnostics or generation warnings to stderr.
 ```typescript
 import { defineConfig } from '@taskset/cli'
 
-export default defineConfig({ schemaVersion: 1 })
+export default defineConfig({})
 ```

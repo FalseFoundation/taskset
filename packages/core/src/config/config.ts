@@ -25,7 +25,6 @@ export interface ResolvedTaskDefaults {
 }
 
 export interface ResolvedConfig {
-	readonly schemaVersion: 1
 	readonly project?: {
 		readonly name: string
 	}
@@ -54,7 +53,6 @@ export const RepositorySchema = z.strictObject({
 	generatedDirectory: z.string().min(1),
 	snapshotsDirectory: z.string().min(1),
 	config: z.strictObject({
-		schemaVersion: z.literal(1),
 		project: z.strictObject({ name: z.string().min(1) }).optional(),
 		tasks: z.strictObject({
 			defaults: z.strictObject({
@@ -128,7 +126,6 @@ function freezeConfig(config: Config): Config {
 		: undefined
 
 	return Object.freeze({
-		schemaVersion: config.schemaVersion,
 		...(project ? { project } : {}),
 		...(tasks ? { tasks } : {}),
 	})
@@ -138,7 +135,6 @@ function resolveConfig(config: Config): ResolvedConfig {
 	const defaults = config.tasks?.defaults
 
 	return Object.freeze({
-		schemaVersion: 1,
 		...(config.project ? { project: Object.freeze({ ...config.project }) } : {}),
 		tasks: Object.freeze({
 			defaults: Object.freeze({
@@ -230,7 +226,7 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 	if (!configResult.success) {
 		throw new ConfigError(
 			'config-schema',
-			`Taskset config at ${configPath} does not match schema version 1`,
+			`Taskset config at ${configPath} does not match the Taskset config schema`,
 			{
 				cause: configResult.error,
 				configPath,

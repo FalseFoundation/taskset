@@ -27,7 +27,8 @@ Design for:
 - local-first operation without preventing explicit hosted adapters
 - immediate team and AI awareness without a mandatory hosted service
 - replaceable indexes and generated views
-- schema evolution that does not silently corrupt existing repositories
+- explicit compatibility work that does not silently corrupt existing
+  repositories
 
 Near-term work should prove the core task workflow before broadening the entity
 model or investing in additional interfaces.

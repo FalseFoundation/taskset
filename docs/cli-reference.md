@@ -393,8 +393,8 @@ Run `taskset generate` later to rebuild generated views explicitly.
 taskset task list --file <path> --impact
 ```
 
-Task files are versionless. Frontmatter that still contains `schemaVersion` is
-invalid and must be converted by removing that field while preserving the rest
-of the task metadata and Markdown body. Snapshot restore previews by default;
-pass `--apply` only when the displayed plan is the mutation you intend to
-commit.
+Task files are versionless. Frontmatter that still contains a legacy version
+field is invalid and must be converted by removing that field while preserving
+the rest of the task metadata and Markdown body. Snapshot restore previews by
+default; pass `--apply` only when the displayed plan is the mutation you intend
+to commit.

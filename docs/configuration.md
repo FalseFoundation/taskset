@@ -13,7 +13,6 @@ file.
 import { defineConfig } from '@taskset/cli'
 
 export default defineConfig({
-	schemaVersion: 1,
 	project: {
 		name: 'taskset',
 	},
@@ -31,22 +30,21 @@ export default defineConfig({
 
 ## Contract
 
-- `schemaVersion: 1` is required.
 - `project.name` is optional repository metadata.
 - `tasks.defaults.status`, `priority`, and `labels` are optional defaults used
   by task creation.
 - `tasks.statuses` selects and orders the repository's active status vocabulary
-  from Taskset's schema-version-1 values. Task creation, updates, lifecycle
-  changes, listing, generated views, and diagnostics reject or report task
-  statuses outside that list. The default status must be included.
+  from Taskset's canonical values. Task creation, updates, lifecycle changes,
+  listing, generated views, and diagnostics reject or report task statuses
+  outside that list. The default status must be included.
 - `tasks.priorities` selects and orders the repository's active priority
-  vocabulary from Taskset's schema-version-1 values. Task creation rejects a
-  priority outside that list, and the default priority must be included.
+  vocabulary from Taskset's canonical values. Task creation rejects a priority
+  outside that list, and the default priority must be included.
 - `urgent` is the highest supported priority. Taskset does not maintain a
   separate urgency field because two overlapping importance scales make task
   ordering harder to understand and keep consistent.
-- Unknown fields, unsupported versions, invalid enum values, empty names, and
-  duplicate default labels or vocabulary values are rejected.
+- Unknown fields, invalid enum values, empty names, and duplicate default
+  labels or vocabulary values are rejected.
 - The config file is executable trusted project code and may use erasable
   TypeScript syntax supported by the repository's Node version.
 

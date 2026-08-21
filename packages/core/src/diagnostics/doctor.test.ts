@@ -56,7 +56,6 @@ describe('repository doctor', () => {
 		await writeFile(
 			repository.configPath,
 			`export default {
-	schemaVersion: 1,
 	tasks: {
 		defaults: {
 			status: 'doing',

@@ -1,13 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import type { TaskMetadata } from '@taskset/contracts'
 import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
-
-const GENERATED_MANIFEST_VERSION = 1
 
 export const GenerateViewsOptionsSchema = z.strictObject({})
 export type GenerateViewsOptions = z.infer<typeof GenerateViewsOptionsSchema>
@@ -19,9 +18,43 @@ export interface GeneratedViewsResult {
 }
 
 interface GeneratedManifest {
-	readonly schemaVersion: 1
 	readonly fingerprint: string
 	readonly files: readonly string[]
+}
+
+interface MetadataView {
+	readonly category: Extract<keyof TaskMetadata, string>
+	readonly values: (metadata: TaskMetadata) => readonly string[]
+}
+
+const TASK_METADATA_VIEWS: readonly MetadataView[] = Object.freeze([
+	{ category: 'id', values: (metadata) => [metadata.id] },
+	{ category: 'title', values: (metadata) => [metadata.title] },
+	{ category: 'status', values: (metadata) => [metadata.status] },
+	{ category: 'priority', values: (metadata) => valueList(metadata.priority) },
+	{ category: 'order', values: (metadata) => valueList(metadata.order) },
+	{ category: 'owner', values: (metadata) => valueList(metadata.owner) },
+	{ category: 'assignees', values: (metadata) => metadata.assignees ?? [] },
+	{ category: 'reviewers', values: (metadata) => metadata.reviewers ?? [] },
+	{ category: 'team', values: (metadata) => valueList(metadata.team) },
+	{ category: 'estimate', values: (metadata) => valueList(metadata.estimate) },
+	{ category: 'effort', values: (metadata) => valueList(metadata.effort) },
+	{ category: 'risk', values: (metadata) => valueList(metadata.risk) },
+	{ category: 'dueDate', values: (metadata) => valueList(metadata.dueDate) },
+	{ category: 'createdAt', values: (metadata) => [metadata.createdAt] },
+	{ category: 'updatedAt', values: (metadata) => [metadata.updatedAt] },
+	{ category: 'labels', values: (metadata) => metadata.labels ?? [] },
+	{ category: 'dependsOn', values: (metadata) => metadata.dependsOn ?? [] },
+	{ category: 'related', values: (metadata) => metadata.related ?? [] },
+	{ category: 'duplicates', values: (metadata) => metadata.duplicates ?? [] },
+	{ category: 'parent', values: (metadata) => valueList(metadata.parent) },
+	{ category: 'files', values: (metadata) => metadata.files ?? [] },
+	{ category: 'directories', values: (metadata) => metadata.directories ?? [] },
+	{ category: 'projects', values: (metadata) => metadata.projects ?? [] },
+])
+
+function valueList(value: string | number | undefined): readonly string[] {
+	return value === undefined ? [] : [String(value)]
 }
 
 function fingerprintRecords(records: readonly TaskRecord[]): string {
@@ -92,34 +125,34 @@ function renderGroups(
 }
 
 function buildViewFiles(records: readonly TaskRecord[]): ReadonlyMap<string, string> {
-	const status = new Map<string, TaskRecord[]>()
-	const priority = new Map<string, TaskRecord[]>()
-	const project = new Map<string, TaskRecord[]>()
-	const assignee = new Map<string, TaskRecord[]>()
+	const groupsByCategory = new Map<string, Map<string, TaskRecord[]>>()
 
 	for (const record of records) {
-		const { metadata } = record.task
-		addGroup(status, metadata.status, record)
+		for (const view of TASK_METADATA_VIEWS) {
+			let groups = groupsByCategory.get(view.category)
 
-		if (metadata.priority) {
-			addGroup(priority, metadata.priority, record)
-		}
+			if (!groups) {
+				groups = new Map()
+				groupsByCategory.set(view.category, groups)
+			}
 
-		for (const value of metadata.projects ?? []) {
-			addGroup(project, value, record)
-		}
-
-		for (const value of metadata.assignees ?? []) {
-			addGroup(assignee, value, record)
+			for (const value of view.values(record.task.metadata)) {
+				addGroup(groups, value, record)
+			}
 		}
 	}
 
-	return new Map([
-		...renderGroups('status', status),
-		...renderGroups('priority', priority),
-		...renderGroups('project', project),
-		...renderGroups('assignee', assignee),
-	])
+	const files = new Map<string, string>()
+
+	for (const [category, groups] of [...groupsByCategory.entries()].sort(([left], [right]) =>
+		left.localeCompare(right),
+	)) {
+		for (const [relativePath, contents] of renderGroups(category, groups)) {
+			files.set(relativePath, contents)
+		}
+	}
+
+	return files
 }
 
 /**
@@ -157,7 +190,6 @@ export async function generateViews(
 		}
 
 		const manifest: GeneratedManifest = {
-			schemaVersion: GENERATED_MANIFEST_VERSION,
 			fingerprint,
 			files: orderedPaths,
 		}

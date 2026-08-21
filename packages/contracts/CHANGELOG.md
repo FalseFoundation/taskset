@@ -1,5 +1,13 @@
 # @taskset/contracts
 
+## 3.0.0
+
+### Major Changes
+
+- Remove repository config version fields and stop writing version fields to generated, cached, and snapshot metadata JSON. Config files now export a strict versionless object.
+
+  Generated metadata views now cover every supported task metadata field using field-name directories such as `assignees/`, `projects/`, `files/`, and `dueDate/`; stale generated output remains disposable and rebuildable with `taskset generate`.
+
 ## 2.1.0
 
 ### Minor Changes
@@ -14,10 +22,11 @@
 ### Major Changes
 
 - bc302ef: Remove task metadata schema versions and use one strict versionless task file
-  format. Task frontmatter containing `schemaVersion` is now invalid and must be
-  converted by removing that field while preserving the remaining metadata and
-  Markdown body. The old `taskset migrate --to 2` command and `migrateTasks`
-  core API were removed because there is no longer a versioned migration target.
+  format. Task frontmatter containing the legacy version field is now invalid
+  and must be converted by removing that field while preserving the remaining
+  metadata and Markdown body. The old `taskset migrate --to 2` command and
+  `migrateTasks` core API were removed because there is no longer a versioned
+  migration target.
 
 ### Minor Changes
 

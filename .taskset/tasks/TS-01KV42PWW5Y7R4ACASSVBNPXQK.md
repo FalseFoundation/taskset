@@ -24,11 +24,11 @@ files:
 
 ## Context
 
-Task files currently carry `schemaVersion` and support separate version 1 and version 2 shapes. The canonical format should become one strict, versionless task contract so readers, writers, documentation, and repository standards no longer branch on schema version.
+Task files currently carry a legacy version field and support separate version 1 and version 2 shapes. The canonical format should become one strict, versionless task contract so readers, writers, documentation, and repository standards no longer branch on schema version.
 
 ## Acceptance Criteria
 
-- The canonical task interface and serialized frontmatter no longer contain `schemaVersion`.
+- The canonical task interface and serialized frontmatter no longer contain a version field.
 - Parsing, validation, serialization, synchronization, diagnostics, snapshots, generated views, fixtures, and public examples use one strict task shape.
 - The compatibility cutover for existing version 1 and version 2 files is explicitly decided and documented before removal; unsupported or ambiguous input fails with actionable diagnostics rather than silent repair.
 - Existing task metadata and Markdown bodies remain lossless through the approved conversion path.

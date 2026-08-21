@@ -11,9 +11,7 @@ import { atomicWriteFileExclusive } from './atomicWrite.ts'
 
 export { CONFIG_FILE_NAME, loadRepository }
 
-const DEFAULT_CONFIG_SOURCE = `export default {
-	schemaVersion: 1,
-}
+const DEFAULT_CONFIG_SOURCE = `export default {}
 `
 const DEFAULT_DATA_IGNORE_SOURCE = `cache/
 generated/

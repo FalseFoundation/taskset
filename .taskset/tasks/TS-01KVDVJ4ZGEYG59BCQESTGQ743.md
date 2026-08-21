@@ -27,12 +27,12 @@ files:
 
 ## Context
 
-Recent changes removed task `schemaVersion` and adjusted documentation routing, but usage docs, maintainer docs, and README files may still describe older behavior. `schemaVersion` is a known stale example; audit for other mismatches instead of fixing only that string.
+Recent changes removed task metadata versioning and adjusted documentation routing, but usage docs, maintainer docs, and README files may still describe older behavior. Legacy version-field examples are known stale examples; audit for other mismatches instead of fixing only that wording.
 
 ## Acceptance Criteria
 
 - [ ] Search usage docs, maintainer docs, package READMEs, and standards for stale persisted-format, command, route, and workflow references.
-- [ ] Remove or rewrite remaining `schemaVersion` guidance so docs describe the strict versionless task shape.
+- [ ] Remove or rewrite remaining legacy version-field guidance so docs describe the strict versionless task shape.
 - [ ] Confirm public examples use current commands, package names, docs routes, task fields, and generated-view behavior.
 - [ ] Keep maintainer-only workflow and architecture guidance out of primary usage docs while linking it from the correct route.
 - [ ] Update `skills/standards` references when the audit changes authoritative repository rules.

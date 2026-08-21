@@ -10,7 +10,6 @@ import { parseTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
-const SNAPSHOT_MANIFEST_VERSION = 1
 const SnapshotIdSchema = z
 	.string()
 	.regex(
@@ -40,7 +39,6 @@ export interface SnapshotFile {
 }
 
 export interface SnapshotManifest {
-	readonly schemaVersion: 1
 	readonly id: string
 	readonly createdAt: string
 	readonly files: readonly SnapshotFile[]
@@ -89,7 +87,6 @@ function parseManifest(source: string, directoryName?: string): SnapshotManifest
 	}
 
 	if (
-		value.schemaVersion !== SNAPSHOT_MANIFEST_VERSION ||
 		typeof value.id !== 'string' ||
 		!SnapshotIdSchema.safeParse(value.id).success ||
 		typeof value.createdAt !== 'string' ||
@@ -124,7 +121,6 @@ function parseManifest(source: string, directoryName?: string): SnapshotManifest
 	}
 
 	return Object.freeze({
-		schemaVersion: 1,
 		id: value.id,
 		createdAt: value.createdAt,
 		files: Object.freeze(files),
@@ -163,7 +159,6 @@ export async function createSnapshot(
 
 	const id = `${snapshotTimestamp(now)}-${contentHash.digest('hex').slice(0, 12)}`
 	const manifest: SnapshotManifest = Object.freeze({
-		schemaVersion: 1,
 		id,
 		createdAt: formatDate(now),
 		files: Object.freeze(

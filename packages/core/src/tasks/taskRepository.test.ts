@@ -75,7 +75,6 @@ describe('task repository', () => {
 		await writeFile(
 			repository.configPath,
 			`export default {
-	schemaVersion: 1,
 	tasks: {
 		defaults: {
 			priority: 'high',
@@ -139,7 +138,6 @@ describe('task repository', () => {
 		await writeFile(
 			repository.configPath,
 			`export default {
-	schemaVersion: 1,
 	tasks: {
 		priorities: ['low', 'high'],
 	},
@@ -165,7 +163,6 @@ describe('task repository', () => {
 		await writeFile(
 			repository.configPath,
 			`export default {
-	schemaVersion: 1,
 	tasks: {
 		statuses: ['todo', 'doing'],
 	},

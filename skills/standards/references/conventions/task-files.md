@@ -34,8 +34,8 @@ Describe why the work exists.
 Rules:
 
 - Require `id`, `title`, `status`, `createdAt`, and `updatedAt`.
-- Read and serialize one strict versionless task shape. Reject versioned task
-  frontmatter instead of silently migrating or repairing it.
+- Read and serialize one strict versionless task shape. Reject legacy
+  versioned task frontmatter instead of silently migrating or repairing it.
 - Accept people, planning, canonical relationship, path, and project metadata
   only through the shared strict schema.
 - Use `todo`, `doing`, `blocked`, `done`, and `canceled` for task status.

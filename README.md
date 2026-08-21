@@ -52,7 +52,6 @@ cache, generated data, and non-authoritative safety snapshots.
 import { defineConfig } from '@taskset/cli'
 
 export default defineConfig({
-	schemaVersion: 1,
 	project: {
 		name: 'example',
 	},
@@ -77,7 +76,6 @@ Each task combines YAML metadata with a Markdown body:
 
 ```markdown
 ---
-schemaVersion: 2
 id: TS-01J00000000000000000000000
 title: Add repository validation
 status: todo
@@ -129,7 +127,8 @@ repair those inbound relationships in the same failure-safe mutation.
 Migration and snapshot restore are dry runs unless `--apply` is supplied.
 Applying a schema migration first creates an immutable snapshot under
 `.taskset/snapshots/`. Generated metadata indexes under `.taskset/generated/`
-are disposable and refresh automatically after canonical mutations.
+cover every supported task metadata field, are disposable, and refresh
+automatically after canonical mutations.
 
 ## Documentation
 

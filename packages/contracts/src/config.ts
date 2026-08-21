@@ -18,7 +18,6 @@ export interface TasksConfig {
 }
 
 export interface Config {
-	readonly schemaVersion: 1
 	readonly project?: ProjectConfig
 	readonly tasks?: TasksConfig
 }
@@ -83,7 +82,6 @@ const TasksConfigSchema = z
  * relocation and canonical entity data.
  */
 export const ConfigSchema = z.strictObject({
-	schemaVersion: z.literal(1),
 	project: ProjectConfigSchema.optional(),
 	tasks: TasksConfigSchema.optional(),
 }) satisfies z.ZodType<Config>
