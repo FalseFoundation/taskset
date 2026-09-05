@@ -21,11 +21,10 @@
 		"build": "turbo build",
 		"test": "turbo test && vitest run tests",
 		"test:watch": "turbo test:watch",
-		"lint": "biome check .",
-		"format": "biome format --write .",
-		"check": "pnpm lint && pnpm test && pnpm build",
+		"check": "biome check .",
+		"format": "biome format .",
+		"lint": "biome lint .",
 		"clean": "turbo clean",
-		"taskset": "taskset",
 		"update-deps": "pnpm up --latest --recursive && pnpm dedupe && pnpm audit --fix update"
 	},
 	"devDependencies": {

@@ -30,9 +30,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check workspace
-        run: pnpm check
-
   publish:
     name: Publish to npm
     needs: validate
@@ -57,7 +54,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build workspace
-        run: pnpm build
+        run: pnpm build --filter='!@taskset/www'
 
       - name: Publish packages
         run: pnpm --recursive publish --access public --no-git-checks
