@@ -11,8 +11,10 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - esbuild@0.28.1
+  - '@xmldom/xmldom@0.9.12'
 
 overrides:
+  '@xmldom/xmldom': 0.9.12
   esbuild: 0.28.1
 
 patchedDependencies:
