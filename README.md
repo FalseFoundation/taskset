@@ -127,8 +127,9 @@ repair those inbound relationships in the same failure-safe mutation.
 Migration and snapshot restore are dry runs unless `--apply` is supplied.
 Applying a schema migration first creates an immutable snapshot under
 `.taskset/snapshots/`. Generated metadata indexes under `.taskset/generated/`
-cover every supported task metadata field, are disposable, and refresh
-automatically after canonical mutations.
+cover supported non-ID task metadata fields, group dates by calendar date, keep
+generated filenames readable, and refresh automatically after canonical
+mutations.
 
 ## Documentation
 

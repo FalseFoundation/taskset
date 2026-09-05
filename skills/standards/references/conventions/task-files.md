@@ -56,6 +56,9 @@ Rules:
 - Format task IDs as `TS-` followed by a 26-character uppercase ULID.
 - Preserve user-authored body text and meaningful list order.
 - Use stable key ordering and one final newline in generated output.
+- Generated metadata indexes cover supported non-ID metadata fields, group
+  timestamp values by calendar date, and keep generated filenames readable
+  instead of URL-encoding spaces or path separators.
 - Omit absent optional fields consistently; do not alternate between missing,
   empty, and `null` without schema meaning.
 - Validate enum values, dates, paths, IDs, and relationship targets centrally.

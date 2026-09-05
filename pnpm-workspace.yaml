@@ -14,3 +14,6 @@ minimumReleaseAgeExclude:
 
 overrides:
   esbuild: 0.28.1
+
+patchedDependencies:
+  nextra-theme-docs@4.6.1: patches/nextra-theme-docs@4.6.1.patch

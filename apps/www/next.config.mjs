@@ -5,7 +5,6 @@ const staticExport = process.env.STATIC_EXPORT
 const staticExportBasePath = staticExport === '/' ? '' : staticExport
 
 export default withNextra({
-	reactCompiler: true,
 	reactStrictMode: true,
 	typedRoutes: false,
 	...(staticExport !== undefined && {
@@ -22,7 +21,6 @@ export default withNextra({
 	experimental: {
 		appNewScrollHandler: true,
 		externalDir: true,
-		viewTransition: true,
 	},
 	turbopack: {
 		resolveAlias: {

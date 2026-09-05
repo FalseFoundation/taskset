@@ -142,10 +142,12 @@ that transitively depend on those direct matches. JSON output uses
 projections to records in both groups.
 
 `.taskset/cache/` and `.taskset/generated/` are disposable. Generated metadata
-indexes are deterministic projections for every supported task metadata field
-and refresh on a best-effort basis after canonical mutations. Generated views
-sort tasks by `order` when present and display ordered rows with the order
-value.
+indexes are deterministic projections for supported non-ID task metadata fields
+and refresh on a best-effort basis after canonical mutations. Date and
+timestamp metadata is grouped by calendar date only. Generated filenames remain
+human-readable: spaces are preserved and path separators are displayed with
+`∕` instead of URL-encoded text. Generated views sort tasks by `order` when
+present and display ordered rows with the order value.
 
 ## Snapshots
 

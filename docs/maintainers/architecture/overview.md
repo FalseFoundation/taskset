@@ -87,8 +87,9 @@ Canonical tasks live in `.taskset/tasks/` as strict versionless Markdown
 entities. Versioned task frontmatter is rejected instead of being silently
 rewritten.
 
-`.taskset/generated/` contains deterministic status, priority, project, and
-assignee indexes. `.taskset/cache/` and generated views are disposable.
+`.taskset/generated/` contains deterministic non-ID metadata indexes with
+date-only grouping and readable filenames. `.taskset/cache/` and generated
+views are disposable.
 `.taskset/snapshots/` contains immutable safety checkpoints and is not normal
 history or a second source of truth.
 

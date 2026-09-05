@@ -27,8 +27,11 @@ interface MetadataView {
 	readonly values: (metadata: TaskMetadata) => readonly string[]
 }
 
+const GENERATED_PATH_SEPARATOR = '∕'
+const UNSAFE_GENERATED_FILENAME_CHARACTERS = new Set(['"', '*', ':', '<', '>', '?', '\\', '|'])
+const TASK_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})/
+
 const TASK_METADATA_VIEWS: readonly MetadataView[] = Object.freeze([
-	{ category: 'id', values: (metadata) => [metadata.id] },
 	{ category: 'title', values: (metadata) => [metadata.title] },
 	{ category: 'status', values: (metadata) => [metadata.status] },
 	{ category: 'priority', values: (metadata) => valueList(metadata.priority) },
@@ -40,9 +43,9 @@ const TASK_METADATA_VIEWS: readonly MetadataView[] = Object.freeze([
 	{ category: 'estimate', values: (metadata) => valueList(metadata.estimate) },
 	{ category: 'effort', values: (metadata) => valueList(metadata.effort) },
 	{ category: 'risk', values: (metadata) => valueList(metadata.risk) },
-	{ category: 'dueDate', values: (metadata) => valueList(metadata.dueDate) },
-	{ category: 'createdAt', values: (metadata) => [metadata.createdAt] },
-	{ category: 'updatedAt', values: (metadata) => [metadata.updatedAt] },
+	{ category: 'dueDate', values: (metadata) => valueList(metadata.dueDate).map(dateOnly) },
+	{ category: 'createdAt', values: (metadata) => [dateOnly(metadata.createdAt)] },
+	{ category: 'updatedAt', values: (metadata) => [dateOnly(metadata.updatedAt)] },
 	{ category: 'labels', values: (metadata) => metadata.labels ?? [] },
 	{ category: 'dependsOn', values: (metadata) => metadata.dependsOn ?? [] },
 	{ category: 'related', values: (metadata) => metadata.related ?? [] },
@@ -70,8 +73,21 @@ function fingerprintRecords(records: readonly TaskRecord[]): string {
 	return hash.digest('hex')
 }
 
-function encodedFileName(value: string): string {
-	return `${encodeURIComponent(value)}.md`
+function dateOnly(value: string): string {
+	return TASK_DATE_PATTERN.exec(value)?.[1] ?? value
+}
+
+function generatedFileName(value: string): string {
+	const readableName = Array.from(
+		value.replaceAll('/', GENERATED_PATH_SEPARATOR).replaceAll('\\', GENERATED_PATH_SEPARATOR),
+	)
+		.map((character) =>
+			character < ' ' || UNSAFE_GENERATED_FILENAME_CHARACTERS.has(character) ? '-' : character,
+		)
+		.join('')
+		.trim()
+
+	return `${readableName || 'empty'}.md`
 }
 
 function taskLink(record: TaskRecord): string {
@@ -116,7 +132,7 @@ function renderGroups(
 	)) {
 		const lines = [...records].sort(compareViewRecords).map(taskLink)
 		files.set(
-			`${category}/${encodedFileName(value)}`,
+			`${category}/${generatedFileName(value)}`,
 			`# ${category[0]?.toUpperCase()}${category.slice(1)}: ${value}\n\n${lines.join('\n')}\n`,
 		)
 	}

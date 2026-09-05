@@ -49,10 +49,7 @@ describe('generated views', () => {
 			await readFile(path.join(repository.generatedDirectory, 'status', 'todo.md'), 'utf8'),
 		).toContain(`- [20] [${taskId}: Indexed](../../tasks/${taskId}.md)`)
 		expect(
-			await readFile(
-				path.join(repository.generatedDirectory, 'projects', 'alpha%2Fbeta.md'),
-				'utf8',
-			),
+			await readFile(path.join(repository.generatedDirectory, 'projects', 'alpha∕beta.md'), 'utf8'),
 		).toContain(taskId)
 		await expect(access(stalePath)).rejects.toThrow()
 	})
@@ -110,13 +107,12 @@ Body.
 			'assignees/maintainer.md',
 			'createdAt/2026-06-12.md',
 			'dependsOn/TS-01J00000000000000000000001.md',
-			'directories/packages%2Fcore.md',
+			'directories/packages∕core.md',
 			'dueDate/2026-06-30.md',
 			'duplicates/TS-01J00000000000000000000003.md',
 			'effort/3.md',
 			'estimate/90.md',
-			'files/packages%2Fcore%2Fsrc%2Fgenerated%2FgeneratedViews.ts.md',
-			'id/TS-01J00000000000000000000000.md',
+			'files/packages∕core∕src∕generated∕generatedViews.ts.md',
 			'labels/core.md',
 			'order/10.md',
 			'owner/platform.md',
@@ -128,8 +124,8 @@ Body.
 			'risk/high.md',
 			'status/doing.md',
 			'team/core.md',
-			'title/Full%20metadata.md',
-			'updatedAt/2026-06-12%2001%3A02%20UTC.md',
+			'title/Full metadata.md',
+			'updatedAt/2026-06-12.md',
 		])
 	})
 })

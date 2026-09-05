@@ -1,5 +1,13 @@
 # @taskset/core
 
+## 3.0.1
+
+### Patch Changes
+
+- Generated metadata views no longer create redundant ID indexes, group timestamp
+  metadata by calendar date, and use readable filenames instead of URL-encoded
+  spaces or path separators.
+
 ## 3.0.0
 
 ### Major Changes
