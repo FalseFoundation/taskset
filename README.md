@@ -29,17 +29,17 @@ Install Taskset in the project that will own the work:
 
 ```bash
 pnpm add --save-dev @taskset/cli
-pnpm exec taskset init
+pnpm taskset init
 ```
 
 Create and inspect work:
 
 ```bash
-pnpm exec taskset task create --title "Add repository validation"
-pnpm exec taskset task list
-pnpm exec taskset task show <task-id>
-pnpm exec taskset task status <task-id> doing
-pnpm exec taskset doctor
+pnpm taskset task create --title "Add repository validation"
+pnpm taskset task list
+pnpm taskset task show <task-id>
+pnpm taskset task status <task-id> doing
+pnpm taskset doctor
 ```
 
 Initialization creates a root `taskset.config.ts`, the canonical
@@ -109,15 +109,15 @@ Core owns deterministic graph, filtering, search, indexing, and file-impact
 semantics. The CLI exposes scriptable forms:
 
 ```bash
-pnpm exec taskset task list --status doing --label core --json
-pnpm exec taskset task list --file packages/core --impact --json
-pnpm exec taskset task list --estimate-min 30 --estimate-max 120 --risk high
-pnpm exec taskset doctor --json
-pnpm exec taskset task update <task-id> --priority urgent
-pnpm exec taskset task delete <task-id> --remove-dependencies --json
-pnpm exec taskset generate
-pnpm exec taskset snapshot create
-pnpm exec taskset migrate --to 2
+pnpm taskset task list --status doing --label core --json
+pnpm taskset task list --file packages/core --impact --json
+pnpm taskset task list --estimate-min 30 --estimate-max 120 --risk high
+pnpm taskset doctor --json
+pnpm taskset task update <task-id> --priority urgent
+pnpm taskset task delete <task-id> --remove-dependencies --json
+pnpm taskset generate
+pnpm taskset snapshot create
+pnpm taskset migrate --to 2
 ```
 
 `doctor` scans all task files without modifying them. Deletion is blocked when

@@ -29,7 +29,7 @@ The package exposes the `taskset` executable.
 Run Taskset from the repository root:
 
 ```bash
-pnpm exec taskset init
+pnpm taskset init
 ```
 
 This creates:
@@ -49,10 +49,10 @@ Snapshots are non-authoritative safety checkpoints; tasks remain canonical.
 ## Create And Inspect Work
 
 ```bash
-pnpm exec taskset task create --title "Add repository validation"
-pnpm exec taskset task list
-pnpm exec taskset task show <task-id>
-pnpm exec taskset task update <task-id> --status doing
+pnpm taskset task create --title "Add repository validation"
+pnpm taskset task list
+pnpm taskset task show <task-id>
+pnpm taskset task update <task-id> --status doing
 ```
 
 Task files can also be read and reviewed directly without Taskset installed.
@@ -60,9 +60,9 @@ Task files can also be read and reviewed directly without Taskset installed.
 ## Query And Validate Work
 
 ```bash
-pnpm exec taskset task list --status doing --label core --json
-pnpm exec taskset task list --file packages/core --impact --json
-pnpm exec taskset doctor
+pnpm taskset task list --status doing --label core --json
+pnpm taskset task list --file packages/core --impact --json
+pnpm taskset doctor
 ```
 
 File and directory filters use normalized repository-relative containment
@@ -74,9 +74,9 @@ non-mutating pass.
 ## Generated Views And Migration
 
 ```bash
-pnpm exec taskset generate
-pnpm exec taskset snapshot create
-pnpm exec taskset snapshot list
+pnpm taskset generate
+pnpm taskset snapshot create
+pnpm taskset snapshot list
 ```
 
 Snapshot restore previews by default unless `--apply` is present.
@@ -84,8 +84,8 @@ Snapshot restore previews by default unless `--apply` is present.
 ## Complete Or Remove Work
 
 ```bash
-pnpm exec taskset task status <task-id> done
-pnpm exec taskset task delete <task-id>
+pnpm taskset task status <task-id> done
+pnpm taskset task delete <task-id>
 ```
 
 Completed and canceled tasks are terminal. Deletion fails while another task

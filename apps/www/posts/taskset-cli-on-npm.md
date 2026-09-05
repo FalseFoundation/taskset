@@ -24,7 +24,7 @@ pnpm add --save-dev @taskset/cli
 Initialize Taskset in the repository:
 
 ```bash
-pnpm exec taskset init
+pnpm taskset init
 ```
 
 This creates the repository configuration and the `.taskset/` directory where
@@ -35,10 +35,10 @@ project work lives as human-readable Markdown.
 The first release supports the core local workflow:
 
 ```bash
-pnpm exec taskset config --json
-pnpm exec taskset task create --title "Ship the next Taskset feature"
-pnpm exec taskset task list
-pnpm exec taskset task show <task-id>
+pnpm taskset config --json
+pnpm taskset task create --title "Ship the next Taskset feature"
+pnpm taskset task list
+pnpm taskset task show <task-id>
 ```
 
 Task files stay beside the code. Git handles history, branches, review, and

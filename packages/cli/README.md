@@ -6,8 +6,8 @@ The public command-line adapter for Taskset. Full documentation is available at
 
 ```bash
 pnpm add --save-dev @taskset/cli
-pnpm exec taskset init
-pnpm exec taskset task create --title "Document the release"
+pnpm taskset init
+pnpm taskset task create --title "Document the release"
 ```
 
 The package owns argument tokenization, Zod-backed command validation, output,

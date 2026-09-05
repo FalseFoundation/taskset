@@ -9,7 +9,7 @@ The `taskset` command is a thin adapter over `@taskset/core`. It parses
 arguments, validates command options, calls core operations, and renders human
 or JSON output.
 
-Use `pnpm exec taskset <command>` when Taskset is installed as a project
+Use `pnpm taskset <command>` when Taskset is installed as a project
 dependency. The examples below use `taskset` directly for brevity.
 
 ## Common Behavior
