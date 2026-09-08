@@ -51,6 +51,19 @@ Rename the parser entrypoint without changing its public behavior.
 
 Use a child task with `--parent <parent-task-id>` instead if a step needs independent assignment, status, acceptance criteria, dependencies, or history.
 
+## Create Follow-Ups While Executing
+
+Bad: while fixing a parser bug, discover a missing migration and a docs gap, finish the parser fix, and leave those findings only in the chat transcript.
+
+Good: create Taskset follow-ups as soon as the work is clear. Use a child task when the new work belongs under the current outcome; create a sibling or related task when it is a distinct deliverable.
+
+```bash
+pnpm taskset task create --title "Add migration for parser id format" --parent <parser-task-id> --depends-on <parser-task-id>
+pnpm taskset task create --title "Document parser id format change" --project docs --related <parser-task-id>
+```
+
+Do not close or abandon the current task without recording discovered follow-up work in Taskset.
+
 ## Dependencies Versus Related Work
 
 Bad: connect every task about authentication with `--depends-on`. Shared subject matter is not a blocker and can create false chains or cycles.

@@ -1,6 +1,6 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/.
+description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/. While executing work, agents must create follow-up tasks or subtasks for newly discovered work.
 ---
 
 # Taskset
@@ -14,6 +14,7 @@ Use this skill when working in a repository that uses Taskset to store work as h
 - Do not create a second task store, hidden database, or alternate sync layer.
 - Use Taskset commands to inspect and mutate tasks instead of editing canonical task files by hand when a command exists.
 - Prefer `pnpm taskset` in project repositories; use the repo root `pnpm taskset` script when available.
+- While executing or working a task, agents MUST create follow-up Taskset tasks or child subtasks for newly discovered work. Do not leave that work only in chat, memory, or an informal note.
 
 ## Recommended Workflow
 
@@ -53,6 +54,7 @@ pnpm taskset task list --file packages/core --impact
 - Inspect existing tasks, labels, projects, and repository conventions before assigning metadata. Reuse established taxonomy and avoid inventing labels, projects, or relationships without supporting context.
 - Attach known repository scope with `--file` or `--directory` so impact queries can find the task. Use the narrowest accurate paths and do not guess paths that have not been established.
 - Model smaller steps within one task as Markdown checklist items beginning with `- [ ]` in the task body. Use child tasks with `--parent` instead when a subtask needs its own status, ownership, dependencies, or tracking history.
+- While working, when new deliverables, prerequisites, blockers, deferred scope, regressions, or verification gaps surface, create follow-up tasks or `--parent` child tasks immediately. Relate them with `--depends-on`, `--related`, or `--parent` as appropriate. Do not finish or abandon the current task without recording that discovered work in Taskset.
 - Give each task an outcome-oriented title and enough structured Markdown to make it executable: context or outcome, in-scope work, checklist when useful, observable acceptance criteria, and references. Avoid vague titles and undifferentiated text dumps.
 - Preserve links, external URLs, named libraries, and other external mentions from the user's prompt in a `References` section in the relevant task body. Keep enough surrounding description to explain why each reference matters.
 - Preserve user-supplied metadata when updating a task unless the requested change supersedes it. Keep the body, checklist state, status, dependencies, and scope consistent; do not mark a task done until its acceptance criteria are satisfied.
@@ -66,6 +68,7 @@ For multi-task prompts or uncertainty about task granularity and relationships, 
 ## Agent Checklist
 
 - Read the task and the surrounding repository context first.
+- While executing, create follow-up tasks or subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
 - Prefer the smallest Taskset command that proves the intended state.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
 - Report validation failures plainly and only claim success after the command has run.
