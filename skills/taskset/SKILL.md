@@ -65,10 +65,25 @@ pnpm taskset task list --file packages/core --impact
 
 For multi-task prompts or uncertainty about task granularity and relationships, read [good and bad task-modeling examples](references/task-modeling-examples.md).
 
+## Changesets in Monorepos
+
+When the repository contains `.changeset/config.json`:
+
+- Inspect the Changesets config and affected package manifests before modeling release impact. Follow repository policy for ignored packages, linked or fixed groups, internal dependency bumps, and the base branch.
+- Every task that may change a releasable package must include a `Changeset` section in its body. State either the expected package names, SemVer bump levels, and release-note intent, or `Not required` with a concrete reason supported by repository convention.
+- Treat the changeset as part of the implementation task's checklist and acceptance criteria unless authoring or coordinating releases is itself a separately owned deliverable. Do not create a detached bookkeeping task for every changeset.
+- Base bump levels on externally observable package impact, not task size. Include every directly affected package and account for any internal-dependent bumps required by the repository config.
+- Prefer one changeset for one coherent user-facing change, even when it spans multiple packages. Use separate changesets when the changes have independent release-note meaning or may ship separately.
+- While executing, update the task's Changeset section if the affected packages or release impact changes. Before marking the task done, create the required changeset, verify its package names, bump levels, and summary, and run the repository's Changesets status or validation command.
+- Do not invent a release note for work that repository policy excludes, such as non-published examples or test-only changes. Record the no-changeset rationale so omission is deliberate and reviewable.
+
+For paired examples of required, multi-package, and unnecessary changesets, read [Changesets task examples](references/changesets-examples.md).
+
 ## Agent Checklist
 
 - Read the task and the surrounding repository context first.
 - While executing, create follow-up tasks or subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
+- In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
 - Prefer the smallest Taskset command that proves the intended state.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
 - Report validation failures plainly and only claim success after the command has run.
