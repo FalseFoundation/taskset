@@ -162,3 +162,55 @@ pnpm taskset task create --title "Validate task dependency cycles" --owner "Sam 
 Use multiple `--assignee` options only when each named person is genuinely expected to execute part of the task. Code ownership, package maintainership, or prior review can inform investigation, but does not by itself authorize assigning a person.
 
 When a cross-package plan is split, choose owner and assignees per resulting task rather than copying the parent task's people blindly. Do not change existing ownership while updating unrelated metadata.
+
+## Pre-Execution Ownership Check
+
+Current Git user: `Alex Chen`.
+
+### Current User Is Assigned
+
+Task metadata:
+
+```yaml
+owner: Sam Rivera
+assignees:
+  - Alex Chen
+```
+
+Good: Alex may execute the task because Alex is an explicit assignee. Keep Sam as owner unless the user requests an accountability change.
+
+Bad: stop merely because owner and assignee differ, or replace Sam with Alex automatically.
+
+### Task Belongs to Someone Else
+
+Task metadata:
+
+```yaml
+owner: Sam Rivera
+assignees:
+  - Priya Shah
+```
+
+Prompt: “Work on the next open task.”
+
+Good: inspect and report the task, then ask whether Alex should proceed or take it over before changing status, assignment, task contents, or repository code.
+
+Bad: treat the generic prompt as permission, set the task to `doing`, add Alex as an assignee, or start implementation without surfacing the ownership conflict.
+
+### Specific Execution Is Explicitly Authorized
+
+Task metadata still names Sam and Priya, but the user says: “Alex, implement `TS-...` now; do not reassign it.”
+
+Good: this explicitly authorizes execution of the identified task. Proceed while preserving its owner and assignees as directed.
+
+Bad: ask the same execution question again, or interpret authorization to execute as authorization to replace the owner.
+
+### Takeover Includes Assignment Change
+
+The user says: “Take over `TS-...` and assign it to the current Git user.”
+
+Good: preserve the existing owner unless the user also requests an owner change, add or replace assignees according to the explicit instruction and repository convention, then begin work.
+
+Bad: silently transfer ownership as well, or retain an assignee list that no longer represents who is expected to perform the task.
+
+Read-only task inspection is allowed in every scenario above. The confirmation gate applies before mutations or execution, and it does not bypass unresolved dependencies or explicit blockers.

@@ -20,9 +20,21 @@ Use this skill when working in a repository that uses Taskset to store work as h
 
 1. Confirm the repository root and Taskset config.
 2. Inspect repository health with `taskset config --json` and `taskset doctor`.
-3. List or show tasks before changing them.
-4. Create, update, or close tasks with Taskset commands.
-5. Re-run validation after edits and keep Git as the collaboration and history layer.
+3. List or show tasks and check their owner and assignees before changing or executing them.
+4. Resolve whether the current Git user is authorized to take the selected task; obtain confirmation when another person is responsible and the request does not already authorize that specific takeover.
+5. Create, update, execute, or close tasks with Taskset commands.
+6. Re-run validation after edits and keep Git as the collaboration and history layer.
+
+## Before Executing a Task
+
+- Show the task and resolve `git config --get user.name` before implementation, changing its status to `doing`, or modifying its ownership or assignment. Also check unresolved dependencies and other explicit blockers; matching ownership does not override them.
+- The current Git user may proceed when they are an assignee, or when the task has no assignees and they are its owner. A different owner does not block an explicitly assigned executor.
+- If another person is the explicit owner and the current Git user is not an assignee, or if the task is assigned only to other people, pause before mutation and ask the user to confirm execution or takeover. Read-only inspection and reporting may continue while awaiting that decision.
+- A current instruction that explicitly identifies and authorizes executing that task counts as confirmation. A generic instruction such as “work on the next task,” task visibility, code ownership, or repository access does not override another person's assignment.
+- Confirmation to help execute a task does not automatically transfer accountability. Preserve the owner unless reassignment is explicitly requested; update assignees only when the confirmation or repository workflow establishes who will now perform the work.
+- If the Git identity is missing or cannot be matched reliably to task identities, state the ambiguity and request confirmation before taking work explicitly assigned to someone else. Do not guess identity from an email, commit history, or hosting-service handle without an established repository mapping.
+
+For ownership-gate scenarios, read [owner and assignee examples](references/task-modeling-examples.md#pre-execution-ownership-check).
 
 ## Common Commands
 
@@ -102,6 +114,7 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 ## Agent Checklist
 
 - Read the task and the surrounding repository context first.
+- Before mutating or executing a task, compare its owner and assignees with the current Git user and obtain confirmation when another person is responsible.
 - While executing, create follow-up tasks or subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
 - In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.
 - In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
