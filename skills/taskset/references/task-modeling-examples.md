@@ -136,3 +136,29 @@ Good: retain the IDs and JSON output from successful creates, list the current t
 Bad: delete a completed task to clean up the active list, or use `--remove-dependencies` without inspecting downstream tasks.
 
 Good: mark work `done` when its acceptance criteria pass. If work is superseded or duplicated, preserve the task and express that relationship according to repository convention. Delete only when removal itself is intended and its dependency impact has been inspected.
+
+## Owner and Assignees
+
+Bad: omit ownership from every generated task, assign every task to every contributor mentioned in the prompt, or overwrite an explicitly assigned owner with the local Git identity.
+
+Good: first resolve the repository's current Git user:
+
+```bash
+git config --get user.name
+```
+
+Use that value as the default owner when creating a task. If it returns `Alex Chen` and Alex will also implement the work:
+
+```bash
+pnpm taskset task create --title "Validate task dependency cycles" --owner "Alex Chen" --assignee "Alex Chen"
+```
+
+If the prompt explicitly makes Sam accountable while Alex implements it, preserve that distinction:
+
+```bash
+pnpm taskset task create --title "Validate task dependency cycles" --owner "Sam Rivera" --assignee "Alex Chen"
+```
+
+Use multiple `--assignee` options only when each named person is genuinely expected to execute part of the task. Code ownership, package maintainership, or prior review can inform investigation, but does not by itself authorize assigning a person.
+
+When a cross-package plan is split, choose owner and assignees per resulting task rather than copying the parent task's people blindly. Do not change existing ownership while updating unrelated metadata.
