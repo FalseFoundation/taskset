@@ -1,6 +1,6 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/. While executing work, agents must create follow-up tasks or subtasks for newly discovered work.
+description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/, including cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks for newly discovered work.
 ---
 
 # Taskset
@@ -65,6 +65,22 @@ pnpm taskset task list --file packages/core --impact
 
 For multi-task prompts or uncertainty about task granularity and relationships, read [good and bad task-modeling examples](references/task-modeling-examples.md).
 
+## Monorepo Reasoning
+
+When workspace configuration declares multiple apps or packages:
+
+- Inspect the workspace manifest, relevant package manifests, package dependency graph, root and package-level task-runner configuration, and release configuration before decomposing work. Use declared package names and existing Taskset projects rather than inferring identity from directory names alone.
+- Distinguish the workspace dependency graph, build-task graph, and Taskset work graph. A package dependency indicates possible impact but is not automatically a Taskset `--depends-on`; record a task dependency only when that concrete deliverable requires another task's output.
+- Trace changes in shared packages outward to direct and transitive consumers. Include compatibility work and consumer validation in the originating task's scope, or create dependent tasks when those outcomes need separate ownership, status, release notes, or delivery.
+- Split work by independently deliverable outcome, not mechanically by package. Keep one cross-package task when several package edits form one atomic capability; split it when packages can ship independently or require different owners, sequencing, acceptance criteria, or release treatment.
+- Assign every affected workspace through existing `--project` values and attach the narrowest accurate `--file` or `--directory` scopes. Include root configuration only when the task actually changes repository-wide behavior.
+- Put package-local implementation and scripts in the owning package. When a task runner such as Turborepo is present, describe task-pipeline or root configuration changes only when orchestration must change; do not compensate for undeclared workspace dependencies with ad hoc execution ordering.
+- Make validation follow the impact graph: test the changed package, affected dependents, relevant integration boundaries, and any repository-wide configuration touched. Prefer the repository task runner's package filters or affected mode and record the intended commands or observable checks in acceptance criteria.
+- Treat lockfiles, generated artifacts, workspace registration, exports, documentation, and Changesets as supporting parts of the owning outcome unless they are independently assignable deliverables. Do not create noisy standalone tasks for mechanical byproducts.
+- Re-evaluate projects, file scopes, dependencies, validation, and Changesets whenever implementation crosses an unexpected package boundary. Record newly independent work as linked Taskset tasks before completing the current task.
+
+For package-graph decomposition, cross-package validation, and new-package examples, read [monorepo task-modeling examples](references/monorepo-task-modeling.md).
+
 ## Changesets in Monorepos
 
 When the repository contains `.changeset/config.json`:
@@ -83,6 +99,7 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 
 - Read the task and the surrounding repository context first.
 - While executing, create follow-up tasks or subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
+- In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.
 - In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
 - Prefer the smallest Taskset command that proves the intended state.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
