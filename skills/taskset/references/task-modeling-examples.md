@@ -64,6 +64,23 @@ pnpm taskset task create --title "Document parser id format change" --project do
 
 Do not close or abandon the current task without recording discovered follow-up work in Taskset.
 
+## Keep Status Current Through Execution
+
+Bad: start implementation, finish three child subtasks, and leave the parent and children stuck in `todo` or `doing` until a final cleanup pass—or mark the parent `done` while children are still open.
+
+Good: update status as work progresses.
+
+```bash
+pnpm taskset task update <parent-task-id> --status doing
+pnpm taskset task update <subtask-id> --status doing
+# ... complete that subtask's acceptance criteria ...
+pnpm taskset task status <subtask-id> done
+# ... after every tracked subtask is done and the parent criteria pass ...
+pnpm taskset task status <parent-task-id> done
+```
+
+Every completed subtask must be marked `done`. Update statuses mid-work when progress or blockers change; do not wait until the session ends.
+
 ## Dependencies Versus Related Work
 
 Bad: connect every task about authentication with `--depends-on`. Shared subject matter is not a blocker and can create false chains or cycles.
