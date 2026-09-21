@@ -26,6 +26,8 @@ Good: infer that the schema/migration and backend field are prerequisites for th
 
 ## Checklist or Child Task
 
+Both forms are subtasks. Prefer checklist items for steps that share one outcome; use Taskset child tasks when a step needs independent tracking.
+
 Bad: create separately tracked tasks for tiny steps that share one outcome:
 
 - Rename the function.
@@ -66,20 +68,34 @@ Do not close or abandon the current task without recording discovered follow-up 
 
 ## Keep Status Current Through Execution
 
-Bad: start implementation, finish three child subtasks, and leave the parent and children stuck in `todo` or `doing` until a final cleanup pass—or mark the parent `done` while children are still open.
+In this skill, "subtask" covers both Taskset child tasks and Markdown checklist items in a parent task body.
 
-Good: update status as work progresses.
+Bad: start implementation, finish three child tasks and several checklist steps, and leave the parent stuck in `todo` or `doing` with unchecked `- [ ]` items until a final cleanup pass—or mark the parent `done` while children or checklist items are still open.
+
+Good: update progress as work proceeds.
 
 ```bash
 pnpm taskset task update <parent-task-id> --status doing
-pnpm taskset task update <subtask-id> --status doing
-# ... complete that subtask's acceptance criteria ...
-pnpm taskset task status <subtask-id> done
-# ... after every tracked subtask is done and the parent criteria pass ...
+pnpm taskset task update <child-task-id> --status doing
+# ... complete that child task's acceptance criteria ...
+pnpm taskset task status <child-task-id> done
+```
+
+For checklist subtasks, flip completed items from `- [ ]` to `- [x]` in the parent body as soon as each step finishes. After every tracked subtask is complete (children `done`, checklist items checked) and the parent criteria pass:
+
+```bash
 pnpm taskset task status <parent-task-id> done
 ```
 
-Every completed subtask must be marked `done`. Update statuses mid-work when progress or blockers change; do not wait until the session ends.
+Every completed subtask must be marked finished—child tasks via `done`, checklist items via `- [x]`. Update statuses and checklist state mid-work when progress or blockers change; do not wait until the session ends.
+
+## Capture Lasting Lessons in the Primary Skill
+
+Bad: after three failed attempts, discover that Biome must run before the focused package test, close the task with that note in its body, and leave the session's primary skill unchanged so the next agent repeats the same failure.
+
+Good: when the repository or session treats a skill as primary, fold the durable rule into that skill (or its references) as a short decision rule—for example preferred tool selection, a known failure mode and its fix, or an architecture constraint. Keep task-specific history in the task; keep reusable guidance in the skill.
+
+Update the primary skill for lessons that future work should consider: tool or command choice, bug-fix patterns, repeated failures, and architecture decisions. Skip skill edits for one-off, task-local details that will not help later sessions.
 
 ## Dependencies Versus Related Work
 

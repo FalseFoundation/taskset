@@ -1,6 +1,6 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/, including cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks for newly discovered work, keep task and subtask statuses current mid-work, and mark every finished subtask done.
+description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/, including cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, and update the session or repository primary skill when lasting lessons (tool choice, bug fixes, repeated failures, architecture decisions) should prevent future failures.
 ---
 
 # Taskset
@@ -14,8 +14,9 @@ Use this skill when working in a repository that uses Taskset to store work as h
 - Do not create a second task store, hidden database, or alternate sync layer.
 - Use Taskset commands to inspect and mutate tasks instead of editing canonical task files by hand when a command exists.
 - Prefer `pnpm taskset` in project repositories; use the repo root `pnpm taskset` script when available.
-- While executing or working a task, agents MUST create follow-up Taskset tasks or child subtasks for newly discovered work. Do not leave that work only in chat, memory, or an informal note.
-- Agents MUST keep task and subtask statuses current: set them to `doing` when work starts, update them mid-work when progress or blockers change, and mark each completed subtask `done` when its acceptance criteria are met. Do not leave finished subtasks open, and do not mark a parent task `done` while any of its tracked subtasks remain unfinished.
+- While executing or working a task, agents MUST create follow-up Taskset tasks or subtasks for newly discovered work. In this skill, "subtask" means either a Taskset child task (`--parent`) or a Markdown checklist item (`- [ ]`) in the parent task body—choose child tasks when independent status, ownership, dependencies, or history are needed; otherwise prefer checklist items. Do not leave that work only in chat, memory, or an informal note.
+- Agents MUST keep the parent task status and every subtask current mid-work: set Taskset tasks and child tasks to `doing` when work starts, check off completed checklist items as `- [x]`, update statuses when progress or blockers change, and mark each finished child task `done` when its acceptance criteria are met. Do not leave finished checklist items unchecked or finished child tasks open, and do not mark a parent task `done` while any tracked subtask (child task or checklist item) remains unfinished.
+- When the repository or current session designates one or more skills as primary, and task work surfaces a lesson that future agents should reuse—tool or command selection, a bug fix pattern, a repeated failure mode, or an architecture decision—update that primary skill (and its relevant references) in the same change so the failure is not rediscovered later. Do not leave durable guidance only in a closed task body or chat transcript.
 
 ## Recommended Workflow
 
@@ -69,9 +70,10 @@ pnpm taskset task list --file packages/core --impact
 - Choose ownership and assignment deliberately: `owner` is the single person accountable for the outcome, while repeatable `--assignee` values identify the people expected to execute the work. Assign the current Git user when they are both accountable and executing; preserve a different explicit owner, and do not assign collaborators merely because they own related code or reviewed prior work.
 - Re-evaluate owner and assignees when splitting tasks, creating child or follow-up work, or crossing team and package boundaries. Each independently tracked task may need different accountability; preserve existing assignments during unrelated updates.
 - Attach known repository scope with `--file` or `--directory` so impact queries can find the task. Use the narrowest accurate paths and do not guess paths that have not been established.
-- Model smaller steps within one task as Markdown checklist items beginning with `- [ ]` in the task body. Use child tasks with `--parent` instead when a subtask needs its own status, ownership, dependencies, or tracking history.
-- While working, when new deliverables, prerequisites, blockers, deferred scope, regressions, or verification gaps surface, create follow-up tasks or `--parent` child tasks immediately. Relate them with `--depends-on`, `--related`, or `--parent` as appropriate. Do not finish or abandon the current task without recording that discovered work in Taskset.
-- Update the active task's status and every child subtask's status during execution, not only at the end. Set a task or subtask to `doing` when starting it, reflect blockers or pauses promptly, and mark each finished subtask `done` before moving on. Close the parent only after its own acceptance criteria are met and every tracked subtask is `done` or otherwise intentionally resolved.
+- Model smaller steps within one task as Markdown checklist items beginning with `- [ ]` in the task body; those checklist items are subtasks for progress tracking. Use child tasks with `--parent` instead when a subtask needs its own status, ownership, dependencies, or tracking history.
+- While working, when new deliverables, prerequisites, blockers, deferred scope, regressions, or verification gaps surface, create follow-up tasks, `--parent` child tasks, or checklist subtasks immediately. Relate Taskset tasks with `--depends-on`, `--related`, or `--parent` as appropriate. Do not finish or abandon the current task without recording that discovered work in Taskset.
+- Update the active task's status and every subtask during execution, not only at the end. Set a Taskset task or child task to `doing` when starting it, check off checklist items as `- [x]` when finished, reflect blockers or pauses promptly, and mark each finished child task `done` before moving on. Close the parent only after its own acceptance criteria are met and every tracked subtask—checklist item or child task—is completed or otherwise intentionally resolved.
+- When the repo or session has a primary skill (or a small set of them), prefer updating that skill after work that establishes lasting guidance: which tool or command to use, how a class of bugs was fixed, what repeatedly failed and how to avoid it, or an architecture decision that later tasks must honor. Keep the skill change minimal and decision-oriented; do not dump raw task notes into the skill.
 - Give each task an outcome-oriented title and enough structured Markdown to make it executable: context or outcome, in-scope work, checklist when useful, observable acceptance criteria, and references. Avoid vague titles and undifferentiated text dumps.
 - Preserve links, external URLs, named libraries, and other external mentions from the user's prompt in a `References` section in the relevant task body. Keep enough surrounding description to explain why each reference matters.
 - Preserve user-supplied metadata when updating a task unless the requested change supersedes it. Keep the body, checklist state, status, dependencies, and scope consistent; do not mark a task done until its acceptance criteria are satisfied.
@@ -117,8 +119,9 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 
 - Read the task and the surrounding repository context first.
 - Before mutating or executing a task, compare its owner and assignees with the current Git user and obtain confirmation when another person is responsible.
-- While executing, create follow-up tasks or subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
-- Keep parent and subtask statuses updated mid-work and after each piece finishes; mark every completed subtask `done` and only then close the parent.
+- While executing, create follow-up tasks, child tasks, or checklist subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
+- Keep parent status and every subtask current mid-work: check off finished checklist items, mark finished child tasks `done`, and only then close the parent.
+- When lasting lessons emerge and a primary skill is in play, update that skill so future sessions avoid the same tool-choice, bug-fix, repeated-failure, or architecture mistake.
 - In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.
 - In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
 - Prefer the smallest Taskset command that proves the intended state.
