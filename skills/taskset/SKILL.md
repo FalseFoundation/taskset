@@ -49,12 +49,15 @@ pnpm taskset task create --title "Describe the work"
 pnpm taskset task update <task-id> --status doing
 pnpm taskset task status <task-id> done
 pnpm taskset task delete <task-id>
+pnpm taskset task list --search "multiple terms"
 pnpm taskset task list --file packages/core --impact
 ```
 
 ## Practical Guidance
 
 - Use `--json` for automation and agent handoffs.
+- Use multi-term `--search` for discovery; every normalized term must match the
+  task title or body, but the terms may appear in any order or location.
 - Use `task list --impact` when file or directory changes should surface dependent work.
 - Keep task metadata versionless and let Taskset validate schema and path rules.
 - When a task change affects repository behavior, follow up with the relevant tests, docs, and `git diff --check`.

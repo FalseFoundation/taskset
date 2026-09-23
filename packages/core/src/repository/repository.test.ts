@@ -30,7 +30,7 @@ describe('initializeRepository', () => {
 		)
 		await expect(access(repository.tasksDirectory)).resolves.toBeUndefined()
 		expect(await readFile(path.join(repository.dataDirectory, '.gitignore'), 'utf8')).toBe(
-			'cache/\ngenerated/\nsnapshots/\n',
+			'cache/\ngenerated/\ngenerated.*/\nsnapshots/\n',
 		)
 		expect((await loadRepository(rootDirectory)).rootDirectory).toBe(rootDirectory)
 	})

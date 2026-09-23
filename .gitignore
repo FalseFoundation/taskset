@@ -68,3 +68,4 @@ yarn-error.log*
 # taskset derived state
 **/.taskset/cache
 **/.taskset/generated
+**/.taskset/generated.*

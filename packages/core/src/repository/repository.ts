@@ -15,6 +15,7 @@ const DEFAULT_CONFIG_SOURCE = `export default {}
 `
 const DEFAULT_DATA_IGNORE_SOURCE = `cache/
 generated/
+generated.*/
 snapshots/
 `
 

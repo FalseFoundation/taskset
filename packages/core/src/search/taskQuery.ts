@@ -120,6 +120,12 @@ function normalizeSearchText(value: string): string {
 	return value.normalize('NFKC').toLocaleLowerCase('und')
 }
 
+function searchTerms(value: string): readonly string[] {
+	return Object.freeze([
+		...new Set(normalizeSearchText(value).trim().split(/\s+/u).filter(Boolean)),
+	])
+}
+
 function compareText(left: string, right: string): number {
 	return left < right ? -1 : left > right ? 1 : 0
 }
@@ -268,9 +274,7 @@ export function queryTaskRecords(
 	options: { readonly statusOrder?: readonly TaskStatus[] } = {},
 ): readonly TaskRecord[] {
 	const validatedQuery = validateQuery(query)
-	const searchText = validatedQuery.text
-		? normalizeSearchText(validatedQuery.text.trim())
-		: undefined
+	const terms = validatedQuery.text ? searchTerms(validatedQuery.text) : []
 	const sortBy = validatedQuery.sortBy ?? 'id'
 	const direction = validatedQuery.direction ?? 'asc'
 	const dueBefore = validatedQuery.dueBefore ? parseDate(validatedQuery.dueBefore) : undefined
@@ -423,10 +427,10 @@ export function queryTaskRecords(
 			return false
 		}
 
-		if (searchText) {
+		if (terms.length > 0) {
 			const haystack = normalizeSearchText(`${metadata.title}\n${record.task.body}`)
 
-			if (!haystack.includes(searchText)) {
+			if (!terms.every((term) => haystack.includes(term))) {
 				return false
 			}
 		}

@@ -213,11 +213,14 @@ describe('runCli', () => {
 		await runCli(['task', 'create', '--title', 'Searchable Unicode', '--label', 'query'], { cwd })
 		const listOutput = createOutput()
 		expect(
-			await runCli(['task', 'list', '--label', 'query', '--search', 'unicode', '--json'], {
-				cwd,
-				stdout: listOutput.writeStdout,
-				stderr: listOutput.writeStderr,
-			}),
+			await runCli(
+				['task', 'list', '--label', 'query', '--search', 'unicode searchable', '--json'],
+				{
+					cwd,
+					stdout: listOutput.writeStdout,
+					stderr: listOutput.writeStderr,
+				},
+			),
 		).toBe(0)
 		expect(JSON.parse(listOutput.stdout)).toHaveLength(1)
 

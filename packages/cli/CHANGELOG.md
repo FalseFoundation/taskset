@@ -1,5 +1,12 @@
 # @taskset/cli
 
+## 3.0.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @taskset/core@3.0.2
+
 ## 3.0.1
 
 ### Patch Changes

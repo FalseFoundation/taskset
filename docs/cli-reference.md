@@ -252,7 +252,7 @@ Filter options:
 | `--created-after <date>` | Inclusive created-at lower bound. |
 | `--updated-before <date>` | Inclusive updated-at upper bound. |
 | `--updated-after <date>` | Inclusive updated-at lower bound. |
-| `--search <text>` | Search task title and Markdown body. |
+| `--search <text>` | Search task title and Markdown body; every whitespace-separated term must match. |
 | `--sort <key>` | Sort key. |
 | `--direction <asc|desc>` | Sort direction. |
 | `--impact` | Add tasks that transitively depend on direct matches. |
@@ -266,6 +266,10 @@ values fall back to task ID ordering.
 Different filter categories compose with AND. Repeated enum, person, project,
 file, and directory values use OR within their category. Repeated labels are
 stricter and require all requested labels.
+
+Search is Unicode-normalized and case-insensitive. Its terms may occur in any
+order or location across the combined title and Markdown body, so
+`--search "cache invalidation"` does not require that exact phrase.
 
 Without `--impact`, human output is:
 

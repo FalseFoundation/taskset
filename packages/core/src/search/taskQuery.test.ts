@@ -112,13 +112,16 @@ describe('task queries', () => {
 
 	it('searches normalized Unicode titles and Markdown bodies', () => {
 		const records = [
-			record('TS-01J00000000000000000000000', 'Unicode', {
-				body: '# Context\n\nسلام دنیا\n',
+			record('TS-01J00000000000000000000000', 'Unicode search', {
+				body: '# Context\n\nسلام دنیا\n\nMatches scattered terms.\n',
 			}),
 		]
 
 		expect(queryTaskRecords(records, { text: 'سلام' })).toHaveLength(1)
 		expect(queryTaskRecords(records, { text: 'UNICODE' })).toHaveLength(1)
+		expect(queryTaskRecords(records, { text: 'scattered unicode' })).toHaveLength(1)
+		expect(queryTaskRecords(records, { text: '  terms   SEARCH  ' })).toHaveLength(1)
+		expect(queryTaskRecords(records, { text: 'unicode missing' })).toEqual([])
 	})
 
 	it('filters new metadata and file or directory containment', () => {

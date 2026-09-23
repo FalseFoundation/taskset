@@ -133,8 +133,10 @@ normalized relative to the repository before matching.
 Planning filters are `--estimate-min`, `--estimate-max`, `--effort-min`, and
 `--effort-max`. Timestamp filters are `--due-before`, `--due-after`,
 `--created-before`, `--created-after`, `--updated-before`, and
-`--updated-after`. Title and Markdown body use `--search`. Exact task IDs use
-`task show` or relationship filters rather than a redundant list ID filter.
+`--updated-after`. Title and Markdown body use case-insensitive `--search`;
+every whitespace-separated search term must occur somewhere in those fields,
+but terms need not be adjacent or ordered. Exact task IDs use `task show` or
+relationship filters rather than a redundant list ID filter.
 
 With `--impact`, every direct filter is applied first, then the graph adds tasks
 that transitively depend on those direct matches. JSON output uses
