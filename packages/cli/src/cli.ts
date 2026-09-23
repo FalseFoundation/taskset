@@ -52,7 +52,10 @@ Metadata options:
   --status --priority --order --owner --team --estimate --effort --risk --due-date
   --label --assignee --reviewer --depends-on --related --duplicate
   --parent --file --directory --project --body
-  Repeat array options. Update commands also accept matching --clear-* options.
+  Repeat array options. Task updates clear arrays with --clear-dependencies,
+  --clear-labels, --clear-assignees, --clear-reviewers, --clear-related,
+  --clear-files, --clear-directories, or --clear-projects. Clear scalar
+  relationships with --clear-parent or --clear-owner.
 
 List query options:
   --status --priority --label --owner --assignee --reviewer --team --risk

@@ -331,6 +331,82 @@ describe('runCli', () => {
 		expect(output.stderr).toContain('Cannot set and clear owner in the same update')
 	})
 
+	it('uses the exact plural clear flags for array metadata', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const relatedTask = createOutput()
+		await runCli(['task', 'create', '--title', 'Related task'], {
+			cwd,
+			stdout: relatedTask.writeStdout,
+		})
+		const relatedTaskId = relatedTask.stdout.trim()
+		const created = createOutput()
+		await runCli(
+			[
+				'task',
+				'create',
+				'--title',
+				'Array clear target',
+				'--label',
+				'workflow',
+				'--depends-on',
+				relatedTaskId,
+				'--file',
+				'packages/cli/src/cli.ts',
+				'--owner',
+				'platform',
+				'--assignee',
+				'maintainer',
+				'--reviewer',
+				'reviewer',
+				'--related',
+				relatedTaskId,
+				'--parent',
+				relatedTaskId,
+				'--directory',
+				'packages/cli',
+				'--project',
+				'taskset',
+			],
+			{ cwd, stdout: created.writeStdout },
+		)
+		const output = createOutput()
+
+		expect(
+			await runCli(
+				[
+					'task',
+					'update',
+					created.stdout.trim(),
+					'--clear-dependencies',
+					'--clear-labels',
+					'--clear-assignees',
+					'--clear-reviewers',
+					'--clear-related',
+					'--clear-files',
+					'--clear-directories',
+					'--clear-projects',
+					'--clear-parent',
+					'--clear-owner',
+					'--json',
+				],
+				{ cwd, stdout: output.writeStdout, stderr: output.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(output.stdout)).toMatchObject({
+			labels: [],
+			dependsOn: [],
+			files: [],
+			assignees: [],
+			reviewers: [],
+			related: [],
+			directories: [],
+			projects: [],
+		})
+		expect(JSON.parse(output.stdout)).not.toHaveProperty('parent')
+		expect(JSON.parse(output.stdout)).not.toHaveProperty('owner')
+	})
+
 	it('supports repeated path filters, planning ranges, duplicate filters, and derived JSON', async () => {
 		const cwd = await createTemporaryDirectory()
 		await runCli(['init'], { cwd })

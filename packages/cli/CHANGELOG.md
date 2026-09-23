@@ -1,5 +1,11 @@
 # @taskset/cli
 
+## 3.0.3
+
+### Patch Changes
+
+- List the exact plural array-clear flags in CLI help and cover them with an end-to-end regression test.
+
 ## 3.0.2
 
 ### Patch Changes

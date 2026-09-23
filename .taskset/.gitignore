@@ -1,4 +1,4 @@
 cache/
 generated/
-generated.*/
+.generated.*/
 snapshots/

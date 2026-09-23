@@ -56,6 +56,12 @@ pnpm taskset task list --file packages/core --impact
 ## Practical Guidance
 
 - Use `--json` for automation and agent handoffs.
+- Array options replace the whole stored array on update; repeat the singular value option once per
+  desired value. To empty an array, use the CLI's exact plural clear flag:
+  `--clear-dependencies`, `--clear-labels`, `--clear-assignees`, `--clear-reviewers`,
+  `--clear-related`, `--clear-files`, `--clear-directories`, or `--clear-projects`.
+  Scalar relationships use `--clear-parent` and `--clear-owner`. Do not guess a clear flag from
+  the singular setter name or retry an update with an empty string.
 - Use multi-term `--search` for discovery; every normalized term must match the
   task title or body, but the terms may appear in any order or location.
 - Use `task list --impact` when file or directory changes should surface dependent work.
