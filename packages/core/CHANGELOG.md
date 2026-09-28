@@ -1,5 +1,21 @@
 # @taskset/core
 
+## 4.0.0
+
+### Major Changes
+
+- 0fb519a: Add canonical stories, flows, decisions, research, and runbooks with typed
+  templates and Markdown import support. New tasks use sequential title-derived
+  IDs, and `task migrate-ids` atomically converts legacy task files and their
+  relationships.
+  Add paced batch create/import/update/export manifests with progress and a
+  one-command sync that repairs repository-wide references and generated views.
+
+### Patch Changes
+
+- Updated dependencies [0fb519a]
+  - @taskset/contracts@4.0.0
+
 ## 3.0.2
 
 ### Patch Changes
