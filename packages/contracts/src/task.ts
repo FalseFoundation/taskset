@@ -44,8 +44,8 @@ export interface TaskFile {
 export const TaskIdSchema = z
 	.string()
 	.regex(
-		/^TS-[0-9A-HJKMNP-TV-Z]{26}$/u,
-		'Expected a task ID in the form TS- followed by a 26-character ULID',
+		/^(?:\d{7}-[a-z0-9]+(?:-[a-z0-9]+)*|TS-[0-9A-HJKMNP-TV-Z]{26})$/u,
+		'Expected 0000001-short-task-title (legacy TS-ULIDs are accepted for migration)',
 	)
 
 export const TaskTitleSchema = z

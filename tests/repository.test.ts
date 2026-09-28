@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { access, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -106,5 +106,19 @@ describe('workspace architecture', () => {
 				expect(dependencyName, relativePath).not.toMatch(UI_DEPENDENCY_PATTERN)
 			}
 		}
+	})
+
+	it('keeps paced persistence in core and the implementation skill at its canonical path', async () => {
+		const manifests = await readWorkspaceManifests()
+		const core = manifests.find(({ directoryName }) => directoryName === 'core')
+		expect(core?.manifest.dependencies?.['@tanstack/pacer']).toBeDefined()
+		for (const { directoryName, manifest } of manifests) {
+			if (directoryName !== 'core')
+				expect(manifest.dependencies?.['@tanstack/pacer']).toBeUndefined()
+		}
+		await expect(
+			access(path.join(REPO_ROOT, 'skills/taskset-implement/SKILL.md')),
+		).resolves.toBeUndefined()
+		await expect(access(path.join(REPO_ROOT, 'skills/standards/SKILL.md'))).rejects.toThrow()
 	})
 })

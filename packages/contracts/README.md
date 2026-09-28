@@ -9,12 +9,13 @@ pnpm add @taskset/contracts
 ```
 
 ```typescript
-import { TaskMetadataSchema, type TaskMetadata } from '@taskset/contracts'
+import { DocumentMetadataSchema, TaskMetadataSchema, type TaskMetadata } from '@taskset/contracts'
 
 const metadata: TaskMetadata = TaskMetadataSchema.parse(input)
+const document = DocumentMetadataSchema.parse(documentInput)
 ```
 
-The package owns strict Zod schemas, enums, task/configuration types, and
+The package owns strict Zod schemas, enums, task/document/configuration types, and
 provider-neutral synchronization contracts. It has no filesystem, process,
 lifecycle, adapter implementation, or UI behavior.
 

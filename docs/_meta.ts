@@ -4,4 +4,5 @@ export default {
 	configuration: 'Configuration',
 	'cli-reference': 'CLI Reference',
 	'task-files': 'Task Files',
+	'document-types': 'Document Types',
 }

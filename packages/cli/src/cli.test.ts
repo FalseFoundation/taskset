@@ -39,6 +39,79 @@ function createOutput() {
 }
 
 describe('runCli', () => {
+	it('creates and imports typed documents', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const created = createOutput()
+		expect(
+			await runCli(['document', 'create', 'adr', '--title', 'Use Postgres'], {
+				cwd,
+				stdout: created.writeStdout,
+				stderr: created.writeStderr,
+			}),
+		).toBe(0)
+		expect(created.stdout.trim()).toBe('0000001-use-postgres')
+
+		const source = path.join(cwd, 'existing-research.md')
+		await writeFile(source, '# Queue providers\n\nEvidence.\n')
+		const imported = createOutput()
+		expect(
+			await runCli(['doc', 'import', source, '--type', 'research', '--move'], {
+				cwd,
+				stdout: imported.writeStdout,
+				stderr: imported.writeStderr,
+			}),
+		).toBe(0)
+		expect(imported.stdout).toContain('.taskset/research/0000001-queue-providers.md')
+		const listed = createOutput()
+		expect(await runCli(['document', 'list', '--json'], { cwd, stdout: listed.writeStdout })).toBe(
+			0,
+		)
+		expect(JSON.parse(listed.stdout)).toHaveLength(2)
+	})
+
+	it('runs document batch manifests and reports progress without corrupting JSON output', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const manifest = path.join(cwd, 'documents.json')
+		await writeFile(
+			manifest,
+			JSON.stringify([
+				{ action: 'create', input: { type: 'story', title: 'Buy a plan' } },
+				{ action: 'create', input: { type: 'flow', title: 'Checkout' } },
+			]),
+		)
+		const output = createOutput()
+		expect(
+			await runCli(['document', 'batch', manifest, '--concurrency', '2', '--json'], {
+				cwd,
+				stdout: output.writeStdout,
+				stderr: output.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(output.stdout)).toHaveLength(2)
+		expect(output.stderr).toContain('2/2 (100%)')
+	})
+
+	it('syncs migrations and generated views with progress', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		await runCli(['task', 'create', '--title', 'Generate this'], { cwd })
+		const output = createOutput()
+		expect(
+			await runCli(['sync', '--json'], {
+				cwd,
+				stdout: output.writeStdout,
+				stderr: output.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(output.stdout)).toMatchObject({
+			migrations: [],
+			generated: { files: expect.any(Array), fingerprint: expect.any(String) },
+		})
+		expect(output.stderr).toContain('100%')
+	})
+
 	it('initializes a repository and supports create, list, show, and config commands', async () => {
 		const cwd = await createTemporaryDirectory()
 		const initOutput = createOutput()
@@ -75,7 +148,7 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		const taskId = createOutputState.stdout.trim()
-		expect(taskId).toMatch(/^TS-[0-9A-HJKMNP-TV-Z]{26}$/u)
+		expect(taskId).toBe('0000001-use-taskset-in-this-repository')
 
 		const listOutput = createOutput()
 		expect(

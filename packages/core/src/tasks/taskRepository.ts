@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Dirent } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
+import { AsyncQueuer } from '@tanstack/pacer'
 import {
 	type TaskFile,
 	TaskIdSchema,
@@ -17,6 +18,7 @@ import {
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import { type Repository, RepositorySchema } from '../config/config.ts'
+import { slugifyDocumentTitle } from '../documents/documentRepository.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
@@ -76,6 +78,23 @@ export interface CreateTaskOptions {
 	readonly createId?: (date: Date) => string
 	readonly now?: () => Date
 	readonly onWarning?: (warning: CoreWarning) => void
+}
+
+export interface TaskIdMigration {
+	readonly from: string
+	readonly to: string
+}
+
+export interface TaskIdMigrationProgress {
+	readonly completed: number
+	readonly total: number
+	readonly percent: number
+	readonly phase: 'tasks' | 'references'
+}
+
+export interface TaskIdMigrationOptions {
+	readonly concurrency?: number
+	readonly onProgress?: (progress: TaskIdMigrationProgress) => void
 }
 
 const ClockSchema = z.custom<() => Date>((value) => typeof value === 'function')
@@ -339,11 +358,87 @@ async function readTaskContents(
 	}
 }
 
+const REFERENCE_SCAN_IGNORED_DIRECTORIES = new Set([
+	'.git',
+	'.next',
+	'.turbo',
+	'coverage',
+	'dist',
+	'node_modules',
+])
+
+async function repositoryTextFiles(root: string, tasksDirectory: string): Promise<string[]> {
+	const files: string[] = []
+	const visit = async (directory: string): Promise<void> => {
+		let entries: Dirent<string>[]
+		try {
+			entries = await readdir(directory, { withFileTypes: true })
+		} catch {
+			return
+		}
+		for (const entry of entries) {
+			const target = path.join(directory, entry.name)
+			if (entry.isDirectory()) {
+				const disposableTasksetDirectory =
+					directory === path.join(root, '.taskset') &&
+					['generated', 'index', 'snapshots'].includes(entry.name)
+				if (
+					target === tasksDirectory ||
+					disposableTasksetDirectory ||
+					REFERENCE_SCAN_IGNORED_DIRECTORIES.has(entry.name)
+				)
+					continue
+				await visit(target)
+			} else if (entry.isFile()) files.push(target)
+		}
+	}
+	await visit(root)
+	return files
+}
+
+async function pacedMap<T, R>(
+	items: readonly T[],
+	worker: (item: T, index: number) => Promise<R>,
+	concurrency: number,
+	onSettled?: (completed: number) => void,
+): Promise<R[]> {
+	if (items.length === 0) return []
+	const results: R[] = new Array(items.length)
+	let completed = 0
+	let firstError: Error | undefined
+	await new Promise<void>((resolve) => {
+		const queue = new AsyncQueuer<{ item: T; index: number }>(
+			async ({ item, index }) => {
+				results[index] = await worker(item, index)
+			},
+			{
+				concurrency,
+				started: false,
+				throwOnError: false,
+				onError: (error) => {
+					firstError ??= error
+				},
+				onSettled: () => {
+					completed += 1
+					onSettled?.(completed)
+					if (completed === items.length) resolve()
+				},
+			},
+		)
+		items.forEach((item, index) => {
+			queue.addItem({ item, index }, 'back', false)
+		})
+		queue.start()
+	})
+	if (firstError) throw firstError
+	return results
+}
+
 /**
  * Generates a branch-safe Taskset ID by encoding the UTC millisecond timestamp
  * and 80 random bits as an uppercase ULID.
  */
-export function generateTaskId(
+function generateLegacyTaskId(
 	date = new Date(),
 	randomSource: (size: number) => Uint8Array = randomBytes,
 ): string {
@@ -379,6 +474,30 @@ export function generateTaskId(
 	}
 
 	return `TS-${characters.join('')}`
+}
+
+/** Generates the canonical sequential, title-derived task ID. */
+export function generateTaskId(title: string, sequence: number): string
+/** @deprecated Compatibility overload for callers migrating from Taskset 3 IDs. */
+export function generateTaskId(date?: Date, randomSource?: (size: number) => Uint8Array): string
+export function generateTaskId(
+	titleOrDate: string | Date = new Date(),
+	sequenceOrRandom?: number | ((size: number) => Uint8Array),
+): string {
+	if (typeof titleOrDate !== 'string') {
+		return generateLegacyTaskId(
+			titleOrDate,
+			typeof sequenceOrRandom === 'function' ? sequenceOrRandom : undefined,
+		)
+	}
+	if (
+		!Number.isInteger(sequenceOrRandom) ||
+		(sequenceOrRandom as number) < 1 ||
+		(sequenceOrRandom as number) > 9_999_999
+	) {
+		throw new RangeError('Task sequence must be an integer from 1 through 9999999')
+	}
+	return `${String(sequenceOrRandom).padStart(7, '0')}-${slugifyDocumentTitle(titleOrDate)}`
 }
 
 /**
@@ -486,7 +605,14 @@ export async function createTask(
 	const validatedInput = parseInput(CreateTaskInputSchema, input, 'task creation')
 	const validatedOptions = parseCoreInput(CreateTaskOptionsSchema, options, 'task creation options')
 	const now = validatedOptions.now?.() ?? new Date()
-	const taskId = validatedOptions.createId?.(now) ?? generateTaskId(now)
+	const existingRecords = await listTasks(validatedRepository)
+	const nextSequence =
+		existingRecords.reduce((maximum, record) => {
+			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
+			return Math.max(maximum, match ? Number(match[1]) : 0)
+		}, 0) + 1
+	const taskId =
+		validatedOptions.createId?.(now) ?? generateTaskId(validatedInput.title, nextSequence)
 	parseTaskId(taskId)
 	const timestamp = formatDate(now)
 	const defaults = validatedRepository.config.tasks.defaults
@@ -529,8 +655,6 @@ export async function createTask(
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 	const contents = serializeTaskFile(task, { filePath: relativePath })
 	const parsedTask = parseTaskFile(contents, { filePath: relativePath })
-	const existingRecords = await listTasks(validatedRepository)
-
 	if (existingRecords.some((record) => record.task.metadata.id === taskId)) {
 		throw new TaskRepositoryError('task-exists', `Task ${taskId} already exists`, {
 			filePath: relativePath,
@@ -564,6 +688,117 @@ export async function createTask(
 	await invalidateTaskIndex(validatedRepository)
 	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
 	return freezeRecord(relativePath, parsedTask)
+}
+
+/**
+ * Atomically replaces legacy task IDs and every canonical relationship with
+ * stable sequential, title-derived IDs. The returned map is suitable for
+ * updating references in external documentation.
+ */
+export async function migrateTaskIds(
+	repository: Repository,
+	options: TaskIdMigrationOptions = {},
+): Promise<readonly TaskIdMigration[]> {
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task ID migration')
+	const concurrency = z
+		.number()
+		.int()
+		.min(1)
+		.max(32)
+		.parse(options.concurrency ?? 8)
+	const records = await listTasks(validatedRepository)
+	let nextSequence =
+		records.reduce((maximum, record) => {
+			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
+			return Math.max(maximum, match ? Number(match[1]) : 0)
+		}, 0) + 1
+	const migrations = records
+		.filter((record) => record.task.metadata.id.startsWith('TS-'))
+		.map((record) => ({
+			from: record.task.metadata.id,
+			to: generateTaskId(record.task.metadata.title, nextSequence++),
+		}))
+	if (migrations.length === 0) return Object.freeze([])
+	const replacements = new Map(migrations.map((migration) => [migration.from, migration.to]))
+	const replace = (id: string) => replacements.get(id) ?? id
+	const taskOperationGroups = await pacedMap(
+		records,
+		async (record) => {
+			const oldPath = path.join(validatedRepository.rootDirectory, record.relativePath)
+			const oldContents = await readTaskContents(
+				validatedRepository,
+				record,
+				record.task.metadata.id,
+			)
+			const id = replace(record.task.metadata.id)
+			const task: TaskFile = {
+				metadata: {
+					...record.task.metadata,
+					id,
+					dependsOn: record.task.metadata.dependsOn?.map(replace),
+					related: record.task.metadata.related?.map(replace),
+					duplicates: record.task.metadata.duplicates?.map(replace),
+					parent: record.task.metadata.parent ? replace(record.task.metadata.parent) : undefined,
+				},
+				body: record.task.body,
+			}
+			const newPath = path.join(validatedRepository.tasksDirectory, `${id}.md`)
+			const contents = serializeTaskFile(task, {
+				filePath: toRepositoryRelativePath(validatedRepository, newPath),
+			})
+			return oldPath === newPath
+				? [{ targetPath: oldPath, contents, expectedContents: oldContents }]
+				: [
+						{ targetPath: newPath, contents, expectedContents: null },
+						{ targetPath: oldPath, contents: null, expectedContents: oldContents },
+					]
+		},
+		concurrency,
+		(completed) => {
+			options.onProgress?.({
+				completed,
+				total: records.length,
+				percent: Math.round((completed / records.length) * 100),
+				phase: 'tasks',
+			})
+		},
+	)
+	const files = await repositoryTextFiles(
+		validatedRepository.rootDirectory,
+		validatedRepository.tasksDirectory,
+	)
+	const referenceOperations = (
+		await pacedMap(
+			files,
+			async (targetPath) => {
+				let source: string
+				try {
+					source = await readFile(targetPath, 'utf8')
+				} catch {
+					return undefined
+				}
+				if (source.includes('\0')) return undefined
+				let contents = source
+				for (const migration of migrations)
+					contents = contents.split(migration.from).join(migration.to)
+				return contents === source ? undefined : { targetPath, contents, expectedContents: source }
+			},
+			concurrency,
+			(completed) =>
+				options.onProgress?.({
+					completed,
+					total: files.length,
+					percent: Math.round((completed / files.length) * 100),
+					phase: 'references',
+				}),
+		)
+	).filter((operation): operation is NonNullable<typeof operation> => operation !== undefined)
+	await applyFileTransaction([...taskOperationGroups.flat(), ...referenceOperations])
+	await invalidateTaskIndex(validatedRepository)
+	await refreshGeneratedViews(validatedRepository, undefined)
+	return Object.freeze(
+		migrations.map((migration): TaskIdMigration => Object.freeze({ ...migration })),
+	)
 }
 
 /**

@@ -28,18 +28,18 @@
 		"update-deps": "pnpm up --latest --recursive && pnpm dedupe && pnpm audit --fix update"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.12",
-		"@changesets/cli": "^3.0.2",
+		"@biomejs/biome": "2.5.14",
+		"@changesets/cli": "^3.0.3",
 		"@taskset/cli": "workspace:*",
 		"@taskset/configs": "workspace:*",
 		"@taskset/core": "workspace:*",
-		"@types/node": "^26.4.1",
-		"@types/react": "^19.2.18",
+		"@types/node": "^26.6.3",
+		"@types/react": "^19.3.0",
 		"husky": "^9.1.7",
-		"lint-staged": "^17.4.1",
-		"turbo": "2.10.12",
+		"lint-staged": "^17.6.0",
+		"turbo": "2.11.4",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.2"
 	},
 	"packageManager": "pnpm@11.5.2",
 	"engines": {

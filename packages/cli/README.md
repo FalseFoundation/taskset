@@ -15,8 +15,9 @@ and exit-code mapping. Repository behavior is delegated to `@taskset/core`.
 
 Supported command groups:
 
-- `taskset init`, `config`, `doctor`, and `generate`
-- `taskset task create|list|show|update|status|delete`
+- `taskset init`, `config`, `doctor`, `generate`, and `sync`
+- `taskset task create|list|show|update|status|delete|migrate-ids`
+- `taskset document create|import|batch|list|show` (`doc` is an alias)
 - `taskset snapshot create|list|restore`
 
 Use `task list --file <path> --impact` for direct and transitive code-impact

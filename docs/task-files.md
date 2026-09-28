@@ -10,7 +10,7 @@ metadata and the Markdown body owns durable human context.
 
 ```markdown
 ---
-id: TS-01J00000000000000000000000
+id: 0000001-add-task-validation
 title: Add task validation
 status: doing
 priority: high
@@ -48,7 +48,9 @@ Explain why the task exists.
 ## Canonical Data
 
 Required fields are `id`, `title`, `status`, `createdAt`, and `updatedAt`.
-Task IDs are immutable `TS-` prefixed ULIDs.
+Task IDs are immutable seven-digit sequences plus a lowercase title slug, such
+as `0000001-add-task-validation`. The sequence prevents title collisions while
+the slug keeps filenames recognizable.
 
 Task files use one strict versionless metadata shape. Optional fields:
 
@@ -71,6 +73,11 @@ first. Missing values sort after ordered tasks, and duplicate order values fall
 back to deterministic task ID ordering.
 
 ## Compatibility Cutover
+
+Legacy `TS-` ULIDs remain readable so a repository can migrate safely. Run
+`taskset task migrate-ids` once to atomically rename task files and rewrite all
+`dependsOn`, `related`, `duplicates`, and `parent` references. The command
+prints the old-to-new mapping for updating references outside `.taskset/`.
 
 Task metadata is versionless. Versioned task frontmatter is invalid input and
 fails with a schema diagnostic rather than being silently rewritten.
@@ -119,7 +126,7 @@ text, file, and directory filters. Numeric and timestamp ranges are inclusive:
 taskset task list --file packages/core --impact --json
 taskset task list --sort order
 taskset task list --estimate-min 30 --estimate-max 120 --risk high
-taskset task list --duplicate TS-01J00000000000000000000000
+taskset task list --duplicate 0000001-add-task-validation
 ```
 
 Repeated enum, person, project, file, and directory values use OR within the

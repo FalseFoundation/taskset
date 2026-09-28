@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import {
 	CONFIG_FILE_NAME,
+	DOCUMENT_DIRECTORY_NAMES,
 	loadRepository,
 	type Repository,
 	RepositoryDirectorySchema,
@@ -15,7 +16,7 @@ const DEFAULT_CONFIG_SOURCE = `export default {}
 `
 const DEFAULT_DATA_IGNORE_SOURCE = `cache/
 generated/
-.generated.*/
+generated.*/
 snapshots/
 `
 
@@ -45,6 +46,11 @@ export async function initializeRepository(rootDirectory = process.cwd()): Promi
 
 	const repository = await loadRepository(resolvedRoot)
 	await mkdir(repository.tasksDirectory, { recursive: true })
+	await Promise.all(
+		Object.values(DOCUMENT_DIRECTORY_NAMES).map((name) =>
+			mkdir(path.join(repository.documentsDirectory, name), { recursive: true }),
+		),
+	)
 
 	try {
 		await atomicWriteFileExclusive(

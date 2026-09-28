@@ -1,6 +1,6 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that need to create, inspect, validate, or update repository tasks stored in .taskset/, including cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, and update the session or repository primary skill when lasting lessons (tool choice, bug fixes, repeated failures, architecture decisions) should prevent future failures.
+description: Taskset workflow guidance for agents that plan and track work with tasks, stories, user flows, decisions, research, and runbooks stored in .taskset/, including batch imports and cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, and update the session or repository primary skill when lasting lessons should prevent future failures.
 ---
 
 # Taskset
@@ -9,7 +9,8 @@ Use this skill when working in a repository that uses Taskset to store work as h
 
 ## Core Rules
 
-- Treat `.taskset/tasks/` as the canonical task source of truth.
+- Treat `.taskset/tasks/` as the canonical task source of truth and the sibling
+  document-kind directories as the canonical durable project-document source.
 - Treat `taskset.config.ts` as the repository entrypoint for Taskset behavior and defaults.
 - Do not create a second task store, hidden database, or alternate sync layer.
 - Use Taskset commands to inspect and mutate tasks instead of editing canonical task files by hand when a command exists.
@@ -51,6 +52,11 @@ pnpm taskset task status <task-id> done
 pnpm taskset task delete <task-id>
 pnpm taskset task list --search "multiple terms"
 pnpm taskset task list --file packages/core --impact
+pnpm taskset document create story --title "Describe the user outcome"
+pnpm taskset document import docs/adr/0001-example.md --type adr --move
+pnpm taskset document batch taskset-documents.json --concurrency 4 --json
+pnpm taskset document list
+pnpm taskset sync
 ```
 
 ## Practical Guidance
@@ -66,6 +72,21 @@ pnpm taskset task list --file packages/core --impact
   task title or body, but the terms may appear in any order or location.
 - Use `task list --impact` when file or directory changes should surface dependent work.
 - Keep task metadata versionless and let Taskset validate schema and path rules.
+- Use `document create` for stories, flows, decisions (`decision`, `adr`, and
+  `dr` are aliases), research, and runbooks. Use `document import` to preserve
+  an existing Markdown body in canonical frontmatter; add `--move` only when
+  the source should be removed after a successful canonical write.
+- Pick the kind by purpose: stories capture user value and acceptance criteria;
+  flows describe journeys and failure variants; decisions preserve rationale
+  and consequences; research records evidence and recommendations; runbooks
+  make repeatable operations and recovery safe.
+- Use `document batch <manifest.json>` for repeatable multi-document create,
+  import, update, and export jobs. Progress belongs on stderr and `--json`
+  output on stdout. Use `sync` after upgrades to ensure canonical directories,
+  migrate legacy IDs and repository text references, and rebuild views.
+- New task and document IDs use `0000001-short-title` naming. Use
+  `task migrate-ids` for legacy task repositories; do not rename task files by
+  hand because canonical relationships must be rewritten together.
 - When a task change affects repository behavior, follow up with the relevant tests, docs, and `git diff --check`.
 
 ## Task Modeling

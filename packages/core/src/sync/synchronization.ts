@@ -28,7 +28,7 @@ import type { Repository } from '../config/config.ts'
 import { buildTaskGraph } from '../graph/taskGraph.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { parseTaskFile, serializeTaskFile } from '../tasks/taskFile.ts'
-import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { generateTaskId, listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type SynchronizationErrorCode = 'adapter-invalid' | 'conflict' | 'stale' | 'local-invalid'
@@ -136,25 +136,6 @@ function fingerprintExternal(records: readonly SyncExternalRecord[]): string {
 	}
 
 	return hash.digest('hex')
-}
-
-function deterministicTaskId(provider: string, externalId: string): string {
-	const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
-	const bytes = createHash('sha256').update(provider).update('\0').update(externalId).digest()
-	let value = 0n
-
-	for (const byte of bytes.subarray(0, 17)) {
-		value = (value << 8n) | BigInt(byte)
-	}
-
-	const characters = Array<string>(26)
-
-	for (let index = characters.length - 1; index >= 0; index -= 1) {
-		characters[index] = alphabet[Number(value & 31n)] ?? '0'
-		value >>= 5n
-	}
-
-	return `TS-${characters.join('')}`
 }
 
 function changedFields(
@@ -352,6 +333,11 @@ export async function planSynchronization(
 	const conflicts: SyncConflict[] = []
 	const generatedAt = formatDate(validatedOptions.now?.() ?? new Date())
 	const deletionBehavior = validatedOptions.deletionBehavior ?? 'preserve'
+	let nextSequence =
+		localRecords.reduce((maximum, record) => {
+			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
+			return Math.max(maximum, match ? Number(match[1]) : 0)
+		}, 0) + 1
 
 	for (const externalRecord of externalRecords) {
 		const mappedTaskId = externalRecord.identity.taskId
@@ -359,7 +345,7 @@ export async function planSynchronization(
 		const local = localRecord ? taskData(localRecord) : null
 		const external = externalRecord.data
 		const taskId =
-			mappedTaskId ?? deterministicTaskId(adapter.id, externalRecord.identity.externalId)
+			mappedTaskId ?? generateTaskId(external?.title ?? 'imported-task', nextSequence++)
 		const identity = Object.freeze({ ...externalRecord.identity, taskId })
 
 		if (mappedTaskId) {

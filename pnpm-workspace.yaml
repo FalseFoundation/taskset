@@ -10,12 +10,16 @@ allowBuilds:
   sharp: true
 
 minimumReleaseAgeExclude:
-  - esbuild@0.28.1
   - '@xmldom/xmldom@0.9.12'
+  - '@xmldom/xmldom@0.9.11'
 
-overrides:
-  '@xmldom/xmldom': 0.9.12
-  esbuild: 0.28.1
+# minimumReleaseAgeExclude:
+#   - esbuild@0.28.1
+#   - '@xmldom/xmldom@0.9.12'
+
+# overrides:
+#   '@xmldom/xmldom': 0.9.12
+#   esbuild: 0.28.1
 
 patchedDependencies:
   nextra-theme-docs@4.6.1: patches/nextra-theme-docs@4.6.1.patch

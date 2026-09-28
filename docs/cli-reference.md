@@ -309,7 +309,7 @@ Human output is the serialized task Markdown. JSON output contains:
 
 ```json
 {
-  "relativePath": ".taskset/tasks/TS-...",
+  "relativePath": ".taskset/tasks/0000001-short-title.md",
   "metadata": {},
   "body": "...",
   "derived": {}
@@ -375,6 +375,52 @@ remove those inbound references and delete the target in one mutation.
 
 Human output is the deleted task ID. JSON output contains `deleted: true`
 alongside the deleted task record.
+
+### `task migrate-ids`
+
+```bash
+taskset task migrate-ids [--json] [--cwd <path>]
+```
+
+Atomically converts legacy `TS-` task IDs to seven-digit, title-derived IDs and
+rewrites canonical relationships plus references in repository text files.
+Dependencies, Git internals, build output, caches, generated views, indexes,
+and snapshots are excluded. Human output is a tab-separated
+old-to-new mapping; JSON emits the same mapping as objects.
+
+### `sync`
+
+```bash
+taskset sync [--concurrency <count>] [--json] [--cwd <path>]
+```
+
+Ensures every canonical document directory exists under `.taskset`, applies
+legacy task-ID and repository-reference migrations, and rebuilds generated
+views. Progress counts and percentages are sent to stderr.
+
+## Document Commands
+
+`document` may be shortened to `doc`. Supported types are `story`, `flow`,
+`decision`, `research`, and `runbook`; `adr` and `dr` alias `decision`.
+
+```bash
+taskset document create <type> --title <title> [--status <status>] [--body <markdown>]
+taskset document import <markdown-path> [--type <type>] [--title <title>] [--move]
+taskset document batch <manifest.json> [--concurrency <count>] [--json]
+taskset document list [type] [--json] [--cwd <path>]
+taskset document show <document-id> [--type <type>] [--json] [--cwd <path>]
+```
+
+Create uses the type-specific template unless `--body` is supplied. Import
+preserves the Markdown body and infers type from a recognized parent directory
+when possible. It copies by default; `--move` deletes the source only after the
+canonical document is written successfully.
+
+Batch manifests contain an array of `create`, `import`, `update`, and `export`
+operations. Work is paced with bounded concurrency, results preserve manifest
+order, progress is sent to stderr, and `--json` reserves stdout for the result
+array. See [Document Types](document-types.md#batch-workflows) for a complete
+manifest example.
 
 ## Generated-View Warnings
 

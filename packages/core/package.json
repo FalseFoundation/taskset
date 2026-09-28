@@ -46,14 +46,15 @@
 		"node": ">=24.16.0"
 	},
 	"dependencies": {
+		"@tanstack/pacer": "0.21.1",
 		"@taskset/contracts": "workspace:*",
 		"@taskset/utils": "workspace:*",
-		"zod": "4.5.4"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@taskset/configs": "workspace:*",
-		"@types/node": "^26.4.1",
+		"@types/node": "^26.6.3",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.2"
 	}
 }

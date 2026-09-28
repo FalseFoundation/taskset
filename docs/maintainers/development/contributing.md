@@ -10,7 +10,7 @@ expanding the number of interfaces.
 
 ## Start Here
 
-Read `AGENTS.md`, `skills/standards/SKILL.md`, the product vision, the
+Read `AGENTS.md`, `skills/taskset-implement/SKILL.md`, the product vision, the
 architecture overview, and the technology preferences before changing the
 repository. Discuss persisted formats, package boundaries, public commands,
 synchronization, or snapshots before implementation.
@@ -51,7 +51,7 @@ Before declaring a workspace task complete:
 1. Run the narrowest relevant test, then the broader checks required by risk.
 2. Update the canonical Taskset task through the CLI when supported.
 3. Update affected user docs, maintainer docs, tests, and
-   `skills/standards/`.
+   `skills/taskset-implement/`.
 4. Run `pnpm check` and `git diff --check`.
 5. Report compatibility consequences, checks, and remaining limitations.
 

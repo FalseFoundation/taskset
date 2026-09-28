@@ -6,6 +6,21 @@ export {
 	type TasksConfig,
 } from './config.ts'
 export {
+	DOCUMENT_KINDS,
+	DOCUMENT_STATUSES,
+	type DocumentFile,
+	DocumentFileSchema,
+	DocumentIdSchema,
+	type DocumentKind,
+	DocumentKindSchema,
+	type DocumentMetadata,
+	DocumentMetadataSchema,
+	type DocumentStatus,
+	DocumentStatusSchema,
+	DocumentTimestampSchema,
+	DocumentTitleSchema,
+} from './document.ts'
+export {
 	SYNC_DELETION_BEHAVIORS,
 	SYNC_DIRECTIONS,
 	SYNC_TASK_FIELDS,

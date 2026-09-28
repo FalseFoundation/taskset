@@ -46,11 +46,11 @@
 		"node": ">=24.16.0"
 	},
 	"dependencies": {
-		"yaml": "2.9.0"
+		"yaml": "2.9.1"
 	},
 	"devDependencies": {
 		"@taskset/configs": "workspace:*",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.2"
 	}
 }

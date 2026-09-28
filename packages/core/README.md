@@ -27,9 +27,12 @@ views.
 Key public operations include:
 
 - `createTask`, `readTask`, `updateTask`, `deleteTask`, and `listTasks`
+- `createDocument`, `importDocument`, `updateDocument`, `exportDocument`, and `listDocuments`
+- `executeDocumentBatch` for bounded, progress-reporting multi-document work
+- `migrateTaskIds` for atomic legacy-ID, relationship, and repository-reference migration
 - `queryTasks`, `buildTaskGraph`, `buildTaskIndex`, and `diagnoseRepository`
 - `createSnapshot`, `listSnapshots`, and `restoreSnapshot`
-- `generateViews`
+- `generateViews` and `syncRepository`
 
 Public operation inputs are validated with exported Zod schemas where
 applicable. Invalid boundary data throws `CoreValidationError` with stable

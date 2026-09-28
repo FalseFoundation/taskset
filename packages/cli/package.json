@@ -51,12 +51,12 @@
 	"dependencies": {
 		"@taskset/contracts": "workspace:*",
 		"@taskset/core": "workspace:*",
-		"zod": "4.5.4"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@taskset/configs": "workspace:*",
-		"@types/node": "^26.4.1",
+		"@types/node": "^26.6.3",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.2"
 	}
 }

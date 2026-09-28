@@ -8,6 +8,7 @@ import {
 	deleteTask,
 	generateTaskId,
 	listTasks,
+	migrateTaskIds,
 	readTask,
 	TaskRepositoryError,
 	updateTask,
@@ -36,6 +37,40 @@ describe('generateTaskId', () => {
 })
 
 describe('task repository', () => {
+	it('atomically migrates legacy IDs, filenames, and relationships', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const firstId = 'TS-01J00000000000000000000000'
+		const secondId = 'TS-01J00000000000000000000001'
+		await createTask(repository, { title: 'First task' }, { createId: () => firstId })
+		await createTask(
+			repository,
+			{ title: 'Second task', dependsOn: [firstId] },
+			{ createId: () => secondId },
+		)
+		await writeFile(
+			path.join(rootDirectory, 'README.md'),
+			`Track ${firstId} and .taskset/tasks/${firstId}.md.\n`,
+		)
+
+		expect(await migrateTaskIds(repository)).toEqual([
+			{ from: firstId, to: '0000001-first-task' },
+			{ from: secondId, to: '0000002-second-task' },
+		])
+		const records = await listTasks(repository)
+		expect(records.map((record) => record.task.metadata.id)).toEqual([
+			'0000001-first-task',
+			'0000002-second-task',
+		])
+		expect(records[1]?.task.metadata.dependsOn).toEqual(['0000001-first-task'])
+		expect(await readFile(path.join(rootDirectory, 'README.md'), 'utf8')).toBe(
+			'Track 0000001-first-task and .taskset/tasks/0000001-first-task.md.\n',
+		)
+		await expect(
+			access(path.join(repository.tasksDirectory, `${firstId}.md`)),
+		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
 	it('keeps canonical CRUD successful when generated view refreshes fail', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)

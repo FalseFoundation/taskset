@@ -15,6 +15,13 @@ import { parseCoreInput } from '../validation/coreValidation.ts'
 export const CONFIG_FILE_NAME = 'taskset.config.ts'
 export const DATA_DIRECTORY_NAME = '.taskset'
 export const TASKS_DIRECTORY_NAME = 'tasks'
+export const DOCUMENT_DIRECTORY_NAMES = Object.freeze({
+	story: 'stories',
+	flow: 'flows',
+	decision: 'decisions',
+	research: 'research',
+	runbook: 'runbooks',
+} as const)
 export const GENERATED_DIRECTORY_NAME = 'generated'
 export const SNAPSHOTS_DIRECTORY_NAME = 'snapshots'
 
@@ -40,6 +47,7 @@ export interface Repository {
 	readonly configPath: string
 	readonly dataDirectory: string
 	readonly tasksDirectory: string
+	readonly documentsDirectory: string
 	readonly generatedDirectory: string
 	readonly snapshotsDirectory: string
 	readonly config: ResolvedConfig
@@ -50,6 +58,7 @@ export const RepositorySchema = z.strictObject({
 	configPath: z.string().min(1),
 	dataDirectory: z.string().min(1),
 	tasksDirectory: z.string().min(1),
+	documentsDirectory: z.string().min(1),
 	generatedDirectory: z.string().min(1),
 	snapshotsDirectory: z.string().min(1),
 	config: z.strictObject({
@@ -242,6 +251,7 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 		configPath,
 		dataDirectory,
 		tasksDirectory: path.join(dataDirectory, TASKS_DIRECTORY_NAME),
+		documentsDirectory: dataDirectory,
 		generatedDirectory: path.join(dataDirectory, GENERATED_DIRECTORY_NAME),
 		snapshotsDirectory: path.join(dataDirectory, SNAPSHOTS_DIRECTORY_NAME),
 		config: resolveConfig(configResult.data),

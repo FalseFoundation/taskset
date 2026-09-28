@@ -1,6 +1,8 @@
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
+	DocumentStatusSchema,
 	TaskIdSchema,
 	TaskPrioritySchema,
 	TaskRiskSchema,
@@ -9,21 +11,31 @@ import {
 } from '@taskset/contracts'
 import {
 	buildTaskIndex,
+	createDocument,
 	createSnapshot,
 	createTask,
 	type DerivedTaskRelationships,
+	type DocumentBatchOperation,
 	deleteTask,
 	diagnoseRepository,
 	discoverRepository,
+	executeDocumentBatch,
 	generateViews,
+	importDocument,
 	initializeRepository,
+	listDocuments,
 	listSnapshots,
+	migrateTaskIds,
+	normalizeDocumentKind,
 	normalizeRepositoryPath,
 	queryTasks,
 	RepositoryPathError,
+	readDocument,
 	readTask,
 	restoreSnapshot,
+	serializeDocumentFile,
 	serializeTaskFile,
+	syncRepository,
 	TASK_SORT_DIRECTIONS,
 	TASK_SORT_KEYS,
 	type TaskQuery,
@@ -47,6 +59,13 @@ const USAGE = `Usage:
   taskset task update <task-id> [metadata options]
   taskset task status <task-id> <status> [--json] [--cwd <path>]
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
+  taskset task migrate-ids [--json] [--cwd <path>]
+  taskset sync [--concurrency <count>] [--json] [--cwd <path>]
+  taskset document create <story|flow|decision|adr|dr|research|runbook> --title <title>
+  taskset document import <markdown-path> [--type <type>] [--move]
+  taskset document batch <manifest.json> [--concurrency <count>] [--json]
+  taskset document list [type] [--json] [--cwd <path>]
+  taskset document show <document-id> [--type <type>] [--json] [--cwd <path>]
 
 Metadata options:
   --status --priority --order --owner --team --estimate --effort --risk --due-date
@@ -103,6 +122,65 @@ const CommonValuesSchema = z.strictObject({
 	cwd: CwdSchema,
 	json: JsonSchema,
 })
+
+const ConcurrencySchema = z.coerce.number().int().min(1).max(32).optional()
+const DocumentKindInputSchema = TrimmedStringSchema.transform((value, context) => {
+	try {
+		return normalizeDocumentKind(value)
+	} catch (error) {
+		context.addIssue({
+			code: 'custom',
+			message: error instanceof Error ? error.message : 'Invalid document type',
+		})
+		return z.NEVER
+	}
+})
+const DocumentInputSchema = z.strictObject({
+	type: DocumentKindInputSchema,
+	title: TrimmedStringSchema,
+	status: DocumentStatusSchema.optional(),
+	labels: StringListSchema.optional(),
+	related: StringListSchema.optional(),
+	body: z.string().optional(),
+})
+const DocumentUpdateSchema = z.strictObject({
+	title: TrimmedStringSchema.optional(),
+	status: DocumentStatusSchema.optional(),
+	labels: StringListSchema.optional(),
+	related: StringListSchema.optional(),
+	body: z.string().optional(),
+})
+const DocumentBatchSchema = z
+	.array(
+		z.discriminatedUnion('action', [
+			z.strictObject({ action: z.literal('create'), input: DocumentInputSchema }),
+			z.strictObject({
+				action: z.literal('import'),
+				sourcePath: TrimmedStringSchema,
+				options: z
+					.strictObject({
+						type: DocumentKindInputSchema.optional(),
+						title: TrimmedStringSchema.optional(),
+						move: z.boolean().optional(),
+					})
+					.optional(),
+			}),
+			z.strictObject({
+				action: z.literal('update'),
+				id: TrimmedStringSchema,
+				type: DocumentKindInputSchema.optional(),
+				input: DocumentUpdateSchema,
+			}),
+			z.strictObject({
+				action: z.literal('export'),
+				id: TrimmedStringSchema,
+				type: DocumentKindInputSchema.optional(),
+				targetPath: TrimmedStringSchema,
+				overwrite: z.boolean().optional(),
+			}),
+		]),
+	)
+	.min(1)
 
 const CreateValuesSchema = z.strictObject({
 	title: TrimmedStringSchema,
@@ -555,6 +633,33 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			return 0
 		}
 
+		if (command === 'sync') {
+			const parsed = parseArgs({
+				args: commandArgs,
+				allowPositionals: false,
+				options: { ...commonOptionDefinitions, concurrency: { type: 'string' } },
+			})
+			const values = parseSchema(
+				z.strictObject({ ...CommonValuesSchema.shape, concurrency: ConcurrencySchema }),
+				parsed.values,
+				'sync options',
+			)
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const result = await syncRepository(repository, {
+				concurrency: values.concurrency,
+				onProgress: (progress) =>
+					stderr(
+						`sync ${progress.phase}: ${progress.completed}/${progress.total} (${progress.percent}%)\n`,
+					),
+			})
+			stdout(
+				values.json
+					? `${JSON.stringify(result, null, 2)}\n`
+					: `Synced ${result.migrations.length} migrations and generated views\n`,
+			)
+			return 0
+		}
+
 		if (command === 'snapshot') {
 			if (subcommand === 'create' || subcommand === 'list') {
 				const parsed = parseArgs({
@@ -625,8 +730,203 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			throw new CliUsageError(`Unknown snapshot command "${subcommand ?? ''}"`)
 		}
 
+		if (command === 'document' || command === 'doc') {
+			if (subcommand === 'batch') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: { ...commonOptionDefinitions, concurrency: { type: 'string' } },
+				})
+				const [manifestPath] = requirePositionals(
+					parsed.positionals,
+					1,
+					'exactly one batch manifest path',
+				)
+				const values = parseSchema(
+					z.strictObject({ ...CommonValuesSchema.shape, concurrency: ConcurrencySchema }),
+					parsed.values,
+					'document batch options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const validatedManifestPath = parseSchema(
+					z.string(),
+					manifestPath,
+					'document batch manifest path',
+				)
+				const raw = JSON.parse(
+					await readFile(path.resolve(repository.rootDirectory, validatedManifestPath), 'utf8'),
+				) as unknown
+				const operations = parseSchema(
+					DocumentBatchSchema,
+					raw,
+					'document batch manifest',
+				) as readonly DocumentBatchOperation[]
+				const results = await executeDocumentBatch(repository, operations, {
+					concurrency: values.concurrency,
+					onProgress: (progress) =>
+						stderr(
+							`document ${progress.action}: ${progress.completed}/${progress.total} (${progress.percent}%)\n`,
+						),
+				})
+				stdout(
+					values.json
+						? `${JSON.stringify(results, null, 2)}\n`
+						: `${results.map((result) => result.relativePath).join('\n')}\n`,
+				)
+				return 0
+			}
+			if (subcommand === 'create') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: {
+						...commonOptionDefinitions,
+						title: { type: 'string' },
+						status: { type: 'string' },
+						label: { type: 'string', multiple: true },
+						related: { type: 'string', multiple: true },
+						body: { type: 'string' },
+					},
+				})
+				const [rawType] = requirePositionals(parsed.positionals, 1, 'exactly one document type')
+				const values = parseSchema(
+					z.strictObject({
+						title: TrimmedStringSchema,
+						status: DocumentStatusSchema.optional(),
+						label: StringListSchema.optional(),
+						related: StringListSchema.optional(),
+						body: z.string().optional(),
+						cwd: CwdSchema,
+						json: JsonSchema,
+					}),
+					parsed.values,
+					'document create options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await createDocument(repository, {
+					type: normalizeDocumentKind(parseSchema(z.string(), rawType, 'document type')),
+					title: values.title,
+					...(values.status ? { status: values.status } : {}),
+					...(values.label ? { labels: values.label } : {}),
+					...(values.related ? { related: values.related } : {}),
+					...(values.body !== undefined ? { body: values.body } : {}),
+				})
+				stdout(
+					values.json ? `${JSON.stringify(record, null, 2)}\n` : `${record.document.metadata.id}\n`,
+				)
+				return 0
+			}
+
+			if (subcommand === 'import') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: {
+						...commonOptionDefinitions,
+						type: { type: 'string' },
+						title: { type: 'string' },
+						move: { type: 'boolean' },
+					},
+				})
+				const [sourcePath] = requirePositionals(parsed.positionals, 1, 'exactly one Markdown path')
+				const values = parseSchema(
+					z.strictObject({
+						type: TrimmedStringSchema.optional(),
+						title: TrimmedStringSchema.optional(),
+						move: z.boolean().optional(),
+						cwd: CwdSchema,
+						json: JsonSchema,
+					}),
+					parsed.values,
+					'document import options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await importDocument(
+					repository,
+					parseSchema(z.string(), sourcePath, 'document import path'),
+					{
+						...(values.type ? { type: normalizeDocumentKind(values.type) } : {}),
+						...(values.title ? { title: values.title } : {}),
+						move: values.move,
+					},
+				)
+				stdout(values.json ? `${JSON.stringify(record, null, 2)}\n` : `${record.relativePath}\n`)
+				return 0
+			}
+
+			if (subcommand === 'list') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: commonOptionDefinitions,
+				})
+				if (parsed.positionals.length > 1)
+					throw new CliUsageError('Expected at most one document type')
+				const values = parseSchema(CommonValuesSchema, parsed.values, 'document list options')
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const records = await listDocuments(
+					repository,
+					parsed.positionals[0] ? normalizeDocumentKind(parsed.positionals[0]) : undefined,
+				)
+				if (values.json) stdout(`${JSON.stringify(records, null, 2)}\n`)
+				else
+					for (const record of records)
+						stdout(
+							`${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
+						)
+				return 0
+			}
+
+			if (subcommand === 'show') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: { ...commonOptionDefinitions, type: { type: 'string' } },
+				})
+				const [id] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
+				const values = parseSchema(
+					z.strictObject({ ...CommonValuesSchema.shape, type: TrimmedStringSchema.optional() }),
+					parsed.values,
+					'document show options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await readDocument(
+					repository,
+					parseSchema(z.string(), id, 'document ID'),
+					values.type ? normalizeDocumentKind(values.type) : undefined,
+				)
+				stdout(
+					values.json
+						? `${JSON.stringify(record, null, 2)}\n`
+						: serializeDocumentFile(record.document),
+				)
+				return 0
+			}
+
+			throw new CliUsageError(`Unknown document command "${subcommand ?? ''}"`)
+		}
+
 		if (command !== 'task') {
 			throw new CliUsageError(`Unknown command "${command}"`)
+		}
+
+		if (subcommand === 'migrate-ids') {
+			const parsed = parseArgs({
+				args: subcommandArgs,
+				allowPositionals: false,
+				options: commonOptionDefinitions,
+			})
+			const values = parseSchema(CommonValuesSchema, parsed.values, 'task migrate-ids options')
+			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+			const migrations = await migrateTaskIds(repository, {
+				onProgress: (progress) =>
+					stderr(
+						`migration ${progress.phase}: ${progress.completed}/${progress.total} (${progress.percent}%)\n`,
+					),
+			})
+			if (values.json) stdout(`${JSON.stringify(migrations, null, 2)}\n`)
+			else for (const migration of migrations) stdout(`${migration.from}\t${migration.to}\n`)
+			return 0
 		}
 
 		if (subcommand === 'create') {

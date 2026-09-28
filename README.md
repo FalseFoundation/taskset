@@ -1,6 +1,7 @@
 # Taskset
 
-Taskset is a local-first task manager that stores project work as human-readable Markdown beside the code.
+Taskset is a local-first work-document manager that stores tasks, user stories,
+user flows, decisions, research, and runbooks as human-readable Markdown beside the code.
 
 Tasks remain useful in editors, Git history, pull requests, scripts, and AI
 workflows without requiring a hosted project-management database.
@@ -43,7 +44,8 @@ pnpm taskset doctor
 ```
 
 Initialization creates a root `taskset.config.ts`, the canonical
-`.taskset/tasks/` directory, and `.taskset/.gitignore` rules for disposable
+`.taskset/tasks/`, `stories/`, `flows/`, `decisions/`, `research/`, and
+`runbooks/` directories, and `.taskset/.gitignore` rules for disposable
 cache, generated data, and non-authoritative safety snapshots.
 
 ## Configuration
@@ -76,7 +78,7 @@ Each task combines YAML metadata with a Markdown body:
 
 ```markdown
 ---
-id: TS-01J00000000000000000000000
+id: 0000001-add-repository-validation
 title: Add repository validation
 status: todo
 priority: high
@@ -100,8 +102,18 @@ projects:
 Explain why the work exists.
 ```
 
-Task IDs are immutable `TS-` prefixed ULIDs. Taskset validates metadata,
+Task IDs are immutable seven-digit sequences plus a title slug. Taskset validates metadata,
 normalizes serialization, and preserves the human-authored Markdown body.
+
+Create durable supporting documents from built-in templates, or import existing
+Markdown such as the files under `docs/adr`, `docs/flows`, or `docs/runbooks`:
+
+```bash
+pnpm taskset document create story --title "Member signs in"
+pnpm taskset document create adr --title "Use Postgres"
+pnpm taskset document import docs/flows/sign-in.md --type flow --move
+pnpm taskset document list
+```
 
 ## Queries And Maintenance
 
@@ -117,7 +129,7 @@ pnpm taskset task update <task-id> --priority urgent
 pnpm taskset task delete <task-id> --remove-dependencies --json
 pnpm taskset generate
 pnpm taskset snapshot create
-pnpm taskset migrate --to 2
+pnpm taskset task migrate-ids
 ```
 
 `doctor` scans all task files without modifying them. Deletion is blocked when
@@ -139,6 +151,7 @@ User documentation:
 - [Configuration](docs/configuration.md)
 - [CLI reference](docs/cli-reference.md)
 - [Task files](docs/task-files.md)
+- [Document types and imports](docs/document-types.md)
 
 The website in `apps/www` renders the same `docs/` files with Nextra.
 

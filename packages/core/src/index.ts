@@ -3,6 +3,7 @@ export {
 	ConfigError,
 	type ConfigErrorCode,
 	DATA_DIRECTORY_NAME,
+	DOCUMENT_DIRECTORY_NAMES,
 	defineConfig,
 	discoverRepository,
 	GENERATED_DIRECTORY_NAME,
@@ -21,6 +22,28 @@ export {
 	type RepositoryDiagnostic,
 	type RepositoryDiagnosticCode,
 } from './diagnostics/doctor.ts'
+export {
+	type CreateDocumentInput,
+	createDocument,
+	type DocumentBatchOperation,
+	type DocumentBatchOptions,
+	type DocumentBatchProgress,
+	type DocumentBatchResult,
+	type DocumentRecord,
+	documentTemplate,
+	executeDocumentBatch,
+	exportDocument,
+	type ImportDocumentOptions,
+	importDocument,
+	listDocuments,
+	normalizeDocumentKind,
+	parseDocumentFile,
+	readDocument,
+	serializeDocumentFile,
+	slugifyDocumentTitle,
+	type UpdateDocumentInput,
+	updateDocument,
+} from './documents/documentRepository.ts'
 export {
 	type GeneratedViewsResult,
 	type GenerateViewsOptions,
@@ -84,6 +107,12 @@ export {
 	type SnapshotManifest,
 } from './snapshots/snapshotRepository.ts'
 export {
+	type RepositorySyncOptions,
+	type RepositorySyncProgress,
+	type RepositorySyncResult,
+	syncRepository,
+} from './sync/repositorySync.ts'
+export {
 	applySynchronization,
 	type PlanSynchronizationOptions,
 	PlanSynchronizationOptionsSchema,
@@ -112,7 +141,11 @@ export {
 	deleteTask,
 	generateTaskId,
 	listTasks,
+	migrateTaskIds,
 	readTask,
+	type TaskIdMigration,
+	type TaskIdMigrationOptions,
+	type TaskIdMigrationProgress,
 	type TaskRecord,
 	TaskRepositoryError,
 	type TaskRepositoryErrorCode,
