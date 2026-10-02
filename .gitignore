@@ -65,7 +65,13 @@ yarn-error.log*
 **/.source
 **/exports
 
+# copied into @taskset/cli at build time for the published tarball
+/packages/cli/docs
+/packages/cli/skills
+
 # taskset derived state
 **/.taskset/cache
 **/.taskset/generated
+**/.taskset/**/.generated
+**/.taskset/**/.generated.*
 **/.taskset/.generated.*

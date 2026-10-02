@@ -622,3 +622,34 @@ describe('runCli', () => {
 		expect(output.stderr).toContain('generated views could not be refreshed')
 	})
 })
+
+describe('package assets', () => {
+	it('lists docs and skills in the published files field', async () => {
+		const { readFile } = await import('node:fs/promises')
+		const manifest = JSON.parse(
+			await readFile(path.join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+		) as { readonly files: readonly string[] }
+		expect(manifest.files).toEqual(expect.arrayContaining(['docs', 'skills']))
+	})
+
+	it('copies docs and skills beside the package for the npm tarball', async () => {
+		const { access } = await import('node:fs/promises')
+		const { execFile } = await import('node:child_process')
+		const { promisify } = await import('node:util')
+		const packageRoot = path.join(import.meta.dirname, '..')
+		await promisify(execFile)(process.execPath, ['./scripts/copy-package-assets.mjs'], {
+			cwd: packageRoot,
+		})
+		await expect(
+			access(path.join(packageRoot, 'docs', 'cli-reference.md')),
+		).resolves.toBeUndefined()
+		await expect(
+			access(path.join(packageRoot, 'skills', 'taskset', 'SKILL.md')),
+		).resolves.toBeUndefined()
+		await expect(
+			access(
+				path.join(packageRoot, 'skills', 'taskset', 'references', 'document-modeling-examples.md'),
+			),
+		).resolves.toBeUndefined()
+	})
+})

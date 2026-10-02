@@ -2,7 +2,7 @@
 	"name": "@taskset/cli",
 	"type": "module",
 	"private": false,
-	"version": "5.0.0",
+	"version": "5.1.0",
 	"description": "The scriptable command-line interface for Taskset.",
 	"license": "MIT",
 	"author": {
@@ -23,6 +23,8 @@
 		"dist",
 		"src",
 		"!src/**/*.test.ts",
+		"docs",
+		"skills",
 		"README.md",
 		"CHANGELOG.md"
 	],
@@ -30,8 +32,8 @@
 		"taskset": "./dist/bin.js"
 	},
 	"scripts": {
-		"build": "pnpm clean && tsc",
-		"clean": "node --eval \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true })\"",
+		"build": "pnpm clean && tsc && node ./scripts/copy-package-assets.mjs",
+		"clean": "node --eval \"import { rmSync } from 'node:fs'; for (const name of ['dist', 'docs', 'skills']) rmSync(name, { recursive: true, force: true })\"",
 		"test": "vitest run --root ../.. packages/cli/src",
 		"test:watch": "vitest --root ../.. packages/cli/src"
 	},

@@ -61,10 +61,13 @@ so inspect each affected manifest before assuming it defines `build`, `test`,
 
 Those four packages form the public npm runtime and are published recursively.
 Keep their runtime dependency chain public and keep package tarballs restricted
-to built output, runtime source used by workspace development conditions, and
-package documentation. Exclude tests, local build caches, and tool configs.
+to built output, runtime source used by workspace development conditions,
+package documentation, and—for `@taskset/cli`—the copied repository `docs/` and
+`skills/` trees. Exclude tests, local build caches, and tool configs.
 Their builds clean `dist/` before TypeScript emits so renamed files cannot leak
-into published tarballs.
+into published tarballs. The CLI build also refreshes `packages/cli/docs` and
+`packages/cli/skills` from the repository root; those copies are gitignored and
+must be present in the tarball listed by the CLI `files` field.
 
 Use exact package names:
 

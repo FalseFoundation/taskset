@@ -3,7 +3,9 @@
 ## Changesets
 
 The consumer-facing npm package is `@taskset/cli`. It exposes the `taskset`
-executable and re-exports `defineConfig` for `taskset.config.ts`.
+executable, re-exports `defineConfig` for `taskset.config.ts`, and ships the
+repository `docs/` and `skills/` trees in the published tarball (copied beside
+the package during `pnpm --filter @taskset/cli build`).
 
 The public runtime package set is:
 

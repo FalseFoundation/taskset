@@ -2,7 +2,11 @@
 
 The public command-line adapter for Taskset. Full documentation is available at
 [taskset.false.foundation](https://taskset.false.foundation/), including the
-[complete CLI reference](../../docs/cli-reference.md).
+[complete CLI reference](./docs/cli-reference.md).
+
+The published package also ships the repository `docs/` tree and `skills/` tree
+beside the CLI so installed projects can load offline references from
+`node_modules/@taskset/cli/docs` and `node_modules/@taskset/cli/skills`.
 
 ```bash
 pnpm add --save-dev @taskset/cli
@@ -17,7 +21,7 @@ Supported command groups:
 
 - `taskset init`, `config`, `doctor`, `generate`, and `sync`
 - `taskset task create|list|show|update|status|delete|migrate-ids`
-- `taskset document create|import|batch|list|show` (`doc` is an alias)
+- `taskset document create|import|batch|list|show|update|status|delete` (`doc` is an alias)
 - `taskset snapshot create|list|restore`
 
 Use `task list --file <path> --impact` for direct and transitive code-impact

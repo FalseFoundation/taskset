@@ -7,6 +7,38 @@ description: Taskset workflow guidance for agents that plan and track work with 
 
 Use this skill when working in a repository that uses Taskset to store work as human-readable Markdown beside the code.
 
+## Packaged Docs And Skills
+
+`@taskset/cli` publishes the repository `docs/` and `skills/` trees in the npm
+tarball. After `pnpm add --save-dev @taskset/cli` (or an equivalent install),
+treat those paths as the detailed offline reference set:
+
+| Path | Contents |
+| --- | --- |
+| `node_modules/@taskset/cli/skills/taskset/SKILL.md` | This skill (agent workflow for tasks and documents) |
+| `node_modules/@taskset/cli/skills/taskset/references/` | Task modeling, document modeling, monorepo, and Changesets examples |
+| `node_modules/@taskset/cli/skills/taskset-implement/` | Engineering standards used while developing Taskset itself |
+| `node_modules/@taskset/cli/docs/` | User docs: getting started, configuration, CLI reference, task files, document types |
+| `node_modules/@taskset/cli/docs/maintainers/` | Architecture, ADRs, testing, and maintainer workflows |
+
+In the Taskset repository itself, prefer the workspace copies at `skills/` and
+`docs/`—they are the canonical sources that the package build copies into
+`@taskset/cli`. When working in a consumer repository, load the installed copies
+under `node_modules/@taskset/cli/` before inventing workflow or command
+behavior. Useful deep links from an installed package:
+
+- CLI contracts: `node_modules/@taskset/cli/docs/cli-reference.md`
+- Document kinds and commands: `node_modules/@taskset/cli/docs/document-types.md`
+- Task file shape: `node_modules/@taskset/cli/docs/task-files.md`
+- Task modeling examples: `node_modules/@taskset/cli/skills/taskset/references/task-modeling-examples.md`
+- Document modeling examples: `node_modules/@taskset/cli/skills/taskset/references/document-modeling-examples.md`
+- Monorepo modeling: `node_modules/@taskset/cli/skills/taskset/references/monorepo-task-modeling.md`
+- Changesets examples: `node_modules/@taskset/cli/skills/taskset/references/changesets-examples.md`
+
+Relative links inside the packaged skill still resolve against the packaged
+`docs/` and `skills/` trees because both directories sit at the `@taskset/cli`
+package root.
+
 ## Core Rules
 
 - Treat `.taskset/tasks/` as the canonical task source of truth and the sibling

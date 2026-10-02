@@ -22,6 +22,10 @@ Testing and documentation conventions.
 - Mark integration prerequisites explicitly.
 - Use current paths and package names in documentation.
 - Keep user documentation in `docs/`; `apps/www` renders it.
+- Publish `docs/` and `skills/` with `@taskset/cli` so installed consumers can
+  load the same guidance from `node_modules/@taskset/cli/docs` and
+  `node_modules/@taskset/cli/skills`. The CLI build copies those trees; do not
+  hand-edit the copies under `packages/cli/`.
 - Keep chronological release and project posts in `apps/www/posts/`; require
   `title`, `description`, and `date` frontmatter and register each route in the
   website's post registry.

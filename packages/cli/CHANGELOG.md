@@ -1,5 +1,13 @@
 # @taskset/cli
 
+## 5.1.0
+
+### Minor Changes
+
+- Ship repository docs and skills in the @taskset/cli npm tarball.
+  
+  The CLI build copies root `docs/` and `skills/` into the package so installed projects can load offline guidance from `node_modules/@taskset/cli/docs` and `node_modules/@taskset/cli/skills`.
+
 ## 5.0.0
 
 ### Major Changes
