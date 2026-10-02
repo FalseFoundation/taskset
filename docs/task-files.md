@@ -150,7 +150,8 @@ that transitively depend on those direct matches. JSON output uses
 `{ "direct": [...], "impacted": [...] }`; `--include-derived` adds relationship
 projections to records in both groups.
 
-`.taskset/cache/` and `.taskset/generated/` are disposable. Generated metadata
+`.taskset/cache/` and each entity folder's `.generated/` directory are disposable.
+Generated metadata
 indexes are deterministic projections for supported non-ID task metadata fields
 and refresh on a best-effort basis after canonical mutations. Date and
 timestamp metadata is grouped by calendar date only. Generated filenames remain

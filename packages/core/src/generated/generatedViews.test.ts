@@ -47,7 +47,7 @@ describe('generated views', () => {
 		expect(Object.keys(manifest).sort()).toEqual(['files', 'fingerprint'])
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'status', 'todo.md'), 'utf8'),
-		).toContain(`- [20] [${taskId}: Indexed](../../tasks/${taskId}.md)`)
+		).toContain(`- [20] [${taskId}: Indexed](../${taskId}.md)`)
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'projects', 'alpha∕beta.md'), 'utf8'),
 		).toContain(taskId)
@@ -104,28 +104,28 @@ Body.
 		const result = await generateViews(repository)
 
 		expect(result.files).toEqual([
-			'assignees/maintainer.md',
-			'createdAt/2026-06-12.md',
-			'dependsOn/TS-01J00000000000000000000001.md',
-			'directories/packages∕core.md',
-			'dueDate/2026-06-30.md',
-			'duplicates/TS-01J00000000000000000000003.md',
-			'effort/3.md',
-			'estimate/90.md',
-			'files/packages∕core∕src∕generated∕generatedViews.ts.md',
-			'labels/core.md',
-			'order/10.md',
-			'owner/platform.md',
-			'parent/TS-01J00000000000000000000004.md',
-			'priority/urgent.md',
-			'projects/taskset.md',
-			'related/TS-01J00000000000000000000002.md',
-			'reviewers/reviewer.md',
-			'risk/high.md',
-			'status/doing.md',
-			'team/core.md',
-			'title/Full metadata.md',
-			'updatedAt/2026-06-12.md',
+			'tasks/assignees/maintainer.md',
+			'tasks/createdAt/2026-06-12.md',
+			'tasks/dependsOn/TS-01J00000000000000000000001.md',
+			'tasks/directories/packages∕core.md',
+			'tasks/dueDate/2026-06-30.md',
+			'tasks/duplicates/TS-01J00000000000000000000003.md',
+			'tasks/effort/3.md',
+			'tasks/estimate/90.md',
+			'tasks/files/packages∕core∕src∕generated∕generatedViews.ts.md',
+			'tasks/labels/core.md',
+			'tasks/order/10.md',
+			'tasks/owner/platform.md',
+			'tasks/parent/TS-01J00000000000000000000004.md',
+			'tasks/priority/urgent.md',
+			'tasks/projects/taskset.md',
+			'tasks/related/TS-01J00000000000000000000002.md',
+			'tasks/reviewers/reviewer.md',
+			'tasks/risk/high.md',
+			'tasks/status/doing.md',
+			'tasks/team/core.md',
+			'tasks/title/Full metadata.md',
+			'tasks/updatedAt/2026-06-12.md',
 		])
 	})
 })

@@ -118,15 +118,22 @@ Non-negotiable rules:
   task frontmatter and unknown fields are rejected.
 - Canonical supporting documents live in kind-specific `.taskset/` directories:
   stories, flows, decisions, research, and runbooks. Use their shared strict
-  metadata and kind-specific body templates instead of modeling every durable
-  document as a task.
+  metadata (aligned with task planning, people, path, and relationship fields)
+  and kind-specific body templates instead of modeling every durable document
+  as a task. Documents expose the same create, update, status, delete, list
+  query, search, impact, and derived-relationship operations as tasks, with
+  document-specific statuses.
 - Document mutations, imports, exports, and batches belong to core. The CLI
   validates manifests and renders output only. Use TanStack Pacer for bounded
   heavy batches and migrations, emit count and percentage progress, preserve
   manifest result order, and serialize writes that allocate sequential IDs.
+- Disposable metadata indexes live in each entity folder's `.generated/`
+  directory (for example `.taskset/tasks/.generated/` and
+  `.taskset/research/.generated/`), not a global `.taskset/generated/` tree.
 - Repository sync is the maintenance entrypoint: ensure canonical `.taskset/`
   directories, migrate task IDs and repository text references atomically,
-  then rebuild disposable generated views.
+  refresh data `.gitignore` rules for scoped generated output, remove legacy
+  global generated directories, then rebuild disposable generated views.
 - `taskset.config.ts` marks the repository root and configures validated project
   metadata and task creation defaults. It never relocates canonical
   `.taskset/` data or becomes a second task store.

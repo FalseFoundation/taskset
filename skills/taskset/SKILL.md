@@ -1,6 +1,6 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that plan and track work with tasks, stories, user flows, decisions, research, and runbooks stored in .taskset/, including batch imports and cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, and update the session or repository primary skill when lasting lessons should prevent future failures.
+description: Taskset workflow guidance for agents that plan and track work with tasks, stories, user flows, decisions, research, and runbooks stored in .taskset/, including batch imports and cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, create Taskset documents (research, decision, runbook, story, or flow) when work produces reusable evidence, lasting choices, or procedures, link them with --related, and update the session or repository primary skill when lasting lessons should prevent future failures.
 ---
 
 # Taskset
@@ -17,7 +17,8 @@ Use this skill when working in a repository that uses Taskset to store work as h
 - Prefer `pnpm taskset` in project repositories; use the repo root `pnpm taskset` script when available.
 - While executing or working a task, agents MUST create follow-up Taskset tasks or subtasks for newly discovered work. In this skill, "subtask" means either a Taskset child task (`--parent`) or a Markdown checklist item (`- [ ]`) in the parent task body—choose child tasks when independent status, ownership, dependencies, or history are needed; otherwise prefer checklist items. Do not leave that work only in chat, memory, or an informal note.
 - Agents MUST keep the parent task status and every subtask current mid-work: set Taskset tasks and child tasks to `doing` when work starts, check off completed checklist items as `- [x]`, update statuses when progress or blockers change, and mark each finished child task `done` when its acceptance criteria are met. Do not leave finished checklist items unchecked or finished child tasks open, and do not mark a parent task `done` while any tracked subtask (child task or checklist item) remains unfinished.
-- When the repository or current session designates one or more skills as primary, and task work surfaces a lesson that future agents should reuse—tool or command selection, a bug fix pattern, a repeated failure mode, or an architecture decision—update that primary skill (and its relevant references) in the same change so the failure is not rediscovered later. Do not leave durable guidance only in a closed task body or chat transcript.
+- While executing a task, agents MUST create a Taskset document in the same change when work produces reusable evidence (`research`), a lasting choice (`decision` / `adr`), an operational procedure (`runbook`), or durable product context (`story` / `flow`). Link the document and originating task with `--related`. Do not leave that material only in chat, memory, or a closed task body. Short scratch notes and one-off checklist steps stay in the task body.
+- When the repository or current session designates one or more skills as primary, and task work surfaces a lesson that future agents should reuse—tool or command selection, a bug fix pattern, a repeated failure mode, or an architecture decision—update that primary skill (and its relevant references) in the same change so the failure is not rediscovered later. Prefer skills for lasting how-to; prefer research/decision documents for what was learned or chosen. Do not leave durable guidance only in a closed task body or chat transcript.
 
 ## Recommended Workflow
 
@@ -53,9 +54,12 @@ pnpm taskset task delete <task-id>
 pnpm taskset task list --search "multiple terms"
 pnpm taskset task list --file packages/core --impact
 pnpm taskset document create story --title "Describe the user outcome"
+pnpm taskset document create research --title "Evaluate options" --related <task-id>
+pnpm taskset document update <document-id> --status ready --type research
+pnpm taskset document list research --search "queue" --impact
+pnpm taskset document show <document-id> --type research --include-derived --json
 pnpm taskset document import docs/adr/0001-example.md --type adr --move
 pnpm taskset document batch taskset-documents.json --concurrency 4 --json
-pnpm taskset document list
 pnpm taskset sync
 ```
 
@@ -68,10 +72,14 @@ pnpm taskset sync
   `--clear-related`, `--clear-files`, `--clear-directories`, or `--clear-projects`.
   Scalar relationships use `--clear-parent` and `--clear-owner`. Do not guess a clear flag from
   the singular setter name or retry an update with an empty string.
-- Use multi-term `--search` for discovery; every normalized term must match the
-  task title or body, but the terms may appear in any order or location.
-- Use `task list --impact` when file or directory changes should surface dependent work.
-- Keep task metadata versionless and let Taskset validate schema and path rules.
+- Use multi-term `--search` for discovery on both `task list` and `document list`; every
+  normalized term must match the title or body, but the terms may appear in any order or location.
+- Use `task list --impact` or `document list --impact` when file, directory, or dependency
+  relationships should surface dependent work.
+- Keep task and document metadata versionless and let Taskset validate schema and path rules.
+- Documents support the same metadata options, clear flags, list filters, sort, search, impact,
+  status, update, and delete commands as tasks. Document statuses remain
+  `draft`, `ready`, `active`, `accepted`, `superseded`, and `archived`.
 - Use `document create` for stories, flows, decisions (`decision`, `adr`, and
   `dr` are aliases), research, and runbooks. Use `document import` to preserve
   an existing Markdown body in canonical frontmatter; add `--move` only when
@@ -83,7 +91,11 @@ pnpm taskset sync
 - Use `document batch <manifest.json>` for repeatable multi-document create,
   import, update, and export jobs. Progress belongs on stderr and `--json`
   output on stdout. Use `sync` after upgrades to ensure canonical directories,
-  migrate legacy IDs and repository text references, and rebuild views.
+  migrate legacy IDs and repository text references, refresh data `.gitignore`
+  patterns for scoped `.generated/` directories, and rebuild views.
+- Disposable metadata indexes live beside each entity folder
+  (`.taskset/tasks/.generated/`, `.taskset/stories/.generated/`, and the other
+  document-kind folders), not under a global `.taskset/generated/`.
 - New task and document IDs use `0000001-short-title` naming. Use
   `task migrate-ids` for legacy task repositories; do not rename task files by
   hand because canonical relationships must be rewritten together.
@@ -114,6 +126,29 @@ pnpm taskset sync
 - During that set-level review, also verify that every task has the intended owner and only evidence-backed assignees.
 
 For multi-task prompts or uncertainty about task granularity and relationships, read [good and bad task-modeling examples](references/task-modeling-examples.md).
+
+## Document Modeling
+
+- Prefer the five document kinds that already exist. Do not invent notes, specs,
+  epics, or RFCs as new kinds: investigation is `research`, lasting choices are
+  `decision`, product context is `story` or `flow`, and recovery procedures are
+  `runbook`. Keep short scratch in the task body.
+- Search existing documents before creating new ones. Update or `--related` a
+  matching document instead of duplicating it.
+- Create documents mid-work as soon as the evidence, decision, or procedure is
+  clear enough to reuse. Link both sides with `--related` to the originating
+  task when practical.
+- Status habits: start research and stories as `draft`; move them to `ready` or
+  `accepted` when the recommendation or criteria stabilize; record decided ADRs
+  as `accepted` (the create default); keep usable runbooks `active`.
+- Attach owner, assignees, labels, projects, files, and directories when they help
+  discovery the same way they do on tasks. Use `--depends-on` and `--parent`
+  only for real document-to-document prerequisites within Taskset documents.
+- Do not dump raw research into a primary skill. Capture the evidence in a
+  research document, the choice in a decision document, and only the lasting
+  how-to in the skill.
+
+For paired good and bad examples, read [document-modeling examples](references/document-modeling-examples.md).
 
 ## Monorepo Reasoning
 
@@ -150,6 +185,7 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 - Read the task and the surrounding repository context first.
 - Before mutating or executing a task, compare its owner and assignees with the current Git user and obtain confirmation when another person is responsible.
 - While executing, create follow-up tasks, child tasks, or checklist subtasks for every distinct piece of newly discovered work before moving on or closing the current task.
+- While executing, create research, decision, runbook, story, or flow documents for reusable evidence, lasting choices, procedures, or product context; link them with `--related`.
 - Keep parent status and every subtask current mid-work: check off finished checklist items, mark finished child tasks `done`, and only then close the parent.
 - When lasting lessons emerge and a primary skill is in play, update that skill so future sessions avoid the same tool-choice, bug-fix, repeated-failure, or architecture mistake.
 - In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.

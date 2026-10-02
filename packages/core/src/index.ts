@@ -6,7 +6,10 @@ export {
 	DOCUMENT_DIRECTORY_NAMES,
 	defineConfig,
 	discoverRepository,
+	documentKindDirectory,
+	entityGeneratedDirectory,
 	GENERATED_DIRECTORY_NAME,
+	LEGACY_GENERATED_DIRECTORY_NAME,
 	loadRepository,
 	type Repository,
 	RepositoryDirectorySchema,
@@ -24,12 +27,20 @@ export {
 } from './diagnostics/doctor.ts'
 export {
 	type CreateDocumentInput,
+	CreateDocumentInputSchema,
+	type CreateDocumentOptions,
+	CreateDocumentOptionsSchema,
 	createDocument,
+	type DeleteDocumentOptions,
+	DeleteDocumentOptionsSchema,
 	type DocumentBatchOperation,
 	type DocumentBatchOptions,
 	type DocumentBatchProgress,
 	type DocumentBatchResult,
 	type DocumentRecord,
+	DocumentRepositoryError,
+	type DocumentRepositoryErrorCode,
+	deleteDocument,
 	documentTemplate,
 	executeDocumentBatch,
 	exportDocument,
@@ -42,6 +53,9 @@ export {
 	serializeDocumentFile,
 	slugifyDocumentTitle,
 	type UpdateDocumentInput,
+	UpdateDocumentInputSchema,
+	type UpdateDocumentOptions,
+	UpdateDocumentOptionsSchema,
 	updateDocument,
 } from './documents/documentRepository.ts'
 export {
@@ -50,6 +64,15 @@ export {
 	GenerateViewsOptionsSchema,
 	generateViews,
 } from './generated/generatedViews.ts'
+export {
+	buildDocumentGraph,
+	type DerivedDocumentRelationships,
+	DocumentGraph,
+	type DocumentGraphDiagnostic,
+	type DocumentGraphDiagnosticCode,
+	DocumentGraphError,
+	inspectDocumentGraph,
+} from './graph/documentGraph.ts'
 export {
 	buildTaskGraph,
 	type DerivedTaskRelationships,
@@ -81,7 +104,18 @@ export {
 	type FileTransactionOperation,
 	FileTransactionOperationSchema,
 } from './repository/fileTransaction.ts'
-export { initializeRepository } from './repository/repository.ts'
+export { DEFAULT_DATA_IGNORE_SOURCE, initializeRepository } from './repository/repository.ts'
+export {
+	DOCUMENT_SORT_DIRECTIONS,
+	DOCUMENT_SORT_KEYS,
+	type DocumentQuery,
+	type DocumentQueryResult,
+	DocumentQuerySchema,
+	type DocumentSortDirection,
+	type DocumentSortKey,
+	queryDocumentRecords,
+	queryDocuments,
+} from './search/documentQuery.ts'
 export {
 	queryTaskRecords,
 	queryTasks,

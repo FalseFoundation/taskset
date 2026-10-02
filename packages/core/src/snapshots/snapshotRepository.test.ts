@@ -225,9 +225,11 @@ Body.
 		)
 		const snapshot = await createSnapshot(repository)
 		await updateTask(repository, taskId, { title: 'Changed' })
+		const blockedDocuments = path.join(rootDirectory, 'blocked-documents')
+		await writeFile(blockedDocuments, 'not-a-directory\n')
 		const failureRepository = Object.freeze({
 			...repository,
-			generatedDirectory: path.join(repository.dataDirectory, 'missing', 'generated'),
+			documentsDirectory: blockedDocuments,
 		})
 		const warnings: string[] = []
 

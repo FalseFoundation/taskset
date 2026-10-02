@@ -9,8 +9,8 @@ designed to accelerate software delivery and give development teams immediate
 awareness of the work surrounding their code.
 
 It grows from that core into a Git-native software delivery platform. Tasks,
-epics, specifications, architecture decisions, releases, runbooks, and project
-knowledge live beside the code as human-readable Markdown.
+stories, flows, decisions, research, runbooks, and related project knowledge
+live beside the code as human-readable Markdown.
 
 Vision: become the Git-native operating system for software delivery.
 
@@ -30,8 +30,8 @@ Design for:
 - explicit compatibility work that does not silently corrupt existing
   repositories
 
-Near-term work should prove the core task workflow before broadening the entity
-model or investing in additional interfaces.
+Near-term work should keep the task and supporting-document workflows coherent
+before inventing additional entity kinds or investing heavily in new interfaces.
 
 ## Source-of-Truth Model
 
@@ -40,13 +40,18 @@ Canonical project state lives under `.taskset/`.
 ```text
 .taskset/
 ├── tasks/
-├── epics/
-├── specs/
+│   └── .generated/          # disposable task metadata indexes
+├── stories/
+│   └── .generated/
+├── flows/
+│   └── .generated/
 ├── decisions/
-├── releases/
+│   └── .generated/
+├── research/
+│   └── .generated/
 ├── runbooks/
+│   └── .generated/
 ├── snapshots/
-├── generated/
 └── cache/
 ```
 
@@ -58,8 +63,8 @@ Rules:
 - YAML frontmatter contains structured metadata. Markdown bodies contain
   durable human context.
 - Do not store the same field independently in frontmatter and body.
-- `generated/` and `cache/` are derived, disposable, and never required to
-  recover canonical state.
+- Each entity folder owns its disposable `.generated/` indexes. `.taskset/cache/`
+  is also disposable. Neither is required to recover canonical state.
 - `snapshots/` contains immutable, non-authoritative safety checkpoints for
   migrations and explicit restore workflows.
 - An in-memory index or optional on-disk cache may accelerate reads, but it must

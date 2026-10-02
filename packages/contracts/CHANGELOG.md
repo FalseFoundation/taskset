@@ -1,5 +1,13 @@
 # @taskset/contracts
 
+## 5.0.0
+
+### Major Changes
+
+- Move disposable metadata indexes beside each entity folder and give documents task-like query and mutation commands.
+  
+  Generated views now live under `.taskset/tasks/.generated/` and each document-kind `.generated/` directory instead of a global `.taskset/generated/` tree. Documents accept the same metadata, list filters, search, impact, status, update, and delete surface as tasks, with document-specific statuses. Sync refreshes data `.gitignore` patterns and removes the legacy global generated directory.
+
 ## 4.0.0
 
 ### Major Changes

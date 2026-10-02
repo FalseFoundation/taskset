@@ -109,7 +109,9 @@ diagnostics.
 taskset generate [--json] [--cwd <path>]
 ```
 
-Rebuilds disposable generated views under `.taskset/generated/`.
+Rebuilds disposable generated views under each entity folder's `.generated/`
+directory (for example `.taskset/tasks/.generated/` and
+`.taskset/stories/.generated/`). Removes any legacy `.taskset/generated/` tree.
 
 Human output:
 
@@ -404,17 +406,26 @@ views. Progress counts and percentages are sent to stderr.
 `decision`, `research`, and `runbook`; `adr` and `dr` alias `decision`.
 
 ```bash
-taskset document create <type> --title <title> [--status <status>] [--body <markdown>]
+taskset document create <type> --title <title> [metadata options]
 taskset document import <markdown-path> [--type <type>] [--title <title>] [--move]
 taskset document batch <manifest.json> [--concurrency <count>] [--json]
-taskset document list [type] [--json] [--cwd <path>]
-taskset document show <document-id> [--type <type>] [--json] [--cwd <path>]
+taskset document list [type] [query options]
+taskset document show <document-id> [--type <type>] [--include-derived] [--json]
+taskset document update <document-id> [metadata options] [--type <type>]
+taskset document status <document-id> <status> [--type <type>] [--json]
+taskset document delete <document-id> [--type <type>] [--remove-dependencies] [--json]
 ```
 
-Create uses the type-specific template unless `--body` is supplied. Import
-preserves the Markdown body and infers type from a recognized parent directory
-when possible. It copies by default; `--move` deletes the source only after the
-canonical document is written successfully.
+Create uses the type-specific template unless `--body` is supplied and accepts
+the same metadata options as `task create`. Import preserves the Markdown body
+and infers type from a recognized parent directory when possible. It copies by
+default; `--move` deletes the source only after the canonical document is
+written successfully.
+
+List, show, update, status, and delete mirror the task commands, including
+search, filters, sort, impact, derived relationships, clear flags, and
+guarded deletion. Document statuses are `draft`, `ready`, `active`, `accepted`,
+`superseded`, and `archived`.
 
 Batch manifests contain an array of `create`, `import`, `update`, and `export`
 operations. Work is paced with bounded concurrency, results preserve manifest
@@ -424,10 +435,10 @@ manifest example.
 
 ## Generated-View Warnings
 
-Task creation, update, status changes, deletion, and snapshot restore apply
-mutate canonical Markdown first and then refresh disposable generated views. If
-that refresh fails after the canonical mutation succeeds, the command still
-succeeds and writes a stderr warning:
+Task and document creation, update, status changes, deletion, and snapshot
+restore mutate canonical Markdown first and then refresh disposable generated
+views. If that refresh fails after the canonical mutation succeeds, the command
+still succeeds and writes a stderr warning:
 
 ```text
 warning: <message>

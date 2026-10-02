@@ -43,7 +43,7 @@ taskset.config.ts
 
 The config controls validated defaults. Task Markdown under `.taskset/tasks/`
 remains the canonical project state. The nested ignore file excludes
-`.taskset/cache/`, `.taskset/generated/`, and `.taskset/snapshots/`.
+`.taskset/cache/`, per-entity `.generated/` directories, and `.taskset/snapshots/`.
 Snapshots are non-authoritative safety checkpoints; tasks remain canonical.
 
 ## Create And Inspect Work

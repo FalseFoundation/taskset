@@ -1,0 +1,806 @@
+{
+	"numTotalTestSuites": 31,
+	"numPassedTestSuites": 31,
+	"numFailedTestSuites": 0,
+	"numPendingTestSuites": 0,
+	"numTotalTests": 59,
+	"numPassedTests": 59,
+	"numFailedTests": 0,
+	"numPendingTests": 0,
+	"numTodoTests": 0,
+	"snapshot": {
+		"added": 0,
+		"failure": false,
+		"filesAdded": 0,
+		"filesRemoved": 0,
+		"filesRemovedList": [],
+		"filesUnmatched": 0,
+		"filesUpdated": 0,
+		"matched": 0,
+		"total": 0,
+		"unchecked": 0,
+		"uncheckedKeysByFile": [],
+		"unmatched": 0,
+		"updated": 0,
+		"didUpdate": false
+	},
+	"startTime": 1790966248457,
+	"success": true,
+	"testResults": [
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["defineConfig"],
+					"fullName": "defineConfig validates configuration at authoring time",
+					"status": "passed",
+					"title": "validates configuration at authoring time",
+					"duration": 8.31879200000003,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["taskset.config.ts loading"],
+					"fullName": "taskset.config.ts loading discovers the repository upward and applies task defaults",
+					"status": "passed",
+					"title": "discovers the repository upward and applies task defaults",
+					"duration": 50.71512500000006,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["taskset.config.ts loading"],
+					"fullName": "taskset.config.ts loading resolves configured status ordering and validates defaults",
+					"status": "passed",
+					"title": "resolves configured status ordering and validates defaults",
+					"duration": 35.22716600000001,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["taskset.config.ts loading"],
+					"fullName": "taskset.config.ts loading rejects an invalid default export with the config path",
+					"status": "passed",
+					"title": "rejects an invalid default export with the config path",
+					"duration": 14.250540999999998,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["taskset.config.ts loading"],
+					"fullName": "taskset.config.ts loading reports when no repository config can be discovered",
+					"status": "passed",
+					"title": "reports when no repository config can be discovered",
+					"duration": 3.398625000000038,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966253005,
+			"endTime": 1790966253117.3987,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/config/config.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["task graph"],
+					"fullName": "task graph derives stable dependency and blocking traversal",
+					"status": "passed",
+					"title": "derives stable dependency and blocking traversal",
+					"duration": 11.87829099999999,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task graph"],
+					"fullName": "task graph reports duplicate IDs, missing targets, self-dependencies, and cycles",
+					"status": "passed",
+					"title": "reports duplicate IDs, missing targets, self-dependencies, and cycles",
+					"duration": 2.547208000000012,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966253246,
+			"endTime": 1790966253259.547,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/graph/taskGraph.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["document repository"],
+					"fullName": "document repository creates typed templates with sequential title-derived IDs",
+					"status": "passed",
+					"title": "creates typed templates with sequential title-derived IDs",
+					"duration": 618.9792499999999,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["document repository"],
+					"fullName": "document repository imports existing Markdown and can move the source",
+					"status": "passed",
+					"title": "imports existing Markdown and can move the source",
+					"duration": 179.25895800000035,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["document repository"],
+					"fullName": "document repository updates and executes paced create, import, update, and export batches with progress",
+					"status": "passed",
+					"title": "updates and executes paced create, import, update, and export batches with progress",
+					"duration": 856.4451250000002,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["document repository"],
+					"fullName": "document repository updates a single document while preserving its identity",
+					"status": "passed",
+					"title": "updates a single document while preserving its identity",
+					"duration": 234.84370799999988,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250887,
+			"endTime": 1790966252776.8438,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/documents/documentRepository.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["repository doctor"],
+					"fullName": "repository doctor reports multiple failures deterministically without mutating files",
+					"status": "passed",
+					"title": "reports multiple failures deterministically without mutating files",
+					"duration": 413.24012500000003,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["repository doctor"],
+					"fullName": "repository doctor reports task statuses disabled by configuration",
+					"status": "passed",
+					"title": "reports task statuses disabled by configuration",
+					"duration": 181.210875,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966251483,
+			"endTime": 1790966252077.211,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/diagnostics/doctor.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["task index"],
+					"fullName": "task index rebuilds equivalent results after cache deletion or corruption",
+					"status": "passed",
+					"title": "rebuilds equivalent results after cache deletion or corruption",
+					"duration": 359.8011670000001,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966252739,
+			"endTime": 1790966253098.8013,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/indexing/taskIndex.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["file transaction"],
+					"fullName": "file transaction restores earlier mutations when a later operation fails",
+					"status": "passed",
+					"title": "restores earlier mutations when a later operation fails",
+					"duration": 94.88033299999995,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966252876,
+			"endTime": 1790966252970.8804,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/repository/fileTransaction.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["initializeRepository"],
+					"fullName": "initializeRepository creates a default config, task directory, and derived-state ignore file",
+					"status": "passed",
+					"title": "creates a default config, task directory, and derived-state ignore file",
+					"duration": 145.41929200000004,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["initializeRepository"],
+					"fullName": "initializeRepository is idempotent and preserves existing repository-owned files",
+					"status": "passed",
+					"title": "is idempotent and preserves existing repository-owned files",
+					"duration": 100.65254099999993,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966252869,
+			"endTime": 1790966253114.6526,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/repository/repository.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["generated views"],
+					"fullName": "generated views is deterministic, versionless, and replaces stale generated output",
+					"status": "passed",
+					"title": "is deterministic, versionless, and replaces stale generated output",
+					"duration": 679.143916,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["generated views"],
+					"fullName": "generated views generates indexes for every supported task metadata field",
+					"status": "passed",
+					"title": "generates indexes for every supported task metadata field",
+					"duration": 368.241708,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250985,
+			"endTime": 1790966252033.2417,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/generated/generatedViews.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile parses canonical metadata and Markdown body content",
+					"status": "passed",
+					"title": "parses canonical metadata and Markdown body content",
+					"duration": 25.78274999999985,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile normalizes CRLF and frontmatter key order without losing Markdown",
+					"status": "passed",
+					"title": "normalizes CRLF and frontmatter key order without losing Markdown",
+					"duration": 8.577458000000206,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects unknown fields with an actionable task error",
+					"status": "passed",
+					"title": "rejects unknown fields with an actionable task error",
+					"duration": 4.307999999999993,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects path traversal with an actionable task error",
+					"status": "passed",
+					"title": "rejects path traversal with an actionable task error",
+					"duration": 1.9437079999997877,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects Windows absolute paths with an actionable task error",
+					"status": "passed",
+					"title": "rejects Windows absolute paths with an actionable task error",
+					"duration": 1.8330829999999878,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects self dependencies with an actionable task error",
+					"status": "passed",
+					"title": "rejects self dependencies with an actionable task error",
+					"duration": 2.0057080000001406,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects duplicate list values with an actionable task error",
+					"status": "passed",
+					"title": "rejects duplicate list values with an actionable task error",
+					"duration": 1.7584160000001248,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile rejects an updatedAt value earlier than createdAt with an actionable task error",
+					"status": "passed",
+					"title": "rejects an updatedAt value earlier than createdAt with an actionable task error",
+					"duration": 1.2785829999997986,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["parseTaskFile"],
+					"fullName": "parseTaskFile maps malformed frontmatter to a task-specific error",
+					"status": "passed",
+					"title": "maps malformed frontmatter to a task-specific error",
+					"duration": 2.4414999999999054,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["serializeTaskFile"],
+					"fullName": "serializeTaskFile serializes deterministic metadata order and one final newline",
+					"status": "passed",
+					"title": "serializes deterministic metadata order and one final newline",
+					"duration": 3.6929580000000897,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["serializeTaskFile"],
+					"fullName": "serializeTaskFile round-trips an empty Markdown body",
+					"status": "passed",
+					"title": "round-trips an empty Markdown body",
+					"duration": 1.9701669999999467,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["serializeTaskFile"],
+					"fullName": "serializeTaskFile round-trips full metadata in deterministic order",
+					"status": "passed",
+					"title": "round-trips full metadata in deterministic order",
+					"duration": 4.810292000000118,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250691,
+			"endTime": 1790966250751.8103,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/tasks/taskFile.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["generateTaskId"],
+					"fullName": "generateTaskId encodes the timestamp and random bytes as a branch-safe ULID",
+					"status": "passed",
+					"title": "encodes the timestamp and random bytes as a branch-safe ULID",
+					"duration": 5.216291000000183,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository atomically migrates legacy IDs, filenames, and relationships",
+					"status": "passed",
+					"title": "atomically migrates legacy IDs, filenames, and relationships",
+					"duration": 735.1767910000003,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository keeps canonical CRUD successful when generated view refreshes fail",
+					"status": "passed",
+					"title": "keeps canonical CRUD successful when generated view refreshes fail",
+					"duration": 268.6637079999996,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository creates, lists, and reads canonical task files using config defaults",
+					"status": "passed",
+					"title": "creates, lists, and reads canonical task files using config defaults",
+					"duration": 343.939292,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository does not overwrite an existing task ID",
+					"status": "passed",
+					"title": "does not overwrite an existing task ID",
+					"duration": 116.10058299999992,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository rejects priorities that are disabled by repository configuration",
+					"status": "passed",
+					"title": "rejects priorities that are disabled by repository configuration",
+					"duration": 156.7657909999998,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository rejects statuses that are disabled by repository configuration",
+					"status": "passed",
+					"title": "rejects statuses that are disabled by repository configuration",
+					"duration": 144.90795800000024,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository reports malformed canonical files during listing",
+					"status": "passed",
+					"title": "reports malformed canonical files during listing",
+					"duration": 111.57416700000067,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository updates task metadata and body atomically while enforcing lifecycle transitions",
+					"status": "passed",
+					"title": "updates task metadata and body atomically while enforcing lifecycle transitions",
+					"duration": 249.77629100000013,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task repository"],
+					"fullName": "task repository validates relationship changes and blocks deletion with inbound dependencies",
+					"status": "passed",
+					"title": "validates relationship changes and blocks deletion with inbound dependencies",
+					"duration": 144.15391699999964,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250914,
+			"endTime": 1790966253192.1538,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/tasks/taskRepository.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries combines filters and keeps deterministic sort ordering",
+					"status": "passed",
+					"title": "combines filters and keeps deterministic sort ordering",
+					"duration": 13.448083000000224,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries sorts explicit task order before unordered tasks with ID tie fallback",
+					"status": "passed",
+					"title": "sorts explicit task order before unordered tasks with ID tie fallback",
+					"duration": 0.7464579999996204,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries searches normalized Unicode titles and Markdown bodies",
+					"status": "passed",
+					"title": "searches normalized Unicode titles and Markdown bodies",
+					"duration": 31.69445799999994,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries filters new metadata and file or directory containment",
+					"status": "passed",
+					"title": "filters new metadata and file or directory containment",
+					"duration": 3.3893750000002,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries filters inclusive planning and timestamp ranges plus duplicate relationships",
+					"status": "passed",
+					"title": "filters inclusive planning and timestamp ranges plus duplicate relationships",
+					"duration": 2.4280829999997877,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["task queries"],
+					"fullName": "task queries normalizes repository paths, composes path groups, and expands impact after direct filters",
+					"status": "passed",
+					"title": "normalizes repository paths, composes path groups, and expands impact after direct filters",
+					"duration": 444.52225,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250974,
+			"endTime": 1790966251471.5222,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/search/taskQuery.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["snapshot repository"],
+					"fullName": "snapshot repository creates immutable manifests and previews restore before applying it",
+					"status": "passed",
+					"title": "creates immutable manifests and previews restore before applying it",
+					"duration": 483.79587500000025,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["snapshot repository"],
+					"fullName": "snapshot repository rejects corrupt snapshot content and an invalid restored graph before mutation",
+					"status": "passed",
+					"title": "rejects corrupt snapshot content and an invalid restored graph before mutation",
+					"duration": 203.08374999999978,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["snapshot repository"],
+					"fullName": "snapshot repository rejects malformed manifests, duplicate or unsafe paths, and missing archive files",
+					"status": "passed",
+					"title": "rejects malformed manifests, duplicate or unsafe paths, and missing archive files",
+					"duration": 78.06087499999967,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["snapshot repository"],
+					"fullName": "snapshot repository reports generated-view restore failures as warnings after canonical success",
+					"status": "passed",
+					"title": "reports generated-view restore failures as warnings after canonical success",
+					"duration": 321.2590419999997,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966251041,
+			"endTime": 1790966252127.259,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/snapshots/snapshotRepository.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["synchronization"],
+					"fullName": "synchronization classifies unchanged, created, updated, and deleted records",
+					"status": "passed",
+					"title": "classifies unchanged, created, updated, and deleted records",
+					"duration": 477.1378749999999,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["synchronization"],
+					"fullName": "synchronization reports field-level conflicts before mutation",
+					"status": "passed",
+					"title": "reports field-level conflicts before mutation",
+					"duration": 374.77870900000016,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["synchronization"],
+					"fullName": "synchronization does not propagate deletion over unsynchronized edits",
+					"status": "passed",
+					"title": "does not propagate deletion over unsynchronized edits",
+					"duration": 353.3844170000002,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["synchronization"],
+					"fullName": "synchronization does not mutate canonical tasks when an adapter apply fails",
+					"status": "passed",
+					"title": "does not mutate canonical tasks when an adapter apply fails",
+					"duration": 312.84216700000025,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966250986,
+			"endTime": 1790966252505.8423,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/sync/synchronization.test.ts"
+		},
+		{
+			"assertionResults": [
+				{
+					"ancestorTitles": ["public core validation"],
+					"fullName": "public core validation normalizes Zod failures into stable field-level issues",
+					"status": "passed",
+					"title": "normalizes Zod failures into stable field-level issues",
+					"duration": 7.675625000000082,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["public core validation"],
+					"fullName": "public core validation validates graph records before inspecting relationships",
+					"status": "passed",
+					"title": "validates graph records before inspecting relationships",
+					"duration": 2.659999999999968,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["public core validation"],
+					"fullName": "public core validation rejects unknown index options without leaking a ZodError",
+					"status": "passed",
+					"title": "rejects unknown index options without leaking a ZodError",
+					"duration": 1.21449999999993,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				},
+				{
+					"ancestorTitles": ["public core validation"],
+					"fullName": "public core validation validates TaskGraph method inputs",
+					"status": "passed",
+					"title": "validates TaskGraph method inputs",
+					"duration": 1.3507909999999583,
+					"failureMessages": [],
+					"meta": {},
+					"tags": [],
+					"benchmarks": []
+				}
+			],
+			"startTime": 1790966253246,
+			"endTime": 1790966253259.3508,
+			"status": "passed",
+			"message": "",
+			"name": "/Users/h/Desktop/Projects/@falsefoundation/taskset/packages/core/src/validation/coreValidation.test.ts"
+		}
+	]
+}

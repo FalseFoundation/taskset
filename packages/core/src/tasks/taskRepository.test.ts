@@ -74,9 +74,11 @@ describe('task repository', () => {
 	it('keeps canonical CRUD successful when generated view refreshes fail', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
+		const blockedDocuments = path.join(rootDirectory, 'blocked-documents')
+		await writeFile(blockedDocuments, 'not-a-directory\n')
 		const failureRepository = Object.freeze({
 			...repository,
-			generatedDirectory: path.join(repository.dataDirectory, 'missing', 'generated'),
+			documentsDirectory: blockedDocuments,
 		})
 		const warnings: string[] = []
 		const options = {

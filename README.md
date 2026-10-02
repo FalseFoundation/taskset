@@ -46,7 +46,7 @@ pnpm taskset doctor
 Initialization creates a root `taskset.config.ts`, the canonical
 `.taskset/tasks/`, `stories/`, `flows/`, `decisions/`, `research/`, and
 `runbooks/` directories, and `.taskset/.gitignore` rules for disposable
-cache, generated data, and non-authoritative safety snapshots.
+cache, per-entity `.generated/` indexes, and non-authoritative safety snapshots.
 
 ## Configuration
 
@@ -138,10 +138,10 @@ repair those inbound relationships in the same failure-safe mutation.
 
 Migration and snapshot restore are dry runs unless `--apply` is supplied.
 Applying a schema migration first creates an immutable snapshot under
-`.taskset/snapshots/`. Generated metadata indexes under `.taskset/generated/`
-cover supported non-ID task metadata fields, group dates by calendar date, keep
-generated filenames readable, and refresh automatically after canonical
-mutations.
+`.taskset/snapshots/`. Generated metadata indexes live beside each entity folder
+under `.generated/` (for example `.taskset/tasks/.generated/`), cover supported
+non-ID metadata fields, group dates by calendar date, keep generated filenames
+readable, and refresh automatically after canonical mutations.
 
 ## Documentation
 

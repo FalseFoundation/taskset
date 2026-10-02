@@ -60,10 +60,11 @@ Treat these as generated or ephemeral unless an owning tool says otherwise:
 - `node_modules/`
 - `dist/`, `build/`, `out/`, `.next/`
 - `.turbo/`, coverage, logs, and `*.tsbuildinfo`
+- `.taskset/tasks/.generated/` and each document-kind `.generated/` directory
 - `.taskset/cache/`
-- `.taskset/generated/`
 - `.taskset/snapshots/`
 - Nextra and Next.js generated website output
+- legacy `.taskset/generated/` (removed by `generate` / `sync`)
 
 Change the source or generator, then regenerate. Never make a manual output edit
 the final implementation.

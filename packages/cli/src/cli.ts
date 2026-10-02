@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
+	DocumentIdSchema,
 	DocumentStatusSchema,
+	DocumentTimestampSchema,
 	TaskIdSchema,
 	TaskPrioritySchema,
 	TaskRiskSchema,
@@ -10,12 +12,20 @@ import {
 	TaskTimestampSchema,
 } from '@taskset/contracts'
 import {
+	buildDocumentGraph,
 	buildTaskIndex,
 	createDocument,
 	createSnapshot,
 	createTask,
+	type DerivedDocumentRelationships,
 	type DerivedTaskRelationships,
+	DOCUMENT_SORT_DIRECTIONS,
+	DOCUMENT_SORT_KEYS,
 	type DocumentBatchOperation,
+	type DocumentQuery,
+	DocumentQuerySchema,
+	type DocumentRecord,
+	deleteDocument,
 	deleteTask,
 	diagnoseRepository,
 	discoverRepository,
@@ -28,6 +38,7 @@ import {
 	migrateTaskIds,
 	normalizeDocumentKind,
 	normalizeRepositoryPath,
+	queryDocuments,
 	queryTasks,
 	RepositoryPathError,
 	readDocument,
@@ -41,7 +52,9 @@ import {
 	type TaskQuery,
 	TaskQuerySchema,
 	type TaskRecord,
+	type UpdateDocumentInput,
 	type UpdateTaskInput,
+	updateDocument,
 	updateTask,
 } from '@taskset/core'
 import * as z from 'zod'
@@ -61,17 +74,20 @@ const USAGE = `Usage:
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
   taskset task migrate-ids [--json] [--cwd <path>]
   taskset sync [--concurrency <count>] [--json] [--cwd <path>]
-  taskset document create <story|flow|decision|adr|dr|research|runbook> --title <title>
+  taskset document create <story|flow|decision|adr|dr|research|runbook> --title <title> [metadata options]
   taskset document import <markdown-path> [--type <type>] [--move]
   taskset document batch <manifest.json> [--concurrency <count>] [--json]
-  taskset document list [type] [--json] [--cwd <path>]
-  taskset document show <document-id> [--type <type>] [--json] [--cwd <path>]
+  taskset document list [type] [query options]
+  taskset document show <document-id> [--type <type>] [--include-derived] [--json]
+  taskset document update <document-id> [metadata options] [--type <type>]
+  taskset document status <document-id> <status> [--type <type>] [--json]
+  taskset document delete <document-id> [--type <type>] [--remove-dependencies] [--json]
 
 Metadata options:
   --status --priority --order --owner --team --estimate --effort --risk --due-date
   --label --assignee --reviewer --depends-on --related --duplicate
   --parent --file --directory --project --body
-  Repeat array options. Task updates clear arrays with --clear-dependencies,
+  Repeat array options. Task and document updates clear arrays with --clear-dependencies,
   --clear-labels, --clear-assignees, --clear-reviewers, --clear-related,
   --clear-files, --clear-directories, or --clear-projects. Clear scalar
   relationships with --clear-parent or --clear-owner.
@@ -139,17 +155,51 @@ const DocumentInputSchema = z.strictObject({
 	type: DocumentKindInputSchema,
 	title: TrimmedStringSchema,
 	status: DocumentStatusSchema.optional(),
+	priority: TaskPrioritySchema.optional(),
+	order: z.number().finite().nonnegative().optional(),
 	labels: StringListSchema.optional(),
-	related: StringListSchema.optional(),
+	dependsOn: TaskIdListSchema.optional(),
+	files: StringListSchema.optional(),
+	owner: TrimmedStringSchema.optional(),
+	assignees: StringListSchema.optional(),
+	reviewers: StringListSchema.optional(),
+	team: TrimmedStringSchema.optional(),
+	estimate: z.number().int().nonnegative().optional(),
+	effort: z.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	dueDate: DocumentTimestampSchema.optional(),
+	related: TaskIdListSchema.optional(),
+	duplicates: TaskIdListSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	directories: StringListSchema.optional(),
+	projects: StringListSchema.optional(),
 	body: z.string().optional(),
 })
-const DocumentUpdateSchema = z.strictObject({
-	title: TrimmedStringSchema.optional(),
-	status: DocumentStatusSchema.optional(),
-	labels: StringListSchema.optional(),
-	related: StringListSchema.optional(),
-	body: z.string().optional(),
-})
+const DocumentUpdateSchema = z
+	.strictObject({
+		title: TrimmedStringSchema.optional(),
+		status: DocumentStatusSchema.optional(),
+		priority: TaskPrioritySchema.nullable().optional(),
+		order: z.number().finite().nonnegative().nullable().optional(),
+		labels: StringListSchema.optional(),
+		dependsOn: TaskIdListSchema.optional(),
+		files: StringListSchema.optional(),
+		owner: TrimmedStringSchema.nullable().optional(),
+		assignees: StringListSchema.optional(),
+		reviewers: StringListSchema.optional(),
+		team: TrimmedStringSchema.nullable().optional(),
+		estimate: z.number().int().nonnegative().nullable().optional(),
+		effort: z.number().finite().nonnegative().nullable().optional(),
+		risk: TaskRiskSchema.nullable().optional(),
+		dueDate: DocumentTimestampSchema.nullable().optional(),
+		related: TaskIdListSchema.optional(),
+		duplicates: TaskIdListSchema.optional(),
+		parent: TaskIdSchema.nullable().optional(),
+		directories: StringListSchema.optional(),
+		projects: StringListSchema.optional(),
+		body: z.string().optional(),
+	})
+	.refine((input) => Object.keys(input).length > 0, 'Document update requires at least one field')
 const DocumentBatchSchema = z
 	.array(
 		z.discriminatedUnion('action', [
@@ -182,6 +232,156 @@ const DocumentBatchSchema = z
 	)
 	.min(1)
 
+const UPDATE_CLEAR_PAIRS = [
+	['priority', 'clear-priority'],
+	['order', 'clear-order'],
+	['label', 'clear-labels'],
+	['depends-on', 'clear-dependencies'],
+	['file', 'clear-files'],
+	['owner', 'clear-owner'],
+	['assignee', 'clear-assignees'],
+	['reviewer', 'clear-reviewers'],
+	['team', 'clear-team'],
+	['estimate', 'clear-estimate'],
+	['effort', 'clear-effort'],
+	['risk', 'clear-risk'],
+	['due-date', 'clear-due-date'],
+	['related', 'clear-related'],
+	['duplicate', 'clear-duplicates'],
+	['parent', 'clear-parent'],
+	['directory', 'clear-directories'],
+	['project', 'clear-projects'],
+] as const
+
+const DocumentCreateValuesSchema = z.strictObject({
+	title: TrimmedStringSchema,
+	status: DocumentStatusSchema.optional(),
+	priority: TaskPrioritySchema.optional(),
+	order: z.coerce.number().finite().nonnegative().optional(),
+	label: StringListSchema.optional(),
+	'depends-on': TaskIdListSchema.optional(),
+	file: StringListSchema.optional(),
+	owner: TrimmedStringSchema.optional(),
+	assignee: StringListSchema.optional(),
+	reviewer: StringListSchema.optional(),
+	team: TrimmedStringSchema.optional(),
+	estimate: z.coerce.number().int().nonnegative().optional(),
+	effort: z.coerce.number().finite().nonnegative().optional(),
+	risk: TaskRiskSchema.optional(),
+	'due-date': DocumentTimestampSchema.optional(),
+	related: TaskIdListSchema.optional(),
+	duplicate: TaskIdListSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	directory: StringListSchema.optional(),
+	project: StringListSchema.optional(),
+	body: z.string().optional(),
+	cwd: CwdSchema,
+	json: JsonSchema,
+})
+
+const DocumentUpdateValuesSchema = z
+	.strictObject({
+		title: TrimmedStringSchema.optional(),
+		status: DocumentStatusSchema.optional(),
+		priority: TaskPrioritySchema.optional(),
+		order: z.coerce.number().finite().nonnegative().optional(),
+		label: StringListSchema.optional(),
+		'depends-on': TaskIdListSchema.optional(),
+		file: StringListSchema.optional(),
+		owner: TrimmedStringSchema.optional(),
+		assignee: StringListSchema.optional(),
+		reviewer: StringListSchema.optional(),
+		team: TrimmedStringSchema.optional(),
+		estimate: z.coerce.number().int().nonnegative().optional(),
+		effort: z.coerce.number().finite().nonnegative().optional(),
+		risk: TaskRiskSchema.optional(),
+		'due-date': DocumentTimestampSchema.optional(),
+		related: TaskIdListSchema.optional(),
+		duplicate: TaskIdListSchema.optional(),
+		parent: TaskIdSchema.optional(),
+		directory: StringListSchema.optional(),
+		project: StringListSchema.optional(),
+		body: z.string().optional(),
+		type: TrimmedStringSchema.optional(),
+		'clear-priority': z.boolean().optional(),
+		'clear-order': z.boolean().optional(),
+		'clear-labels': z.boolean().optional(),
+		'clear-dependencies': z.boolean().optional(),
+		'clear-files': z.boolean().optional(),
+		'clear-owner': z.boolean().optional(),
+		'clear-assignees': z.boolean().optional(),
+		'clear-reviewers': z.boolean().optional(),
+		'clear-team': z.boolean().optional(),
+		'clear-estimate': z.boolean().optional(),
+		'clear-effort': z.boolean().optional(),
+		'clear-risk': z.boolean().optional(),
+		'clear-due-date': z.boolean().optional(),
+		'clear-related': z.boolean().optional(),
+		'clear-duplicates': z.boolean().optional(),
+		'clear-parent': z.boolean().optional(),
+		'clear-directories': z.boolean().optional(),
+		'clear-projects': z.boolean().optional(),
+		cwd: CwdSchema,
+		json: JsonSchema,
+	})
+	.superRefine((values, context) => {
+		for (const [valueKey, clearKey] of UPDATE_CLEAR_PAIRS) {
+			if (values[valueKey] !== undefined && values[clearKey]) {
+				context.addIssue({
+					code: 'custom',
+					path: [clearKey],
+					message: `Cannot set and clear ${valueKey} in the same update`,
+				})
+			}
+		}
+
+		const nonControlKeys = Object.keys(values).filter(
+			(key) => key !== 'cwd' && key !== 'json' && key !== 'type',
+		)
+
+		if (nonControlKeys.length === 0) {
+			context.addIssue({
+				code: 'custom',
+				message: 'Document update requires at least one field option',
+			})
+		}
+	})
+
+const DocumentListValuesSchema = z.strictObject({
+	status: z.array(DocumentStatusSchema).optional(),
+	priority: z.array(TaskPrioritySchema).optional(),
+	label: StringListSchema.optional(),
+	owner: StringListSchema.optional(),
+	assignee: StringListSchema.optional(),
+	reviewer: StringListSchema.optional(),
+	team: StringListSchema.optional(),
+	risk: z.array(TaskRiskSchema).optional(),
+	project: StringListSchema.optional(),
+	'depends-on': TaskIdSchema.optional(),
+	related: TaskIdSchema.optional(),
+	duplicate: TaskIdSchema.optional(),
+	parent: TaskIdSchema.optional(),
+	file: StringListSchema.optional(),
+	directory: StringListSchema.optional(),
+	'estimate-min': z.coerce.number().finite().nonnegative().optional(),
+	'estimate-max': z.coerce.number().finite().nonnegative().optional(),
+	'effort-min': z.coerce.number().finite().nonnegative().optional(),
+	'effort-max': z.coerce.number().finite().nonnegative().optional(),
+	'due-before': DocumentTimestampSchema.optional(),
+	'due-after': DocumentTimestampSchema.optional(),
+	'created-before': DocumentTimestampSchema.optional(),
+	'created-after': DocumentTimestampSchema.optional(),
+	'updated-before': DocumentTimestampSchema.optional(),
+	'updated-after': DocumentTimestampSchema.optional(),
+	search: z.string().optional(),
+	sort: z.enum(DOCUMENT_SORT_KEYS).optional(),
+	direction: z.enum(DOCUMENT_SORT_DIRECTIONS).optional(),
+	impact: z.boolean().optional(),
+	'include-derived': z.boolean().optional(),
+	cwd: CwdSchema,
+	json: JsonSchema,
+})
+
 const CreateValuesSchema = z.strictObject({
 	title: TrimmedStringSchema,
 	status: TaskStatusSchema.optional(),
@@ -207,27 +407,6 @@ const CreateValuesSchema = z.strictObject({
 	cwd: CwdSchema,
 	json: JsonSchema,
 })
-
-const UPDATE_CLEAR_PAIRS = [
-	['priority', 'clear-priority'],
-	['order', 'clear-order'],
-	['label', 'clear-labels'],
-	['depends-on', 'clear-dependencies'],
-	['file', 'clear-files'],
-	['owner', 'clear-owner'],
-	['assignee', 'clear-assignees'],
-	['reviewer', 'clear-reviewers'],
-	['team', 'clear-team'],
-	['estimate', 'clear-estimate'],
-	['effort', 'clear-effort'],
-	['risk', 'clear-risk'],
-	['due-date', 'clear-due-date'],
-	['related', 'clear-related'],
-	['duplicate', 'clear-duplicates'],
-	['parent', 'clear-parent'],
-	['directory', 'clear-directories'],
-	['project', 'clear-projects'],
-] as const
 
 const UpdateValuesSchema = z
 	.strictObject({
@@ -420,6 +599,17 @@ function taskRecordJson(
 	}
 }
 
+function documentRecordJson(
+	record: DocumentRecord,
+	derived?: DerivedDocumentRelationships,
+): Record<string, unknown> {
+	return {
+		relativePath: record.relativePath,
+		...record.document.metadata,
+		...(derived ? { derived } : {}),
+	}
+}
+
 function writeTaskRecord(
 	record: TaskRecord,
 	json: boolean | undefined,
@@ -429,6 +619,18 @@ function writeTaskRecord(
 		stdout(`${JSON.stringify(taskRecordJson(record), null, 2)}\n`)
 	} else {
 		stdout(`${record.task.metadata.id}\n`)
+	}
+}
+
+function writeDocumentRecord(
+	record: DocumentRecord,
+	json: boolean | undefined,
+	stdout: (value: string) => void,
+): void {
+	if (json) {
+		stdout(`${JSON.stringify(documentRecordJson(record), null, 2)}\n`)
+	} else {
+		stdout(`${record.document.metadata.id}\n`)
 	}
 }
 
@@ -449,6 +651,107 @@ function updateInputFromValues(
 	repository: Awaited<ReturnType<typeof discoverRepository>>,
 	values: z.infer<typeof UpdateValuesSchema>,
 ): UpdateTaskInput {
+	return {
+		...(values.title !== undefined ? { title: values.title } : {}),
+		...(values.status !== undefined ? { status: values.status } : {}),
+		...(values['clear-priority']
+			? { priority: null }
+			: values.priority !== undefined
+				? { priority: values.priority }
+				: {}),
+		...(values['clear-order']
+			? { order: null }
+			: values.order !== undefined
+				? { order: values.order }
+				: {}),
+		...(values['clear-labels']
+			? { labels: [] }
+			: values.label !== undefined
+				? { labels: values.label }
+				: {}),
+		...(values['clear-dependencies']
+			? { dependsOn: [] }
+			: values['depends-on'] !== undefined
+				? { dependsOn: values['depends-on'] }
+				: {}),
+		...(values['clear-files']
+			? { files: [] }
+			: values.file !== undefined
+				? { files: normalizeMutationPaths(repository, values.file) }
+				: {}),
+		...(values['clear-owner']
+			? { owner: null }
+			: values.owner !== undefined
+				? { owner: values.owner }
+				: {}),
+		...(values['clear-assignees']
+			? { assignees: [] }
+			: values.assignee !== undefined
+				? { assignees: values.assignee }
+				: {}),
+		...(values['clear-reviewers']
+			? { reviewers: [] }
+			: values.reviewer !== undefined
+				? { reviewers: values.reviewer }
+				: {}),
+		...(values['clear-team']
+			? { team: null }
+			: values.team !== undefined
+				? { team: values.team }
+				: {}),
+		...(values['clear-estimate']
+			? { estimate: null }
+			: values.estimate !== undefined
+				? { estimate: values.estimate }
+				: {}),
+		...(values['clear-effort']
+			? { effort: null }
+			: values.effort !== undefined
+				? { effort: values.effort }
+				: {}),
+		...(values['clear-risk']
+			? { risk: null }
+			: values.risk !== undefined
+				? { risk: values.risk }
+				: {}),
+		...(values['clear-due-date']
+			? { dueDate: null }
+			: values['due-date'] !== undefined
+				? { dueDate: values['due-date'] }
+				: {}),
+		...(values['clear-related']
+			? { related: [] }
+			: values.related !== undefined
+				? { related: values.related }
+				: {}),
+		...(values['clear-duplicates']
+			? { duplicates: [] }
+			: values.duplicate !== undefined
+				? { duplicates: values.duplicate }
+				: {}),
+		...(values['clear-parent']
+			? { parent: null }
+			: values.parent !== undefined
+				? { parent: values.parent }
+				: {}),
+		...(values['clear-directories']
+			? { directories: [] }
+			: values.directory !== undefined
+				? { directories: normalizeMutationPaths(repository, values.directory) }
+				: {}),
+		...(values['clear-projects']
+			? { projects: [] }
+			: values.project !== undefined
+				? { projects: values.project }
+				: {}),
+		...(values.body !== undefined ? { body: values.body } : {}),
+	}
+}
+
+function documentUpdateInputFromValues(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
+	values: z.infer<typeof DocumentUpdateValuesSchema>,
+): UpdateDocumentInput {
 	return {
 		...(values.title !== undefined ? { title: values.title } : {}),
 		...(values.status !== undefined ? { status: values.status } : {}),
@@ -779,41 +1082,46 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				const parsed = parseArgs({
 					args: subcommandArgs,
 					allowPositionals: true,
-					options: {
-						...commonOptionDefinitions,
-						title: { type: 'string' },
-						status: { type: 'string' },
-						label: { type: 'string', multiple: true },
-						related: { type: 'string', multiple: true },
-						body: { type: 'string' },
-					},
+					options: { ...metadataOptionDefinitions, ...commonOptionDefinitions },
 				})
 				const [rawType] = requirePositionals(parsed.positionals, 1, 'exactly one document type')
 				const values = parseSchema(
-					z.strictObject({
-						title: TrimmedStringSchema,
-						status: DocumentStatusSchema.optional(),
-						label: StringListSchema.optional(),
-						related: StringListSchema.optional(),
-						body: z.string().optional(),
-						cwd: CwdSchema,
-						json: JsonSchema,
-					}),
+					DocumentCreateValuesSchema,
 					parsed.values,
 					'document create options',
 				)
 				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
-				const record = await createDocument(repository, {
-					type: normalizeDocumentKind(parseSchema(z.string(), rawType, 'document type')),
-					title: values.title,
-					...(values.status ? { status: values.status } : {}),
-					...(values.label ? { labels: values.label } : {}),
-					...(values.related ? { related: values.related } : {}),
-					...(values.body !== undefined ? { body: values.body } : {}),
-				})
-				stdout(
-					values.json ? `${JSON.stringify(record, null, 2)}\n` : `${record.document.metadata.id}\n`,
+				const record = await createDocument(
+					repository,
+					{
+						type: normalizeDocumentKind(parseSchema(z.string(), rawType, 'document type')),
+						title: values.title,
+						...(values.status ? { status: values.status } : {}),
+						...(values.priority ? { priority: values.priority } : {}),
+						...(values.order !== undefined ? { order: values.order } : {}),
+						...(values.label ? { labels: values.label } : {}),
+						...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
+						...(values.file ? { files: normalizeMutationPaths(repository, values.file) } : {}),
+						...(values.owner ? { owner: values.owner } : {}),
+						...(values.assignee ? { assignees: values.assignee } : {}),
+						...(values.reviewer ? { reviewers: values.reviewer } : {}),
+						...(values.team ? { team: values.team } : {}),
+						...(values.estimate !== undefined ? { estimate: values.estimate } : {}),
+						...(values.effort !== undefined ? { effort: values.effort } : {}),
+						...(values.risk ? { risk: values.risk } : {}),
+						...(values['due-date'] ? { dueDate: values['due-date'] } : {}),
+						...(values.related ? { related: values.related } : {}),
+						...(values.duplicate ? { duplicates: values.duplicate } : {}),
+						...(values.parent ? { parent: values.parent } : {}),
+						...(values.directory
+							? { directories: normalizeMutationPaths(repository, values.directory) }
+							: {}),
+						...(values.project ? { projects: values.project } : {}),
+						...(values.body !== undefined ? { body: values.body } : {}),
+					},
+					{ onWarning },
 				)
+				writeDocumentRecord(record, values.json, stdout)
 				return 0
 			}
 
@@ -858,22 +1166,120 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				const parsed = parseArgs({
 					args: subcommandArgs,
 					allowPositionals: true,
-					options: commonOptionDefinitions,
+					options: {
+						cwd: { type: 'string' },
+						json: { type: 'boolean' },
+						status: { type: 'string', multiple: true },
+						priority: { type: 'string', multiple: true },
+						label: { type: 'string', multiple: true },
+						owner: { type: 'string', multiple: true },
+						assignee: { type: 'string', multiple: true },
+						reviewer: { type: 'string', multiple: true },
+						team: { type: 'string', multiple: true },
+						risk: { type: 'string', multiple: true },
+						project: { type: 'string', multiple: true },
+						'depends-on': { type: 'string' },
+						related: { type: 'string' },
+						duplicate: { type: 'string' },
+						parent: { type: 'string' },
+						file: { type: 'string', multiple: true },
+						directory: { type: 'string', multiple: true },
+						'estimate-min': { type: 'string' },
+						'estimate-max': { type: 'string' },
+						'effort-min': { type: 'string' },
+						'effort-max': { type: 'string' },
+						'due-before': { type: 'string' },
+						'due-after': { type: 'string' },
+						'created-before': { type: 'string' },
+						'created-after': { type: 'string' },
+						'updated-before': { type: 'string' },
+						'updated-after': { type: 'string' },
+						search: { type: 'string' },
+						sort: { type: 'string' },
+						direction: { type: 'string' },
+						impact: { type: 'boolean' },
+						'include-derived': { type: 'boolean' },
+					},
 				})
 				if (parsed.positionals.length > 1)
 					throw new CliUsageError('Expected at most one document type')
-				const values = parseSchema(CommonValuesSchema, parsed.values, 'document list options')
-				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
-				const records = await listDocuments(
-					repository,
-					parsed.positionals[0] ? normalizeDocumentKind(parsed.positionals[0]) : undefined,
+				const values = parseSchema(DocumentListValuesSchema, parsed.values, 'document list options')
+				const typeFilter = parsed.positionals[0]
+					? normalizeDocumentKind(parsed.positionals[0])
+					: undefined
+				const query = parseSchema(
+					DocumentQuerySchema,
+					{
+						...(typeFilter ? { types: [typeFilter] } : {}),
+						...(values.status ? { statuses: values.status } : {}),
+						...(values.priority ? { priorities: values.priority } : {}),
+						...(values.label ? { labels: values.label } : {}),
+						...(values.owner ? { owners: values.owner } : {}),
+						...(values.assignee ? { assignees: values.assignee } : {}),
+						...(values.reviewer ? { reviewers: values.reviewer } : {}),
+						...(values.team ? { teams: values.team } : {}),
+						...(values.risk ? { risks: values.risk } : {}),
+						...(values.project ? { projects: values.project } : {}),
+						...(values['depends-on'] ? { dependsOn: values['depends-on'] } : {}),
+						...(values.related ? { related: values.related } : {}),
+						...(values.duplicate ? { duplicate: values.duplicate } : {}),
+						...(values.parent ? { parent: values.parent } : {}),
+						...(values.file ? { files: values.file } : {}),
+						...(values.directory ? { directories: values.directory } : {}),
+						...(values['estimate-min'] !== undefined
+							? { estimateMin: values['estimate-min'] }
+							: {}),
+						...(values['estimate-max'] !== undefined
+							? { estimateMax: values['estimate-max'] }
+							: {}),
+						...(values['effort-min'] !== undefined ? { effortMin: values['effort-min'] } : {}),
+						...(values['effort-max'] !== undefined ? { effortMax: values['effort-max'] } : {}),
+						...(values['due-before'] ? { dueBefore: values['due-before'] } : {}),
+						...(values['due-after'] ? { dueAfter: values['due-after'] } : {}),
+						...(values['created-before'] ? { createdBefore: values['created-before'] } : {}),
+						...(values['created-after'] ? { createdAfter: values['created-after'] } : {}),
+						...(values['updated-before'] ? { updatedBefore: values['updated-before'] } : {}),
+						...(values['updated-after'] ? { updatedAfter: values['updated-after'] } : {}),
+						...(values.search !== undefined ? { text: values.search } : {}),
+						...(values.sort ? { sortBy: values.sort } : {}),
+						...(values.direction ? { direction: values.direction } : {}),
+						...(values.impact ? { impact: true } : {}),
+					} satisfies DocumentQuery,
+					'document list query',
 				)
-				if (values.json) stdout(`${JSON.stringify(records, null, 2)}\n`)
-				else
-					for (const record of records)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const result = await queryDocuments(repository, query)
+				const derivedGraph = values['include-derived']
+					? buildDocumentGraph(await listDocuments(repository))
+					: undefined
+				const serialize = (record: DocumentRecord) =>
+					documentRecordJson(record, derivedGraph?.derive(record.document.metadata.id))
+
+				if (values.json) {
+					stdout(
+						`${JSON.stringify(
+							values.impact
+								? {
+										direct: result.direct.map(serialize),
+										impacted: result.impacted.map(serialize),
+									}
+								: result.direct.map(serialize),
+							null,
+							2,
+						)}\n`,
+					)
+				} else {
+					for (const record of result.direct) {
 						stdout(
-							`${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
+							`${values.impact ? 'direct\t' : ''}${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
 						)
+					}
+					for (const record of result.impacted) {
+						stdout(
+							`impact\t${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
+						)
+					}
+				}
 				return 0
 			}
 
@@ -881,25 +1287,153 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				const parsed = parseArgs({
 					args: subcommandArgs,
 					allowPositionals: true,
-					options: { ...commonOptionDefinitions, type: { type: 'string' } },
+					options: {
+						...commonOptionDefinitions,
+						type: { type: 'string' },
+						'include-derived': { type: 'boolean' },
+					},
 				})
 				const [id] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
 				const values = parseSchema(
-					z.strictObject({ ...CommonValuesSchema.shape, type: TrimmedStringSchema.optional() }),
+					z.strictObject({
+						...CommonValuesSchema.shape,
+						type: TrimmedStringSchema.optional(),
+						'include-derived': z.boolean().optional(),
+					}),
 					parsed.values,
 					'document show options',
 				)
 				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const validatedId = parseSchema(DocumentIdSchema, id, 'document ID')
 				const record = await readDocument(
 					repository,
-					parseSchema(z.string(), id, 'document ID'),
+					validatedId,
 					values.type ? normalizeDocumentKind(values.type) : undefined,
 				)
-				stdout(
-					values.json
-						? `${JSON.stringify(record, null, 2)}\n`
-						: serializeDocumentFile(record.document),
+
+				if (values.json) {
+					const derived = values['include-derived']
+						? buildDocumentGraph(await listDocuments(repository)).derive(validatedId)
+						: undefined
+					stdout(
+						`${JSON.stringify(
+							{
+								relativePath: record.relativePath,
+								metadata: record.document.metadata,
+								body: record.document.body,
+								...(derived ? { derived } : {}),
+							},
+							null,
+							2,
+						)}\n`,
+					)
+				} else {
+					stdout(serializeDocumentFile(record.document))
+				}
+				return 0
+			}
+
+			if (subcommand === 'update') {
+				const clearDefinitions = Object.fromEntries(
+					UPDATE_CLEAR_PAIRS.map(([, clear]) => [clear, { type: 'boolean' as const }]),
 				)
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: {
+						...metadataOptionDefinitions,
+						...clearDefinitions,
+						...commonOptionDefinitions,
+						type: { type: 'string' },
+					},
+				})
+				const [documentId] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
+				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const values = parseSchema(
+					DocumentUpdateValuesSchema,
+					parsed.values,
+					'document update options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await updateDocument(
+					repository,
+					validatedDocumentId,
+					documentUpdateInputFromValues(repository, values),
+					values.type ? normalizeDocumentKind(values.type) : undefined,
+					{ onWarning },
+				)
+				writeDocumentRecord(record, values.json, stdout)
+				return 0
+			}
+
+			if (subcommand === 'status') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: { ...commonOptionDefinitions, type: { type: 'string' } },
+				})
+				const [documentId, status] = requirePositionals(
+					parsed.positionals,
+					2,
+					'a document ID and status',
+				)
+				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const validatedStatus = parseSchema(DocumentStatusSchema, status, 'document status')
+				const values = parseSchema(
+					z.strictObject({ ...CommonValuesSchema.shape, type: TrimmedStringSchema.optional() }),
+					parsed.values,
+					'document status options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await updateDocument(
+					repository,
+					validatedDocumentId,
+					{ status: validatedStatus },
+					values.type ? normalizeDocumentKind(values.type) : undefined,
+					{ onWarning },
+				)
+				writeDocumentRecord(record, values.json, stdout)
+				return 0
+			}
+
+			if (subcommand === 'delete') {
+				const parsed = parseArgs({
+					args: subcommandArgs,
+					allowPositionals: true,
+					options: {
+						...commonOptionDefinitions,
+						type: { type: 'string' },
+						'remove-dependencies': { type: 'boolean' },
+					},
+				})
+				const [documentId] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
+				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const values = parseSchema(
+					z.strictObject({
+						cwd: CwdSchema,
+						json: JsonSchema,
+						type: TrimmedStringSchema.optional(),
+						'remove-dependencies': z.boolean().optional(),
+					}),
+					parsed.values,
+					'document delete options',
+				)
+				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
+				const record = await deleteDocument(
+					repository,
+					validatedDocumentId,
+					values.type ? normalizeDocumentKind(values.type) : undefined,
+					{
+						removeDependencies: values['remove-dependencies'],
+						onWarning,
+					},
+				)
+
+				if (values.json) {
+					stdout(`${JSON.stringify({ deleted: true, ...documentRecordJson(record) }, null, 2)}\n`)
+				} else {
+					stdout(`${validatedDocumentId}\n`)
+				}
 				return 0
 			}
 

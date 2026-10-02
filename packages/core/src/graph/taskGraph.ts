@@ -162,19 +162,25 @@ export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskG
 	for (const record of orderedRecords) {
 		const { metadata } = record.task
 		const taskId = metadata.id
+		// `related` and `duplicates` may point at documents or other external
+		// IDs; only same-collection edges (`dependsOn`, `parent`) require a
+		// local task target.
 		const relationships = [
-			{ field: 'dependsOn' as const, values: metadata.dependsOn ?? [] },
+			{ field: 'dependsOn' as const, values: metadata.dependsOn ?? [], requireTarget: true },
 			{
 				field: 'related' as const,
 				values: metadata.related ?? [],
+				requireTarget: false,
 			},
 			{
 				field: 'duplicates' as const,
 				values: metadata.duplicates ?? [],
+				requireTarget: false,
 			},
 			{
 				field: 'parent' as const,
 				values: metadata.parent !== undefined ? [metadata.parent] : [],
+				requireTarget: true,
 			},
 		]
 
@@ -189,7 +195,7 @@ export function inspectTaskGraph(records: readonly TaskRecord[]): readonly TaskG
 						path: record.relativePath,
 						message: `Task ${taskId} cannot reference itself through ${relationship.field}`,
 					})
-				} else if (!recordsById.has(relatedTaskId)) {
+				} else if (relationship.requireTarget && !recordsById.has(relatedTaskId)) {
 					diagnostics.push({
 						code: relationship.field === 'dependsOn' ? 'missing-dependency' : 'missing-reference',
 						field: relationship.field,

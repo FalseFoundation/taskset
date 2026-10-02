@@ -22,8 +22,14 @@ export const DOCUMENT_DIRECTORY_NAMES = Object.freeze({
 	research: 'research',
 	runbook: 'runbooks',
 } as const)
-export const GENERATED_DIRECTORY_NAME = 'generated'
+export const GENERATED_DIRECTORY_NAME = '.generated'
 export const SNAPSHOTS_DIRECTORY_NAME = 'snapshots'
+export const LEGACY_GENERATED_DIRECTORY_NAME = 'generated'
+
+/** Disposable metadata-index directory scoped to one entity folder. */
+export function entityGeneratedDirectory(entityDirectory: string): string {
+	return path.join(entityDirectory, GENERATED_DIRECTORY_NAME)
+}
 
 export interface ResolvedTaskDefaults {
 	readonly status: TaskStatus
@@ -48,9 +54,18 @@ export interface Repository {
 	readonly dataDirectory: string
 	readonly tasksDirectory: string
 	readonly documentsDirectory: string
+	/** Task-scoped disposable views at `.taskset/tasks/.generated/`. */
 	readonly generatedDirectory: string
 	readonly snapshotsDirectory: string
 	readonly config: ResolvedConfig
+}
+
+/** Canonical directory for one document kind under `.taskset/`. */
+export function documentKindDirectory(
+	repository: Repository,
+	type: keyof typeof DOCUMENT_DIRECTORY_NAMES,
+): string {
+	return path.join(repository.documentsDirectory, DOCUMENT_DIRECTORY_NAMES[type])
 }
 
 export const RepositorySchema = z.strictObject({
@@ -245,14 +260,15 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 	}
 
 	const dataDirectory = path.join(resolvedRoot, DATA_DIRECTORY_NAME)
+	const tasksDirectory = path.join(dataDirectory, TASKS_DIRECTORY_NAME)
 
 	return Object.freeze({
 		rootDirectory: resolvedRoot,
 		configPath,
 		dataDirectory,
-		tasksDirectory: path.join(dataDirectory, TASKS_DIRECTORY_NAME),
+		tasksDirectory,
 		documentsDirectory: dataDirectory,
-		generatedDirectory: path.join(dataDirectory, GENERATED_DIRECTORY_NAME),
+		generatedDirectory: entityGeneratedDirectory(tasksDirectory),
 		snapshotsDirectory: path.join(dataDirectory, SNAPSHOTS_DIRECTORY_NAME),
 		config: resolveConfig(configResult.data),
 	})

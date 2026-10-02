@@ -19,9 +19,11 @@ For persisted format changes:
 
 For generated indexes and views:
 
-1. Delete the derived state.
-2. Rebuild it from canonical entities.
+1. Delete the derived state under each entity folder's `.generated/` directory.
+2. Rebuild it from canonical entities in that folder's scope.
 3. Verify equivalent observable output and stale-file removal.
+4. Confirm `.taskset/.gitignore` ignores `**/.generated/` and staging
+   `**/.generated.*/` paths; do not revive a global `.taskset/generated/`.
 
 For concurrency-sensitive writes, test stale reads, competing updates, and
 partial failures. Do not imply database-style transaction guarantees that the

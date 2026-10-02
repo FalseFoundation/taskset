@@ -365,7 +365,7 @@ describe('runCli', () => {
 				stderr: generateOutput.writeStderr,
 			}),
 		).toBe(0)
-		expect(JSON.parse(generateOutput.stdout).files).toContain('assignees/maintainer.md')
+		expect(JSON.parse(generateOutput.stdout).files).toContain('tasks/assignees/maintainer.md')
 
 		const snapshotOutput = createOutput()
 		expect(
@@ -602,8 +602,8 @@ describe('runCli', () => {
 			cwd,
 			stdout: created.writeStdout,
 		})
-		const dataDirectory = path.join(cwd, '.taskset')
-		await chmod(dataDirectory, 0o555)
+		const storiesDirectory = path.join(cwd, '.taskset', 'stories')
+		await chmod(storiesDirectory, 0o555)
 		const output = createOutput()
 
 		try {
@@ -615,7 +615,7 @@ describe('runCli', () => {
 				}),
 			).toBe(0)
 		} finally {
-			await chmod(dataDirectory, 0o755)
+			await chmod(storiesDirectory, 0o755)
 		}
 
 		expect(output.stderr).toContain('warning:')

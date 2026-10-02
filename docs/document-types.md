@@ -7,7 +7,8 @@ description: Canonical stories, flows, decisions, research, and runbooks.
 
 Taskset stores durable project context beside tasks without forcing every note
 into a task lifecycle. Each type has strict common frontmatter and a body
-template suited to its purpose.
+template suited to its purpose. Documents use the same planning, people, path,
+and relationship metadata fields as tasks, with document-specific statuses.
 
 | Type | Directory | Template focus |
 | --- | --- | --- |
@@ -23,12 +24,29 @@ Create a document from its template:
 taskset document create story --title "Member signs in via SSO"
 taskset document create flow --title "Recover a delayed deposit"
 taskset document create adr --title "Use transactional outbox"
-taskset document create research --title "Evaluate queue providers"
+taskset document create research --title "Evaluate queue providers" --related <task-id>
 taskset document create runbook --title "Recover consumer lag"
 ```
 
 IDs and filenames use a per-type seven-digit sequence and title slug, for
-example `.taskset/flows/0000001-member-signs-in-via-sso.md`.
+example `.taskset/flows/0000001-member-signs-in-via-sso.md`. Disposable metadata
+indexes for that kind live beside the files in `.taskset/flows/.generated/`.
+
+## Query And Mutation
+
+Documents support the same command surface as tasks:
+
+```bash
+taskset document list research --search "queue" --owner platform --impact
+taskset document show <document-id> --type research --include-derived --json
+taskset document update <document-id> --status ready --label infra --file packages/core
+taskset document status <document-id> accepted --type decision
+taskset document delete <document-id> --remove-dependencies
+```
+
+Statuses are `draft`, `ready`, `active`, `accepted`, `superseded`, and
+`archived`. `--related` may point at tasks or documents. `--depends-on` and
+`--parent` must resolve to other Taskset documents.
 
 ## Import Existing Markdown
 
@@ -76,5 +94,7 @@ taskset sync --concurrency 8
 
 `taskset sync` creates missing document-kind directories inside `.taskset`,
 migrates legacy task filenames and references throughout repository text files,
-and rebuilds generated views. Build outputs, dependencies, caches, snapshots,
-and Git internals are excluded from reference rewriting.
+refreshes data `.gitignore` rules for scoped `.generated/` directories, removes
+legacy global `.taskset/generated/`, and rebuilds generated views. Build
+outputs, dependencies, caches, snapshots, and Git internals are excluded from
+reference rewriting.

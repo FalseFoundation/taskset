@@ -14,10 +14,10 @@ export { CONFIG_FILE_NAME, loadRepository }
 
 const DEFAULT_CONFIG_SOURCE = `export default {}
 `
-const DEFAULT_DATA_IGNORE_SOURCE = `cache/
-generated/
-generated.*/
+export const DEFAULT_DATA_IGNORE_SOURCE = `cache/
 snapshots/
+**/.generated/
+**/.generated.*/
 `
 
 function isExistingFile(error: unknown): error is NodeJS.ErrnoException {

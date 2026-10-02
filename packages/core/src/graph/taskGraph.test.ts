@@ -69,7 +69,6 @@ describe('task graph', () => {
 		expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
 			'duplicate-id',
 			'missing-dependency',
-			'missing-reference',
 			'self-dependency',
 		])
 		expect(() =>
