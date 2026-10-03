@@ -9,7 +9,8 @@ workspace: not only tasks, but the plans, research, decisions, flows, and
 runbooks that make delivery coherent.
 
 It is a Git-native software delivery platform. Stories, flows, decisions,
-research, runbooks, and tasks live beside the code as human-readable Markdown.
+research, runbooks, lessons, concerns, audits, and tasks live beside the code as
+human-readable Markdown.
 
 Vision: become the Git-native operating system for software delivery.
 
@@ -30,7 +31,10 @@ Design for:
   repositories
 
 Near-term work should keep the task and supporting-document workflows coherent
-before inventing additional entity kinds or investing heavily in new interfaces.
+before inventing freeform kinds (`note`, `rfc`, `epic`, `spec`) or investing
+heavily in new interfaces. Operational memory kinds (`lesson`, `concern`,
+`audit`) are first-class document kinds under the existing document command
+surface.
 
 ## Source-of-Truth Model
 
@@ -49,6 +53,12 @@ Canonical project state lives under `.taskset/`.
 ├── research/
 │   └── .generated/
 ├── runbooks/
+│   └── .generated/
+├── lessons/
+│   └── .generated/
+├── concerns/
+│   └── .generated/
+├── audits/
 │   └── .generated/
 ├── snapshots/
 └── cache/

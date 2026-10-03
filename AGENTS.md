@@ -11,7 +11,11 @@ Use Taskset to plan, research, decide, operate, and track repository work as Mar
 | Evidence and options | `research` | `taskset document create research --title "…"` |
 | Lasting choice | `decision` / `adr` | `taskset document create adr --title "…"` |
 | Recovery procedure | `runbook` | `taskset document create runbook --title "…"` |
+| Recurring mistake / pattern | `lesson` | `taskset document create lesson --title "…"` |
+| Open residual risk | `concern` | `taskset document create concern --title "…"` |
+| Spot-check / inventory | `audit` | `taskset document create audit --title "…"` |
 | Executable work | `task` | `taskset task create --title "…"` |
+| Program health | parent task | `taskset task program <parent-id> --json` |
 
 Link related entities with `--related`. Keep scratch checklists in the task body. Promote durable memory into documents mid-work.
 
@@ -39,17 +43,24 @@ Project or global installs also expose the `taskset` binary. Do not require `pnp
 
 - Canonical state is `.taskset/**/*.md`
 - Prefer CLI mutations over hand-editing canonical files when a command exists
-- Cite short hex ids (`a1b2c3`), never filename sequence prefixes
+- Commands and `--related` use short hex `id` values (`a1b2c3`). Filename
+  sequence prefixes (`0000001-…`) are display metadata only—never identity.
+- Markdown hyperlinks to docs, skills, or `.taskset/` files must use the
+  repository-relative filepath (for example `docs/memory-model.md` or
+  `.taskset/decisions/0000003-…-81c92d.md`). Do not use a bare hex id as a
+  link target.
 - Prefer `--json`
 - Create follow-up tasks or checklist subtasks for newly discovered work
-- Create research, decision, runbook, story, or flow documents for durable evidence and choices
+- Create research, decision, runbook, story, flow, lesson, concern, or audit documents for durable evidence, choices, and operational memory
 - Keep statuses current mid-work
 
 ## Read next
 
-- `docs/agents/index.md`
-- `docs/agents/workflows.md`
-- `docs/agents/commands.md`
-- `docs/document-types.md`
-- `skills/taskset/SKILL.md`
-- `docs/cli-reference.md`
+- [Agent guide](docs/agents/index.md)
+- [Agent workflows](docs/agents/workflows.md)
+- [Agent commands](docs/agents/commands.md)
+- [Query recipes](docs/agents/query-recipes.md)
+- [Document types](docs/document-types.md)
+- [Memory model](docs/memory-model.md)
+- [Taskset skill](skills/taskset/SKILL.md)
+- [CLI reference](docs/cli-reference.md)

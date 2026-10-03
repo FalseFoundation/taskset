@@ -1,6 +1,6 @@
 ---
 title: Follow agent workflows in Taskset
-description: Ownership checks, mid-work updates, documents, and monorepo habits for agent operators.
+description: Ownership checks, mid-work updates, operational memory, and monorepo habits for agent operators.
 contentType: How-to
 navLabel: Agent Workflows
 ---
@@ -25,9 +25,11 @@ Matching ownership does not override blockers. A generic instruction such as “
 - Create child tasks (`--parent`) or checklist items (`- [ ]`) for newly discovered work
 - Check off finished checklist items as `- [x]`
 - Mark finished child tasks `done`
-- Create research, decision, runbook, story, or flow documents when evidence or lasting choices appear
-- Link documents and tasks with `--related`
-- Update a primary skill when the session designates one and a lasting lesson emerges
+- Create research, decision, runbook, story, flow, lesson, concern, or audit documents when evidence, lasting choices, recurring patterns, or residual risks appear
+- Link documents and tasks with `--related` (short hex ids in CLI flags)
+- When linking to those files in Markdown prose, use the repository-relative filepath
+- Update a primary skill when the session designates one and a lasting lesson emerges; if a lesson uses `--related-skill`, update those skill paths in the same change
+- For multi-task programs, inspect health with `taskset task program <parent-id> --json`
 
 Do not leave discovered work only in chat.
 
@@ -35,8 +37,11 @@ Do not leave discovered work only in chat.
 
 1. Confirm acceptance criteria are met
 2. Confirm every tracked subtask is finished or intentionally resolved
-3. Set the parent task to `done`
-4. Run the repository’s relevant tests or `taskset doctor --json` when the change touched contracts or many files
+3. Confirm related lessons/concerns/audits exist when the work produced them
+4. Set the parent task to `done` only after children and checklists are complete
+5. Run `taskset doctor --json` when the change touched contracts, taxonomy, or many files
+
+See [Agent closeout](../agent-closeout.md) for the full contract and optional config gates.
 
 ## Monorepo habits
 
@@ -44,7 +49,12 @@ Do not leave discovered work only in chat.
 - Record `--depends-on` only for real execution prerequisites
 - Attach the narrowest accurate `--file` or `--directory` scopes
 - Validate the changed package and affected dependents
+- Reuse taxonomy labels and projects; do not invent one-off tags when allowlists exist
 
 ## Batch and sync
 
 Use `taskset document batch manifest.json --json` for multi-document jobs. Use `taskset sync --json` after upgrades or when filenames, ids, or generated views need repair.
+
+## Discovery recipes
+
+Copy-paste JSON recipes for open concerns, lessons, and program blockers live in [Query recipes](query-recipes.md).

@@ -7,7 +7,7 @@ navLabel: CLI Reference
 
 # Look up Taskset CLI commands
 
-The `taskset` command is a thin adapter over `@taskset/core` for the full Taskset surface: stories, flows, research, decisions, runbooks, and tasks. It parses arguments, validates options, calls core operations, and renders human or JSON output.
+The `taskset` command is a thin adapter over `@taskset/core` for the full Taskset surface: stories, flows, research, decisions, runbooks, lessons, concerns, audits, and tasks. It parses arguments, validates options, calls core operations, and renders human or JSON output.
 
 Invoke it with `npx @taskset/cli`, `pnpm dlx @taskset/cli`, `yarn dlx @taskset/cli`, `bunx @taskset/cli`, a project binary, or a global install. Examples below use `taskset` directly.
 
@@ -82,13 +82,14 @@ Human output is the config file path when a config exists, or `defaults (<root-d
 taskset doctor [--json] [--cwd <path>]
 ```
 
-Validates the repository without modifying files. It scans canonical task
-metadata, paths, and graph relationships.
+Validates the repository without modifying files. It scans canonical task and
+document metadata, paths, graph relationships, required template headings for
+operational kinds, taxonomy allowlists, and optional closeout gaps.
 
 Human success output:
 
 ```text
-Taskset repository is valid (<count> tasks)
+Taskset repository is valid (<count> tasks, <count> documents)
 ```
 
 Human failure output is tab-separated:
@@ -97,8 +98,8 @@ Human failure output is tab-separated:
 <code>	<path-or->	<message>	<remediation>
 ```
 
-JSON output is the full doctor result, including `valid`, `taskCount`, and
-diagnostics.
+JSON output is the full doctor result, including `valid`, `taskCount`,
+`documentCount`, and diagnostics. Warnings do not fail the command; errors do.
 
 ### `generate`
 
@@ -375,6 +376,19 @@ remove those inbound references and delete the target in one mutation.
 Human output is the deleted task ID. JSON output contains `deleted: true`
 alongside the deleted task record.
 
+### `task program`
+
+```bash
+taskset task program <parent-id> [--json] [--cwd <path>]
+```
+
+Summarizes a parent task as a program rollup: child counts by status, open child
+IDs, blocked dependency edges, related open concerns, related research not yet
+accepted, parent checklist completion, and `closeoutReady`.
+
+Human output is one tab-separated summary line. JSON output is the full rollup
+object.
+
 ### `task migrate-ids`
 
 ```bash
@@ -403,7 +417,8 @@ sent to stderr.
 ## Document Commands
 
 `document` may be shortened to `doc`. Supported types are `story`, `flow`,
-`decision`, `research`, and `runbook`; `adr` and `dr` alias `decision`.
+`decision`, `research`, `runbook`, `lesson`, `concern`, and `audit`. Aliases:
+`adr` / `dr` → `decision`; `antipattern` → `lesson`.
 
 ```bash
 taskset document create <type> --title <title> [metadata options]
@@ -417,15 +432,19 @@ taskset document delete <document-id> [--type <type>] [--remove-dependencies] [-
 ```
 
 Create uses the type-specific template unless `--body` is supplied and accepts
-the same metadata options as `task create`. Import preserves the Markdown body
-and infers type from a recognized parent directory when possible. It copies by
-default; `--move` deletes the source only after the canonical document is
+the same metadata options as `task create`, plus lesson/concern options:
+`--severity`, repeatable `--related-skill`, repeatable `--pack`, `--class`, and
+`--cadence`. Lesson/concern/audit templates are validated for required headings.
+Import preserves the Markdown body and infers type from a recognized parent
+directory when possible (`lessons/`, `concerns/`, `audits/` included). It copies
+by default; `--move` deletes the source only after the canonical document is
 written successfully.
 
 List, show, update, status, and delete mirror the task commands, including
 search, filters, sort, impact, derived relationships, clear flags, and
-guarded deletion. Document statuses are `draft`, `ready`, `active`, `accepted`,
-`superseded`, and `archived`.
+guarded deletion. Document list also accepts `--class` and `--severity`. Document
+statuses are `draft`, `ready`, `active`, `accepted`, `superseded`, and
+`archived`.
 
 Batch manifests contain an array of `create`, `import`, `update`, and `export`
 operations. Work is paced with bounded concurrency, results preserve manifest

@@ -117,12 +117,15 @@ Non-negotiable rules:
 - Canonical task files use one strict versionless metadata shape. Versioned
   task frontmatter and unknown fields are rejected.
 - Canonical supporting documents live in kind-specific `.taskset/` directories:
-  stories, flows, decisions, research, and runbooks. Use their shared strict
-  metadata (aligned with task planning, people, path, and relationship fields)
-  and kind-specific body templates instead of modeling every durable document
-  as a task. Documents expose the same create, update, status, delete, list
-  query, search, impact, and derived-relationship operations as tasks, with
-  document-specific statuses.
+  stories, flows, decisions, research, runbooks, lessons, concerns, and audits.
+  Use their shared strict metadata (aligned with task planning, people, path,
+  and relationship fields), kind-specific optional fields (`severity` /
+  `relatedSkills` / `packs` for lessons; `class` / `cadence` for concerns), and
+  kind-specific body templates instead of modeling every durable document as a
+  task. Documents expose the same create, update, status, delete, list query,
+  search, impact, and derived-relationship operations as tasks, with
+  document-specific statuses. Optional closeout gates, taxonomy allowlists, and
+  `taskset task program` rollups extend delivery without a second tracker.
 - Document mutations, imports, exports, and batches belong to core. The CLI
   validates manifests and renders output only. Use TanStack Pacer for bounded
   heavy batches and migrations, emit count and percentage progress, preserve

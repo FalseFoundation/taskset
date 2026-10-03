@@ -74,7 +74,10 @@ taskset task list
 taskset document list --json
 ```
 
-You can read every file directly in the editor without the CLI. Cite entities by short hex `id`, never by filename sequence prefixes.
+You can read every file directly in the editor without the CLI. Use short hex
+`id` values in commands and `--related`. Filename sequence prefixes are display
+metadata only. Markdown hyperlinks to entity or docs files must use the
+repository-relative filepath (for example [document types](document-types.md)).
 
 ## Query and validate the graph
 
@@ -100,7 +103,9 @@ Completed and canceled tasks are terminal. Deletion fails while another task dep
 ## Next
 
 - [Choose a document type](document-types.md)
+- [Choose memory layers](memory-model.md)
 - [Understand task files](task-files.md)
 - [Configure defaults](configuration.md)
 - [Use the complete CLI reference](cli-reference.md)
 - [Follow the agent guide](agents/index.md)
+- [Query recipes for agents](agents/query-recipes.md)

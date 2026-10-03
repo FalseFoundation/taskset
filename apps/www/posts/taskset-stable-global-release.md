@@ -72,7 +72,7 @@ Those chapters are the path to this stable line. The contract is deliberate: Mar
 
 ## Start here
 
-- [Keep the whole delivery story beside the code](/docs)
-- [Start a Taskset repository](/docs/getting-started)
-- [Operate Taskset as an agent](/docs/agents)
+- [Keep the whole delivery story beside the code](/docs) ([`docs/index.md`](../../docs/index.md))
+- [Start a Taskset repository](/docs/getting-started) ([`docs/getting-started.md`](../../docs/getting-started.md))
+- [Operate Taskset as an agent](/docs/agents) ([`docs/agents/index.md`](../../docs/agents/index.md))
 - Package: [`@taskset/cli`](https://www.npmjs.com/package/@taskset/cli)

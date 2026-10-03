@@ -26,7 +26,7 @@ taskset document show b2c3d4 --type research --json
 taskset task update a1b2c3 --related b2c3d4
 ```
 
-Cite the short `id` in commands, relationships, handoffs, and PR notes. Do not cite `0000001` from the filename as identity. That prefix can change when sync repairs collisions.
+Cite the short `id` in commands, frontmatter relationships, JSON handoffs, and inline mentions. Do not cite `0000001` from the filename as identity—that prefix is display metadata and can change when sync repairs collisions. When you need a clickable Markdown link to the file itself, use the repository-relative filepath (for example `.taskset/tasks/0000001-add-validation-a1b2c3.md`), not a bare hex id as the link target.
 
 ## Upgrade path
 

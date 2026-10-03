@@ -62,6 +62,17 @@ describe('repository discovery and optional config', () => {
 				statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 				priorities: ['low', 'medium', 'high', 'urgent'],
 			},
+			closeout: {
+				enforceChildCompletion: false,
+				blockDoneWithOpenConcerns: false,
+				requireLessonWhenLabeled: [],
+			},
+			taxonomy: {
+				mode: 'error',
+			},
+			doctor: {
+				activeConcernRequiresOwner: false,
+			},
 		})
 	})
 
@@ -100,6 +111,17 @@ export default config
 				},
 				statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 				priorities: ['low', 'medium', 'high', 'urgent'],
+			},
+			closeout: {
+				enforceChildCompletion: false,
+				blockDoneWithOpenConcerns: false,
+				requireLessonWhenLabeled: [],
+			},
+			taxonomy: {
+				mode: 'error',
+			},
+			doctor: {
+				activeConcernRequiresOwner: false,
 			},
 		})
 	})

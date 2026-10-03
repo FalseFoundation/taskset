@@ -39,4 +39,4 @@ Batch create, import, update, and export jobs land through `taskset document bat
 
 A task tracker forgets why the work exists. A docs wiki forgets what is in flight. Taskset keeps both layers in one Git-native model, so agents and humans inherit plans, decisions, and execution from the same repository.
 
-Read [document types](/docs/document-types) and the [CLI reference](/docs/cli-reference) for the full surface.
+Read [document types](/docs/document-types) and the [CLI reference](/docs/cli-reference) for the full surface. In the repository those pages are [`docs/document-types.md`](../../docs/document-types.md) and [`docs/cli-reference.md`](../../docs/cli-reference.md).

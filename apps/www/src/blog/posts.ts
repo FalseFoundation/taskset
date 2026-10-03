@@ -46,6 +46,10 @@ const postDefinitions: readonly PostDefinition[] = [
 		load: async () =>
 			(await import('../../posts/taskset-stable-global-release.md')) as unknown as PostModule,
 	},
+	{
+		slug: 'operational-memory',
+		load: async () => (await import('../../posts/operational-memory.md')) as unknown as PostModule,
+	},
 ]
 
 async function loadPost(definition: PostDefinition): Promise<Post> {

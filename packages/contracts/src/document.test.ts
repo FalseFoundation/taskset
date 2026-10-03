@@ -9,7 +9,12 @@ describe('document contracts', () => {
 					id: 'a1b2c3',
 					type,
 					title: 'Example document',
-					status: type === 'decision' ? 'accepted' : 'draft',
+					status:
+						type === 'decision'
+							? 'accepted'
+							: type === 'runbook' || type === 'lesson' || type === 'concern'
+								? 'active'
+								: 'draft',
 					createdAt: '2026-09-28',
 					updatedAt: '2026-09-28',
 				}).type,

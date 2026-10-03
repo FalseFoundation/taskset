@@ -67,17 +67,15 @@ describe('task repository', () => {
 		expect(migrations[0]?.to).not.toBe(migrations[1]?.to)
 
 		const records = await listTasks(repository)
-		expect(records.map((record) => record.task.metadata.id)).toEqual([
-			migrations[0]?.to,
-			migrations[1]?.to,
-		])
-		expect(records[0]?.relativePath).toBe(
-			`.taskset/tasks/0000001-first-task-${migrations[0]?.to}.md`,
+		const first = records.find((record) => record.task.metadata.id === migrations[0]?.to)
+		const second = records.find((record) => record.task.metadata.id === migrations[1]?.to)
+		expect(first?.relativePath).toMatch(
+			new RegExp(`^\\.taskset/tasks/\\d{7}-first-task-${migrations[0]?.to}\\.md$`, 'u'),
 		)
-		expect(records[1]?.relativePath).toBe(
-			`.taskset/tasks/0000002-second-task-${migrations[1]?.to}.md`,
+		expect(second?.relativePath).toMatch(
+			new RegExp(`^\\.taskset/tasks/\\d{7}-second-task-${migrations[1]?.to}\\.md$`, 'u'),
 		)
-		expect(records[1]?.task.metadata.dependsOn).toEqual([migrations[0]?.to])
+		expect(second?.task.metadata.dependsOn).toEqual([migrations[0]?.to])
 		expect(await readFile(path.join(rootDirectory, 'README.md'), 'utf8')).toBe(
 			`Track ${migrations[0]?.to} and .taskset/tasks/${migrations[0]?.to}.md.\n`,
 		)

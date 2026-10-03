@@ -19,6 +19,7 @@ import {
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import { type Repository, RepositorySchema } from '../config/config.ts'
+import { listDocuments } from '../documents/documentRepository.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
 import {
 	assertEntityFileNameMatchesId,
@@ -31,7 +32,9 @@ import {
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
+import { collectTaxonomyViolations } from '../taxonomy/taxonomy.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
+import { collectCloseoutIssues } from './closeout.ts'
 import { parseTaskFile, serializeTaskFile, TaskFileError } from './taskFile.ts'
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
@@ -294,6 +297,26 @@ function validateConfiguredStatus(repository: Repository, status: TaskStatus): v
 			`Status "${status}" is not enabled by repository configuration`,
 		)
 	}
+}
+
+function validateTaskTaxonomy(
+	repository: Repository,
+	metadata: {
+		readonly labels?: readonly string[]
+		readonly projects?: readonly string[]
+	},
+): void {
+	const violations = collectTaxonomyViolations(repository.config.taxonomy, metadata)
+	if (violations.length === 0 || repository.config.taxonomy.mode === 'warn') {
+		return
+	}
+
+	throw new TaskRepositoryError('task-invalid', 'Task taxonomy values are not allowed', {
+		issues: violations.map((violation) => ({
+			field: violation.field,
+			message: violation.message,
+		})),
+	})
 }
 
 function mapGraphError(error: unknown): never {
@@ -655,6 +678,10 @@ export async function createTask(
 
 	validateConfiguredStatus(validatedRepository, status)
 	validateConfiguredPriority(validatedRepository, priority)
+	validateTaskTaxonomy(validatedRepository, {
+		...(labels.length > 0 ? { labels } : {}),
+		...(validatedInput.projects?.length ? { projects: validatedInput.projects } : {}),
+	})
 
 	const task: TaskFile = {
 		metadata: {
@@ -924,6 +951,13 @@ export async function updateTask(
 	validateConfiguredStatus(validatedRepository, nextStatus)
 	validateConfiguredPriority(validatedRepository, nextPriority)
 
+	const nextLabels = validatedInput.labels ?? current.metadata.labels
+	const nextProjects = validatedInput.projects ?? current.metadata.projects
+	validateTaskTaxonomy(validatedRepository, {
+		...(nextLabels ? { labels: nextLabels } : {}),
+		...(nextProjects ? { projects: nextProjects } : {}),
+	})
+
 	const updatedTask: TaskFile = {
 		metadata: {
 			...current.metadata,
@@ -955,6 +989,23 @@ export async function updateTask(
 	const parsedTask = parseTaskFile(contents, { filePath: existing.relativePath })
 	const updatedRecord = freezeRecord(existing.relativePath, parsedTask)
 	validateGraph(records.map((record) => (record === existing ? updatedRecord : record)))
+
+	if (nextStatus === 'done' && current.metadata.status !== 'done') {
+		const documents = await listDocuments(validatedRepository)
+		const closeoutIssues = collectCloseoutIssues(
+			validatedRepository.config.closeout,
+			parsedTask.metadata,
+			records.map((record) => (record === existing ? updatedRecord : record)),
+			documents,
+		)
+		if (closeoutIssues.length > 0) {
+			throw new TaskRepositoryError(
+				'task-transition-invalid',
+				'Task closeout gates blocked the done transition',
+				{ taskId: validatedTaskId, issues: closeoutIssues },
+			)
+		}
+	}
 
 	try {
 		await applyFileTransaction([

@@ -1,6 +1,6 @@
 {
 	"name": "taskset",
-	"description": "Git-native workspace for plans, research, decisions, runbooks, and tasks stored as Markdown beside the code.",
+	"description": "Git-native workspace for plans, research, decisions, runbooks, lessons, concerns, audits, and tasks stored as Markdown beside the code.",
 	"license": "MIT",
 	"author": {
 		"name": "junkieshuffle",

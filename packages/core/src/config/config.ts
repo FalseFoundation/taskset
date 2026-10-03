@@ -2,12 +2,15 @@ import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
+	type CloseoutConfig,
 	type Config,
 	ConfigSchema,
+	type DoctorConfig,
 	TASK_PRIORITIES,
 	TASK_STATUSES,
 	type TaskPriority,
 	type TaskStatus,
+	type TaxonomyConfig,
 } from '@taskset/contracts'
 import * as z from 'zod'
 import { parseCoreInput } from '../validation/coreValidation.ts'
@@ -21,6 +24,9 @@ export const DOCUMENT_DIRECTORY_NAMES = Object.freeze({
 	decision: 'decisions',
 	research: 'research',
 	runbook: 'runbooks',
+	lesson: 'lessons',
+	concern: 'concerns',
+	audit: 'audits',
 } as const)
 export const GENERATED_DIRECTORY_NAME = '.generated'
 export const SNAPSHOTS_DIRECTORY_NAME = 'snapshots'
@@ -49,6 +55,24 @@ export interface ResolvedTaskDefaults {
 	readonly labels: readonly string[]
 }
 
+export interface ResolvedCloseoutConfig {
+	readonly enforceChildCompletion: boolean
+	readonly blockDoneWithOpenConcerns: boolean
+	readonly requireLessonWhenLabeled: readonly string[]
+}
+
+export interface ResolvedTaxonomyConfig {
+	readonly labels?: readonly string[]
+	readonly projects?: readonly string[]
+	readonly concernClasses?: readonly string[]
+	readonly mode: 'error' | 'warn'
+}
+
+export interface ResolvedDoctorConfig {
+	readonly activeConcernRequiresOwner: boolean
+	readonly staleResearchDays?: number
+}
+
 export interface ResolvedConfig {
 	readonly project?: {
 		readonly name: string
@@ -58,6 +82,9 @@ export interface ResolvedConfig {
 		readonly statuses: readonly TaskStatus[]
 		readonly priorities: readonly TaskPriority[]
 	}
+	readonly closeout: ResolvedCloseoutConfig
+	readonly taxonomy: ResolvedTaxonomyConfig
+	readonly doctor: ResolvedDoctorConfig
 }
 
 export interface Repository {
@@ -102,6 +129,21 @@ export const RepositorySchema = z.strictObject({
 			statuses: z.array(z.enum(TASK_STATUSES)).min(1),
 			priorities: z.array(z.enum(TASK_PRIORITIES)).min(1),
 		}),
+		closeout: z.strictObject({
+			enforceChildCompletion: z.boolean(),
+			blockDoneWithOpenConcerns: z.boolean(),
+			requireLessonWhenLabeled: z.array(z.string()),
+		}),
+		taxonomy: z.strictObject({
+			labels: z.array(z.string()).optional(),
+			projects: z.array(z.string()).optional(),
+			concernClasses: z.array(z.string()).optional(),
+			mode: z.enum(['error', 'warn']),
+		}),
+		doctor: z.strictObject({
+			activeConcernRequiresOwner: z.boolean(),
+			staleResearchDays: z.number().int().positive().optional(),
+		}),
 	}),
 }) satisfies z.ZodType<Repository>
 
@@ -142,6 +184,47 @@ export class ConfigError extends Error {
 
 let configImportSequence = 0
 
+function freezeCloseout(closeout: CloseoutConfig | undefined): CloseoutConfig | undefined {
+	if (!closeout) {
+		return undefined
+	}
+
+	return Object.freeze({
+		...(closeout.enforceChildCompletion !== undefined
+			? { enforceChildCompletion: closeout.enforceChildCompletion }
+			: {}),
+		...(closeout.blockDoneWithOpenConcerns !== undefined
+			? { blockDoneWithOpenConcerns: closeout.blockDoneWithOpenConcerns }
+			: {}),
+		...(closeout.requireLessonWhenLabeled
+			? { requireLessonWhenLabeled: Object.freeze([...closeout.requireLessonWhenLabeled]) }
+			: {}),
+	})
+}
+
+function freezeTaxonomy(taxonomy: TaxonomyConfig | undefined): TaxonomyConfig | undefined {
+	if (!taxonomy) {
+		return undefined
+	}
+
+	return Object.freeze({
+		...(taxonomy.labels ? { labels: Object.freeze([...taxonomy.labels]) } : {}),
+		...(taxonomy.projects ? { projects: Object.freeze([...taxonomy.projects]) } : {}),
+		...(taxonomy.concernClasses
+			? { concernClasses: Object.freeze([...taxonomy.concernClasses]) }
+			: {}),
+		...(taxonomy.mode ? { mode: taxonomy.mode } : {}),
+	})
+}
+
+function freezeDoctor(doctor: DoctorConfig | undefined): DoctorConfig | undefined {
+	if (!doctor) {
+		return undefined
+	}
+
+	return Object.freeze({ ...doctor })
+}
+
 function freezeConfig(config: Config): Config {
 	const project = config.project ? Object.freeze({ ...config.project }) : undefined
 	const defaults = config.tasks?.defaults
@@ -163,10 +246,16 @@ function freezeConfig(config: Config): Config {
 				...(priorities ? { priorities } : {}),
 			})
 		: undefined
+	const closeout = freezeCloseout(config.closeout)
+	const taxonomy = freezeTaxonomy(config.taxonomy)
+	const doctor = freezeDoctor(config.doctor)
 
 	return Object.freeze({
 		...(project ? { project } : {}),
 		...(tasks ? { tasks } : {}),
+		...(closeout ? { closeout } : {}),
+		...(taxonomy ? { taxonomy } : {}),
+		...(doctor ? { doctor } : {}),
 	})
 }
 
@@ -183,6 +272,29 @@ function resolveConfig(config: Config): ResolvedConfig {
 			}),
 			statuses: Object.freeze([...(config.tasks?.statuses ?? TASK_STATUSES)]),
 			priorities: Object.freeze([...(config.tasks?.priorities ?? TASK_PRIORITIES)]),
+		}),
+		closeout: Object.freeze({
+			enforceChildCompletion: config.closeout?.enforceChildCompletion ?? false,
+			blockDoneWithOpenConcerns: config.closeout?.blockDoneWithOpenConcerns ?? false,
+			requireLessonWhenLabeled: Object.freeze([
+				...(config.closeout?.requireLessonWhenLabeled ?? []),
+			]),
+		}),
+		taxonomy: Object.freeze({
+			...(config.taxonomy?.labels ? { labels: Object.freeze([...config.taxonomy.labels]) } : {}),
+			...(config.taxonomy?.projects
+				? { projects: Object.freeze([...config.taxonomy.projects]) }
+				: {}),
+			...(config.taxonomy?.concernClasses
+				? { concernClasses: Object.freeze([...config.taxonomy.concernClasses]) }
+				: {}),
+			mode: config.taxonomy?.mode ?? 'error',
+		}),
+		doctor: Object.freeze({
+			activeConcernRequiresOwner: config.doctor?.activeConcernRequiresOwner ?? false,
+			...(config.doctor?.staleResearchDays !== undefined
+				? { staleResearchDays: config.doctor.staleResearchDays }
+				: {}),
 		}),
 	})
 }

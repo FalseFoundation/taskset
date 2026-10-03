@@ -3,6 +3,8 @@ import { mkdir, readdir, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { AsyncQueuer } from '@tanstack/pacer'
 import {
+	type ConcernClass,
+	ConcernClassSchema,
 	type DocumentFile,
 	DocumentFileSchema,
 	DocumentIdSchema,
@@ -12,6 +14,8 @@ import {
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
 	DocumentTitleSchema,
+	type LessonSeverity,
+	LessonSeveritySchema,
 	needsEntityIdMigration,
 	TaskIdSchema,
 	type TaskPriority,
@@ -39,7 +43,9 @@ import {
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
+import { collectTaxonomyViolations } from '../taxonomy/taxonomy.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
+import { missingDocumentHeadings } from './documentTemplate.ts'
 
 export interface DocumentRecord {
 	readonly relativePath: string
@@ -82,6 +88,11 @@ export const CreateDocumentInputSchema = z.strictObject({
 	parent: TaskIdSchema.optional(),
 	directories: RepositoryPathListSchema.optional(),
 	projects: StringListSchema.optional(),
+	severity: LessonSeveritySchema.optional(),
+	relatedSkills: StringListSchema.optional(),
+	packs: StringListSchema.optional(),
+	class: ConcernClassSchema.optional(),
+	cadence: TrimmedStringSchema.optional(),
 	body: z.string().optional(),
 })
 
@@ -121,6 +132,11 @@ export const UpdateDocumentInputSchema = z
 		parent: TaskIdSchema.nullable().optional(),
 		directories: RepositoryPathListSchema.optional(),
 		projects: StringListSchema.optional(),
+		severity: LessonSeveritySchema.nullable().optional(),
+		relatedSkills: StringListSchema.optional(),
+		packs: StringListSchema.optional(),
+		class: ConcernClassSchema.nullable().optional(),
+		cadence: TrimmedStringSchema.nullable().optional(),
 		body: z.string().optional(),
 	})
 	.refine((input) => Object.keys(input).length > 0, 'Document update requires at least one field')
@@ -260,6 +276,14 @@ const KIND_ALIASES: Readonly<Record<string, DocumentKind>> = Object.freeze({
 	research: 'research',
 	runbook: 'runbook',
 	runbooks: 'runbook',
+	lesson: 'lesson',
+	lessons: 'lesson',
+	antipattern: 'lesson',
+	antipatterns: 'lesson',
+	concern: 'concern',
+	concerns: 'concern',
+	audit: 'audit',
+	audits: 'audit',
 })
 
 const STATUS_TRANSITIONS: Readonly<Record<DocumentStatus, readonly DocumentStatus[]>> =
@@ -323,7 +347,60 @@ function freezeRecord(relativePath: string, document: DocumentFile): DocumentRec
 }
 
 function defaultStatus(type: DocumentKind): DocumentStatus {
-	return type === 'decision' ? 'accepted' : type === 'runbook' ? 'active' : 'draft'
+	if (type === 'decision') {
+		return 'accepted'
+	}
+	if (type === 'runbook' || type === 'lesson' || type === 'concern') {
+		return 'active'
+	}
+	return 'draft'
+}
+
+function validateDocumentBody(type: DocumentKind, body: string): void {
+	const missing = missingDocumentHeadings(type, body)
+	if (missing.length === 0) {
+		return
+	}
+
+	throw new DocumentRepositoryError(
+		'document-invalid',
+		`Document body is missing required headings: ${missing.join(', ')}`,
+		{
+			issues: missing.map((heading) => ({
+				field: 'body',
+				message: `Missing required heading "## ${heading}"`,
+			})),
+		},
+	)
+}
+
+function validateDocumentTaxonomy(
+	repository: Repository,
+	metadata: {
+		readonly labels?: readonly string[]
+		readonly projects?: readonly string[]
+		readonly class?: ConcernClass
+	},
+): void {
+	const violations = collectTaxonomyViolations(repository.config.taxonomy, metadata)
+	if (violations.length === 0) {
+		return
+	}
+
+	if (repository.config.taxonomy.mode === 'warn') {
+		return
+	}
+
+	throw new DocumentRepositoryError(
+		'document-invalid',
+		'Document taxonomy values are not allowed',
+		{
+			issues: violations.map((violation) => ({
+				field: violation.field,
+				message: violation.message,
+			})),
+		},
+	)
 }
 
 function validateStatusTransition(current: DocumentStatus, next: DocumentStatus): void {
@@ -426,6 +503,12 @@ export function documentTemplate(type: DocumentKind, title: string): string {
 			'## Question\n\n## Sources\n\n## Findings\n\n## Recommendation\n\n## Open questions\n',
 		runbook:
 			'## Purpose\n\n## Preconditions\n\n## Symptoms\n\n## Checks\n\n1. …\n\n## Actions\n\n1. …\n\n## Rollback\n\n## Escalation\n\n## Verification\n',
+		lesson:
+			'## Trigger / symptom\n\n## Incorrect pattern\n\n## Correct pattern\n\n## Blast radius / severity\n\n## Prevention\n\n## Evidence\n',
+		concern:
+			'## Summary\n\n## Class\n\n## Trust boundary / plane\n\n## Current evidence\n\n## Residual risk\n\n## Mitigation plan / acceptance rationale\n\n## Review cadence\n',
+		audit:
+			'## Scope\n\n## Method\n\n## Findings\n\n`pass` | `fail` | `residual`\n\n## Residual items\n\n## Required follow-ups\n\n## Next due date\n',
 	}
 	return heading + templates[type]
 }
@@ -502,6 +585,21 @@ export function serializeDocumentFile(document: DocumentFile): string {
 	}
 	if (metadata.projects !== undefined) {
 		orderedMetadata.projects = metadata.projects
+	}
+	if (metadata.severity !== undefined) {
+		orderedMetadata.severity = metadata.severity
+	}
+	if (metadata.relatedSkills !== undefined) {
+		orderedMetadata.relatedSkills = metadata.relatedSkills
+	}
+	if (metadata.packs !== undefined) {
+		orderedMetadata.packs = metadata.packs
+	}
+	if (metadata.class !== undefined) {
+		orderedMetadata.class = metadata.class
+	}
+	if (metadata.cadence !== undefined) {
+		orderedMetadata.cadence = metadata.cadence
 	}
 
 	return serializeFrontmatter(orderedMetadata, parsed.body)
@@ -648,6 +746,13 @@ export async function createDocument(
 	const status = validatedInput.status ?? defaultStatus(type)
 	const priority = validatedInput.priority
 	validateConfiguredPriority(validatedRepository, priority)
+	validateDocumentTaxonomy(validatedRepository, {
+		...(validatedInput.labels ? { labels: validatedInput.labels } : {}),
+		...(validatedInput.projects ? { projects: validatedInput.projects } : {}),
+		...(validatedInput.class ? { class: validatedInput.class } : {}),
+	})
+	const body = validatedInput.body ?? documentTemplate(type, title)
+	validateDocumentBody(type, body)
 	const existingRecords = await listDocuments(validatedRepository)
 	const occupiedIds = new Set(existingRecords.map((record) => record.document.metadata.id))
 	const { id, fileName } = await allocateDocumentIdentity(
@@ -683,8 +788,15 @@ export async function createDocument(
 			...(validatedInput.files?.length ? { files: validatedInput.files } : {}),
 			...(validatedInput.directories?.length ? { directories: validatedInput.directories } : {}),
 			...(validatedInput.projects?.length ? { projects: validatedInput.projects } : {}),
+			...(validatedInput.severity ? { severity: validatedInput.severity } : {}),
+			...(validatedInput.relatedSkills?.length
+				? { relatedSkills: validatedInput.relatedSkills }
+				: {}),
+			...(validatedInput.packs?.length ? { packs: validatedInput.packs } : {}),
+			...(validatedInput.class ? { class: validatedInput.class } : {}),
+			...(validatedInput.cadence ? { cadence: validatedInput.cadence } : {}),
 		},
-		body: validatedInput.body ?? documentTemplate(type, title),
+		body,
 	})
 	const absolutePath = path.join(documentKindDirectory(validatedRepository, type), fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
@@ -1085,6 +1197,30 @@ export async function updateDocument(
 	validateStatusTransition(current.metadata.status, nextStatus)
 	validateConfiguredPriority(validatedRepository, nextPriority)
 
+	const nextBody = validatedInput.body ?? current.body
+	validateDocumentBody(current.metadata.type, nextBody)
+
+	const nextSeverity =
+		validatedInput.severity === null
+			? undefined
+			: (validatedInput.severity ?? current.metadata.severity)
+	const nextClass =
+		validatedInput.class === null ? undefined : (validatedInput.class ?? current.metadata.class)
+	const nextCadence =
+		validatedInput.cadence === null
+			? undefined
+			: (validatedInput.cadence ?? current.metadata.cadence)
+	const nextRelatedSkills = validatedInput.relatedSkills ?? current.metadata.relatedSkills
+	const nextPacks = validatedInput.packs ?? current.metadata.packs
+	const nextLabels = validatedInput.labels ?? current.metadata.labels
+	const nextProjects = validatedInput.projects ?? current.metadata.projects
+
+	validateDocumentTaxonomy(validatedRepository, {
+		...(nextLabels ? { labels: nextLabels } : {}),
+		...(nextProjects ? { projects: nextProjects } : {}),
+		...(nextClass ? { class: nextClass } : {}),
+	})
+
 	const updatedDocument: DocumentFile = {
 		metadata: {
 			...current.metadata,
@@ -1109,8 +1245,15 @@ export async function updateDocument(
 			...(validatedInput.files !== undefined ? { files: validatedInput.files } : {}),
 			directories: validatedInput.directories ?? current.metadata.directories,
 			projects: validatedInput.projects ?? current.metadata.projects,
+			...(nextSeverity !== undefined
+				? { severity: nextSeverity as LessonSeverity }
+				: { severity: undefined }),
+			relatedSkills: nextRelatedSkills,
+			packs: nextPacks,
+			...(nextClass !== undefined ? { class: nextClass as ConcernClass } : { class: undefined }),
+			...(nextCadence !== undefined ? { cadence: nextCadence } : { cadence: undefined }),
 		},
-		body: validatedInput.body ?? current.body,
+		body: nextBody,
 	}
 	const contents = serializeDocumentFile(updatedDocument)
 	const parsedDocument = parseDocumentFile(contents)

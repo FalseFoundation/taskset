@@ -71,6 +71,90 @@ describe('runCli', () => {
 		expect(JSON.parse(listed.stdout)).toHaveLength(2)
 	})
 
+	it('creates operational memory docs and program rollups', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const parent = createOutput()
+		await runCli(['task', 'create', '--title', 'Security program', '--json'], {
+			cwd,
+			stdout: parent.writeStdout,
+		})
+		const parentId = JSON.parse(parent.stdout).id as string
+		const child = createOutput()
+		await runCli(['task', 'create', '--title', 'Child', '--parent', parentId, '--json'], {
+			cwd,
+			stdout: child.writeStdout,
+		})
+		const concern = createOutput()
+		expect(
+			await runCli(
+				[
+					'document',
+					'create',
+					'concern',
+					'--title',
+					'Open authz risk',
+					'--class',
+					'authz',
+					'--cadence',
+					'weekly',
+					'--related',
+					parentId,
+					'--json',
+				],
+				{ cwd, stdout: concern.writeStdout, stderr: concern.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(concern.stdout)).toMatchObject({
+			type: 'concern',
+			class: 'authz',
+			cadence: 'weekly',
+			status: 'active',
+		})
+		const lesson = createOutput()
+		expect(
+			await runCli(
+				[
+					'document',
+					'create',
+					'antipattern',
+					'--title',
+					'Capability is not authz',
+					'--severity',
+					'high',
+					'--related-skill',
+					'.agents/skills/foo/SKILL.md',
+					'--pack',
+					'security',
+					'--related',
+					parentId,
+					'--json',
+				],
+				{ cwd, stdout: lesson.writeStdout, stderr: lesson.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(lesson.stdout)).toMatchObject({
+			type: 'lesson',
+			severity: 'high',
+			relatedSkills: ['.agents/skills/foo/SKILL.md'],
+			packs: ['security'],
+		})
+		const program = createOutput()
+		expect(
+			await runCli(['task', 'program', parentId, '--json'], {
+				cwd,
+				stdout: program.writeStdout,
+				stderr: program.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(program.stdout)).toMatchObject({
+			parentId,
+			children: { total: 1, openIds: [JSON.parse(child.stdout).id] },
+			relatedOpenConcerns: [{ id: JSON.parse(concern.stdout).id }],
+			closeoutReady: false,
+		})
+	})
+
 	it('runs document batch manifests and reports progress without corrupting JSON output', async () => {
 		const cwd = await createTemporaryDirectory()
 		await runCli(['init'], { cwd })

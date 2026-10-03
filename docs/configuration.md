@@ -16,6 +16,9 @@ Add `taskset.config.ts` when you need at least one of these:
 - A repository `project.name`
 - Different task creation defaults
 - A reduced or reordered status or priority vocabulary
+- Closeout gates for parent/child completion, open concerns, or required lessons
+- Taxonomy allowlists for labels, projects, or concern classes
+- Extra doctor checks for ownerless concerns or stale research
 
 Create one during init:
 
@@ -41,6 +44,19 @@ export default defineConfig({
 		statuses: ['todo', 'doing', 'blocked', 'done', 'canceled'],
 		priorities: ['low', 'medium', 'high', 'urgent'],
 	},
+	closeout: {
+		enforceChildCompletion: false,
+		blockDoneWithOpenConcerns: false,
+		requireLessonWhenLabeled: [],
+	},
+	taxonomy: {
+		// omit allowlists for permissive behavior
+		mode: 'error',
+	},
+	doctor: {
+		activeConcernRequiresOwner: false,
+		// staleResearchDays: 14,
+	},
 })
 ```
 
@@ -51,10 +67,14 @@ export default defineConfig({
 - `tasks.statuses` selects and orders the active status vocabulary from Taskset’s canonical values
 - `tasks.priorities` selects and orders the active priority vocabulary from Taskset’s canonical values
 - `urgent` is the highest supported priority
+- `closeout.*` defaults to off / empty so existing repositories keep current done transitions
+- `taxonomy.labels`, `projects`, and `concernClasses` are optional allowlists; omit them to stay permissive
+- `taxonomy.mode` is `error` or `warn` when an allowlist is configured
+- `doctor.activeConcernRequiresOwner` and `doctor.staleResearchDays` add optional diagnostics
 - Unknown fields, invalid enum values, empty names, and duplicate default labels or vocabulary values are rejected
 - The config file is trusted project TypeScript and may use erasable syntax supported by your Node version
 
-The config identifies behavior. It is not task storage. Canonical task state remains under `.taskset/tasks/`.
+The config identifies behavior. It is not task storage. Canonical task and document state remains under `.taskset/`.
 
 ## Discovery
 

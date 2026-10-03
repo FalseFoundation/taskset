@@ -37,4 +37,4 @@ Through September, the skill also grew sharper operating rules: ownership checks
 
 Distribution is incomplete if the binary arrives without the operating manual. Shipping docs and skills beside the executable makes Taskset usable for coding agents in any repository that can install an npm package, including projects that never open the website.
 
-See the [agent guide](/docs/agents) for the current contracts.
+See the [agent guide](/docs/agents) for the current contracts ([`docs/agents/index.md`](../../docs/agents/index.md) in the repository).

@@ -1,5 +1,18 @@
 # @taskset/core
 
+## 6.1.0
+
+### Minor Changes
+
+- Add operational memory document kinds (`lesson`, `concern`, `audit`), program rollup, optional closeout gates, and taxonomy allowlists.
+  
+  Agents can create and query lessons, concerns, and audits under `.taskset/` with the same document command surface as existing kinds. `taskset task program` summarizes parent-task programs. Optional `closeout`, `taxonomy`, and `doctor` config keep defaults compatible with existing repositories. `taskset sync` creates the new directories.
+
+### Patch Changes
+
+- Updated dependencies
+  - @taskset/contracts@6.1.0
+
 ## 6.0.0
 
 ### Major Changes

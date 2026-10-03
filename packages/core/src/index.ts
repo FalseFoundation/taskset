@@ -15,8 +15,11 @@ export {
 	type Repository,
 	RepositoryDirectorySchema,
 	RepositorySchema,
+	type ResolvedCloseoutConfig,
 	type ResolvedConfig,
+	type ResolvedDoctorConfig,
 	type ResolvedTaskDefaults,
+	type ResolvedTaxonomyConfig,
 	resolveInitializationRoot,
 	SNAPSHOTS_DIRECTORY_NAME,
 	TASKS_DIRECTORY_NAME,
@@ -64,6 +67,11 @@ export {
 	UpdateDocumentOptionsSchema,
 	updateDocument,
 } from './documents/documentRepository.ts'
+export {
+	extractDocumentHeadings,
+	missingDocumentHeadings,
+	requiredDocumentHeadings,
+} from './documents/documentTemplate.ts'
 export {
 	type GeneratedViewsResult,
 	type GenerateViewsOptions,
@@ -179,6 +187,16 @@ export {
 	type SynchronizationErrorCode,
 } from './sync/synchronization.ts'
 export {
+	type CloseoutIssue,
+	collectCloseoutIssues,
+} from './tasks/closeout.ts'
+export {
+	getProgramRollup,
+	type ProgramChecklistSummary,
+	type ProgramRollup,
+	type ProgramStatusCounts,
+} from './tasks/programRollup.ts'
+export {
 	type ParseTaskFileOptions,
 	ParseTaskFileOptionsSchema,
 	parseTaskFile,
@@ -213,6 +231,12 @@ export {
 	UpdateTaskOptionsSchema,
 	updateTask,
 } from './tasks/taskRepository.ts'
+export {
+	collectTaxonomyViolations,
+	type TaxonomyViolation,
+	taxonomyFromDocument,
+	taxonomyFromTask,
+} from './taxonomy/taxonomy.ts'
 export {
 	CoreValidationError,
 	type CoreValidationIssue,

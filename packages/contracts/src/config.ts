@@ -1,4 +1,5 @@
 import * as z from 'zod'
+import { CONCERN_CLASSES } from './document.ts'
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from './task.ts'
 
 export interface ProjectConfig {
@@ -17,9 +18,32 @@ export interface TasksConfig {
 	readonly priorities?: readonly TaskPriority[]
 }
 
+export interface CloseoutConfig {
+	readonly enforceChildCompletion?: boolean
+	readonly blockDoneWithOpenConcerns?: boolean
+	readonly requireLessonWhenLabeled?: readonly string[]
+}
+
+export interface TaxonomyConfig {
+	readonly labels?: readonly string[]
+	readonly projects?: readonly string[]
+	readonly concernClasses?: readonly string[]
+	/** Doctor/create enforcement mode when an allowlist is configured. Default `error`. */
+	readonly mode?: 'error' | 'warn'
+}
+
+export interface DoctorConfig {
+	readonly activeConcernRequiresOwner?: boolean
+	/** When set, research in `ready` older than N days without a related follow-up task is reported. */
+	readonly staleResearchDays?: number
+}
+
 export interface Config {
 	readonly project?: ProjectConfig
 	readonly tasks?: TasksConfig
+	readonly closeout?: CloseoutConfig
+	readonly taxonomy?: TaxonomyConfig
+	readonly doctor?: DoctorConfig
 }
 
 const ProjectConfigSchema = z.strictObject({
@@ -41,6 +65,15 @@ const TaskDefaultsConfigSchema = z.strictObject({
 function uniqueValues(values: readonly string[]): boolean {
 	return new Set(values).size === values.length
 }
+
+const TrimmedUniqueStringListSchema = z
+	.array(
+		z
+			.string()
+			.min(1)
+			.refine((value) => value === value.trim(), 'Value must not have surrounding whitespace'),
+	)
+	.refine(uniqueValues, 'Values must be unique')
 
 const TasksConfigSchema = z
 	.strictObject({
@@ -77,6 +110,36 @@ const TasksConfigSchema = z
 		}
 	})
 
+const CloseoutConfigSchema = z.strictObject({
+	enforceChildCompletion: z.boolean().optional(),
+	blockDoneWithOpenConcerns: z.boolean().optional(),
+	requireLessonWhenLabeled: TrimmedUniqueStringListSchema.optional(),
+})
+
+const TaxonomyConfigSchema = z
+	.strictObject({
+		labels: TrimmedUniqueStringListSchema.optional(),
+		projects: TrimmedUniqueStringListSchema.optional(),
+		concernClasses: TrimmedUniqueStringListSchema.optional(),
+		mode: z.enum(['error', 'warn']).optional(),
+	})
+	.superRefine((taxonomy, context) => {
+		for (const value of taxonomy.concernClasses ?? []) {
+			if (!(CONCERN_CLASSES as readonly string[]).includes(value)) {
+				context.addIssue({
+					code: 'custom',
+					path: ['concernClasses'],
+					message: `Unknown concern class "${value}"`,
+				})
+			}
+		}
+	})
+
+const DoctorConfigSchema = z.strictObject({
+	activeConcernRequiresOwner: z.boolean().optional(),
+	staleResearchDays: z.number().int().positive().optional(),
+})
+
 /**
  * Strict repository behavior configuration. It intentionally excludes storage
  * relocation and canonical entity data.
@@ -84,4 +147,7 @@ const TasksConfigSchema = z
 export const ConfigSchema = z.strictObject({
 	project: ProjectConfigSchema.optional(),
 	tasks: TasksConfigSchema.optional(),
+	closeout: CloseoutConfigSchema.optional(),
+	taxonomy: TaxonomyConfigSchema.optional(),
+	doctor: DoctorConfigSchema.optional(),
 }) satisfies z.ZodType<Config>

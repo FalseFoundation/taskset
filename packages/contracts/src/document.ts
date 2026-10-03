@@ -9,7 +9,16 @@ import {
 	TaskRiskSchema,
 } from './task.ts'
 
-export const DOCUMENT_KINDS = ['story', 'flow', 'decision', 'research', 'runbook'] as const
+export const DOCUMENT_KINDS = [
+	'story',
+	'flow',
+	'decision',
+	'research',
+	'runbook',
+	'lesson',
+	'concern',
+	'audit',
+] as const
 export const DOCUMENT_STATUSES = [
 	'draft',
 	'ready',
@@ -18,9 +27,22 @@ export const DOCUMENT_STATUSES = [
 	'superseded',
 	'archived',
 ] as const
+export const LESSON_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
+export const CONCERN_CLASSES = [
+	'security',
+	'privacy',
+	'money',
+	'authz',
+	'concurrency',
+	'ops',
+	'compliance',
+	'other',
+] as const
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number]
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number]
+export type LessonSeverity = (typeof LESSON_SEVERITIES)[number]
+export type ConcernClass = (typeof CONCERN_CLASSES)[number]
 
 export interface DocumentMetadata {
 	readonly id: string
@@ -47,6 +69,11 @@ export interface DocumentMetadata {
 	readonly parent?: string
 	readonly directories?: readonly string[]
 	readonly projects?: readonly string[]
+	readonly severity?: LessonSeverity
+	readonly relatedSkills?: readonly string[]
+	readonly packs?: readonly string[]
+	readonly class?: ConcernClass
+	readonly cadence?: string
 }
 
 export interface DocumentFile {
@@ -67,37 +94,82 @@ const uniqueArray = <T>(schema: z.ZodType<T>) =>
 export const DocumentIdSchema = EntityIdSchema
 export const DocumentKindSchema = z.enum(DOCUMENT_KINDS)
 export const DocumentStatusSchema = z.enum(DOCUMENT_STATUSES)
+export const LessonSeveritySchema = z.enum(LESSON_SEVERITIES)
+export const ConcernClassSchema = z.enum(CONCERN_CLASSES)
 export const DocumentTitleSchema = TrimmedValueSchema
 export const DocumentTimestampSchema = z
 	.string()
 	.refine((value) => parseDate(value) !== undefined, 'Expected a valid UTC timestamp')
 
-export const DocumentMetadataSchema = z.strictObject({
-	id: DocumentIdSchema,
-	type: DocumentKindSchema,
-	title: DocumentTitleSchema,
-	status: DocumentStatusSchema,
-	priority: TaskPrioritySchema.optional(),
-	order: z.number().finite().nonnegative().optional(),
-	createdAt: DocumentTimestampSchema,
-	updatedAt: DocumentTimestampSchema,
-	labels: uniqueArray(TrimmedValueSchema).optional(),
-	dependsOn: uniqueArray(TaskIdSchema).optional(),
-	files: uniqueArray(TrimmedValueSchema).optional(),
-	owner: TrimmedValueSchema.optional(),
-	assignees: uniqueArray(TrimmedValueSchema).optional(),
-	reviewers: uniqueArray(TrimmedValueSchema).optional(),
-	team: TrimmedValueSchema.optional(),
-	estimate: z.number().int().nonnegative().optional(),
-	effort: z.number().finite().nonnegative().optional(),
-	risk: TaskRiskSchema.optional(),
-	dueDate: DocumentTimestampSchema.optional(),
-	related: uniqueArray(TaskIdSchema).optional(),
-	duplicates: uniqueArray(TaskIdSchema).optional(),
-	parent: TaskIdSchema.optional(),
-	directories: uniqueArray(TrimmedValueSchema).optional(),
-	projects: uniqueArray(TrimmedValueSchema).optional(),
-}) satisfies z.ZodType<DocumentMetadata>
+export const DocumentMetadataSchema = z
+	.strictObject({
+		id: DocumentIdSchema,
+		type: DocumentKindSchema,
+		title: DocumentTitleSchema,
+		status: DocumentStatusSchema,
+		priority: TaskPrioritySchema.optional(),
+		order: z.number().finite().nonnegative().optional(),
+		createdAt: DocumentTimestampSchema,
+		updatedAt: DocumentTimestampSchema,
+		labels: uniqueArray(TrimmedValueSchema).optional(),
+		dependsOn: uniqueArray(TaskIdSchema).optional(),
+		files: uniqueArray(TrimmedValueSchema).optional(),
+		owner: TrimmedValueSchema.optional(),
+		assignees: uniqueArray(TrimmedValueSchema).optional(),
+		reviewers: uniqueArray(TrimmedValueSchema).optional(),
+		team: TrimmedValueSchema.optional(),
+		estimate: z.number().int().nonnegative().optional(),
+		effort: z.number().finite().nonnegative().optional(),
+		risk: TaskRiskSchema.optional(),
+		dueDate: DocumentTimestampSchema.optional(),
+		related: uniqueArray(TaskIdSchema).optional(),
+		duplicates: uniqueArray(TaskIdSchema).optional(),
+		parent: TaskIdSchema.optional(),
+		directories: uniqueArray(TrimmedValueSchema).optional(),
+		projects: uniqueArray(TrimmedValueSchema).optional(),
+		severity: LessonSeveritySchema.optional(),
+		relatedSkills: uniqueArray(TrimmedValueSchema).optional(),
+		packs: uniqueArray(TrimmedValueSchema).optional(),
+		class: ConcernClassSchema.optional(),
+		cadence: TrimmedValueSchema.optional(),
+	})
+	.superRefine((metadata, context) => {
+		if (metadata.severity !== undefined && metadata.type !== 'lesson') {
+			context.addIssue({
+				code: 'custom',
+				path: ['severity'],
+				message: 'severity is only valid on lesson documents',
+			})
+		}
+		if (metadata.relatedSkills !== undefined && metadata.type !== 'lesson') {
+			context.addIssue({
+				code: 'custom',
+				path: ['relatedSkills'],
+				message: 'relatedSkills is only valid on lesson documents',
+			})
+		}
+		if (metadata.packs !== undefined && metadata.type !== 'lesson') {
+			context.addIssue({
+				code: 'custom',
+				path: ['packs'],
+				message: 'packs is only valid on lesson documents',
+			})
+		}
+		if (metadata.class !== undefined && metadata.type !== 'concern') {
+			context.addIssue({
+				code: 'custom',
+				path: ['class'],
+				message: 'class is only valid on concern documents',
+			})
+		}
+		if (metadata.cadence !== undefined && metadata.type !== 'concern') {
+			context.addIssue({
+				code: 'custom',
+				path: ['cadence'],
+				message: 'cadence is only valid on concern documents',
+			})
+		}
+	}) satisfies z.ZodType<DocumentMetadata>
 
 export const DocumentFileSchema = z.strictObject({
 	metadata: DocumentMetadataSchema,

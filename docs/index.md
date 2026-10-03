@@ -1,13 +1,13 @@
 ---
 title: Keep the whole delivery story beside the code
-description: Taskset stores plans, research, decisions, runbooks, and tasks as Markdown in your repository for agents and humans.
+description: Taskset stores plans, research, decisions, runbooks, lessons, concerns, audits, and tasks as Markdown in your repository for agents and humans.
 contentType: Landing
 navLabel: Overview
 ---
 
 # Keep the whole delivery story beside the code
 
-Taskset is a local-first delivery workspace. You keep stories, research, decisions, flows, runbooks, and executable tasks as Markdown under `.taskset/`, so agents and humans share one reviewable source of truth.
+Taskset is a local-first delivery workspace. You keep stories, research, decisions, flows, runbooks, lessons, concerns, audits, and executable tasks as Markdown under `.taskset/`, so agents and humans share one reviewable source of truth.
 
 Install the CLI as `@taskset/cli` from npm. Run it with `npx`, `pnpm dlx`, `yarn dlx`, `bunx`, a project dependency, or a global install.
 
@@ -17,6 +17,7 @@ Install the CLI as `@taskset/cli` from npm. Run it with `npx`, `pnpm dlx`, `yarn
 - **Learn**: research that captures evidence and recommendations
 - **Decide**: decisions and ADRs that lock lasting choices
 - **Operate**: runbooks that make recovery safe to repeat
+- **Remember**: lessons, concerns, and audits for recurring patterns and residual risk
 - **Deliver**: tasks that carry ownership, status, dependencies, and code impact
 
 Documents preserve memory. Tasks move work. Relationships keep the graph honest.
@@ -37,7 +38,12 @@ The CLI initializes repositories, manages optional configuration, creates and qu
 
 - [Start a Taskset repository](getting-started.md)
 - [Choose a document type](document-types.md)
+- [Choose memory layers](memory-model.md)
+- [Track security and compliance](security-compliance-tracking.md)
+- [Follow the agent closeout contract](agent-closeout.md)
+- [Control taxonomy](taxonomy-cookbook.md)
 - [Understand task files](task-files.md)
 - [Configure defaults when you need them](configuration.md)
 - [Look up every CLI command](cli-reference.md)
 - [Read agent workflows and contracts](agents/index.md)
+- [Copy-paste agent query recipes](agents/query-recipes.md)

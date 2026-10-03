@@ -61,7 +61,9 @@ The current surface includes:
 
 - repository initialization and optional configuration
 - tasks with lifecycle, dependencies, search, and impact queries
-- stories, flows, decisions, research, and runbooks with the same query and mutation family
+- stories, flows, decisions, research, runbooks, lessons, concerns, and audits
+  with the same query and mutation family, plus program rollups and optional
+  closeout gates
 - validation, diagnostics, generated views, snapshots, and sync
 - packaged agent skills and dual-audience documentation
 

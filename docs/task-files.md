@@ -7,7 +7,7 @@ navLabel: Task Files
 
 # Understand Taskset task files
 
-Tasks are the executable layer of Taskset. Use them to carry ownership, status, dependencies, and code impact for delivery work. Pair them with [stories, research, decisions, flows, and runbooks](document-types.md) when the surrounding memory should stay durable.
+Tasks are the executable layer of Taskset. Use them to carry ownership, status, dependencies, and code impact for delivery work. Pair them with [stories, research, decisions, flows, runbooks, lessons, concerns, and audits](document-types.md) when the surrounding memory should stay durable. For multi-task programs, use `taskset task program <parent-id> --json`.
 
 Task files live under `.taskset/tasks/`. YAML frontmatter owns structured metadata. The Markdown body owns durable human context for that piece of execution.
 

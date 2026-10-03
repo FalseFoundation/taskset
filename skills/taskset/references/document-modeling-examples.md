@@ -12,9 +12,13 @@ Good: create a research document, keep the task focused on the delivery outcome,
 and link both.
 
 ```bash
-pnpm taskset document create research --title "Evaluate queue providers" --related <task-id>
-pnpm taskset task update <task-id> --related <research-id>
+taskset document create research --title "Evaluate queue providers" --related <task-id>
+taskset task update <task-id> --related <research-id>
 ```
+
+In Markdown prose, link the created file by filepath (for example
+`.taskset/research/0000001-evaluate-queue-providers-<research-id>.md`), not by
+a bare hex id as the link target.
 
 ## Decision Versus Research
 
@@ -60,4 +64,51 @@ implementation tasks that `--related` that document and carry the code work.
 ```bash
 pnpm taskset document create story --title "Member signs in via SSO"
 pnpm taskset task create --title "Add SSO callback handler" --related <story-id> --file packages/api/src/auth.ts
+```
+
+## Lesson Versus Closed Task Note
+
+Bad: rediscover “channel capability ≠ authz grant” in chat after the fixing task
+is already `done`, or paste the pattern only into a skill with no Taskset trail.
+
+Good: create a `lesson` with trigger, incorrect pattern, correct pattern,
+severity, prevention, and evidence; relate the originating task/concern; and if
+`--related-skill` is set, update that skill in the same change.
+
+```bash
+pnpm taskset document create lesson \
+  --title "Capability flags are enablement only" \
+  --severity high \
+  --related-skill .agents/skills/security/SKILL.md \
+  --related <task-id>
+```
+
+## Concern Versus ADR Or Runbook
+
+Bad: leave residual authz risk as an unfinished checklist forever, or write an
+ADR that only says “still risky” with no review cadence.
+
+Good: create a `concern` for living open/residual risk (class, trust boundary,
+evidence, residual risk, mitigation/acceptance, cadence). Use `decision` for the
+chosen design and `runbook` for recovery steps.
+
+```bash
+pnpm taskset document create concern \
+  --title "Telegram capability must not grant CASL" \
+  --class authz \
+  --cadence on-release \
+  --related <task-id>
+```
+
+## Audit Versus Informal Research Dump
+
+Bad: paste a route inventory into a research body with no findings status or
+follow-ups.
+
+Good: use `audit` for structured spot-checks with scope, method, findings
+(`pass` | `fail` | `residual`), residual items, required follow-ups, and next
+due date.
+
+```bash
+pnpm taskset document create audit --title "Public route inventory" --related <program-task-id>
 ```

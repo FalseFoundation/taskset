@@ -27,12 +27,15 @@ This page quotes the contracts agents should rely on. For the full human referen
 - Exit `1` means repository or domain failure
 - Exit `2` means usage or validation failure
 
-## Identifiers
+## Identifiers and file links
 
 - Entity `id` values are immutable 5–6 character lowercase hex strings
 - Filenames are `{sequence}-{slug}-{id}.md`
-- Commands and relationships must use the short `id`
-- Never cite the mutable sequence prefix as identity
+- Commands, frontmatter relationships, and JSON handoffs use the short `id`
+- Filename sequence prefixes are display metadata only—never identity
+- Markdown hyperlinks to docs, skills, or `.taskset/` entities must use the
+  repository-relative filepath (include the `.md` file). Do not use a bare hex
+  id as a link target.
 
 ## Array updates and clear flags
 
@@ -48,6 +51,11 @@ Array options replace the whole stored array. Repeat the singular option once pe
 - `--clear-projects`
 - `--clear-parent`
 - `--clear-owner`
+- `--clear-severity`
+- `--clear-related-skills`
+- `--clear-packs`
+- `--clear-class`
+- `--clear-cadence`
 
 Do not guess a clear flag from the singular setter name.
 
@@ -66,5 +74,21 @@ Use only these kinds:
 - `decision` (`adr`, `dr` aliases)
 - `research`
 - `runbook`
+- `lesson` (`antipattern` alias)
+- `concern`
+- `audit`
 
 Document statuses are `draft`, `ready`, `active`, `accepted`, `superseded`, and `archived`.
+
+Lesson options: `--severity`, repeatable `--related-skill`, repeatable `--pack`.
+Concern options: `--class`, `--cadence`. List filters include `--class` and `--severity`.
+
+## Program rollup
+
+```bash
+taskset task program <parent-id> --json
+```
+
+Returns child status counts, blocked deps, related open concerns, research not yet accepted, checklist completion, and `closeoutReady`.
+
+Copy-paste recipes: [Query recipes](query-recipes.md).

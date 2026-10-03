@@ -1,9 +1,11 @@
 import {
+	CONCERN_CLASSES,
 	DOCUMENT_KINDS,
 	DOCUMENT_STATUSES,
 	type DocumentStatus,
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
+	LESSON_SEVERITIES,
 	TASK_PRIORITIES,
 	TASK_RISKS,
 	TaskIdSchema,
@@ -55,6 +57,8 @@ export const DocumentQuerySchema = z
 		teams: StringListSchema.optional(),
 		risks: z.array(TaskRiskSchema).optional(),
 		projects: StringListSchema.optional(),
+		classes: z.array(z.enum(CONCERN_CLASSES)).optional(),
+		severities: z.array(z.enum(LESSON_SEVERITIES)).optional(),
 		dependsOn: TaskIdSchema.optional(),
 		related: TaskIdSchema.optional(),
 		duplicate: TaskIdSchema.optional(),
@@ -342,6 +346,20 @@ export function queryDocumentRecords(
 		}
 
 		if (validatedQuery.projects && !includesAny(metadata.projects, validatedQuery.projects)) {
+			return false
+		}
+
+		if (
+			validatedQuery.classes &&
+			(!metadata.class || !validatedQuery.classes.includes(metadata.class))
+		) {
+			return false
+		}
+
+		if (
+			validatedQuery.severities &&
+			(!metadata.severity || !validatedQuery.severities.includes(metadata.severity))
+		) {
 			return false
 		}
 

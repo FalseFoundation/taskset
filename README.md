@@ -1,6 +1,6 @@
 # Keep the whole delivery story beside the code
 
-Taskset is the Git-native workspace for how software gets planned, researched, decided, and shipped. You store stories, research, decisions, flows, runbooks, and the tasks that execute them as Markdown in the repository. Agents and humans read the same files. Git carries history, branches, and review.
+Taskset is the Git-native workspace for how software gets planned, researched, decided, operated, and shipped. You store stories, research, decisions, flows, runbooks, lessons, concerns, audits, and the tasks that execute them as Markdown in the repository. Agents and humans read the same files. Git carries history, branches, and review.
 
 No second project board. No hidden database. The work lives where the code lives.
 
@@ -19,15 +19,18 @@ Documentation: [taskset.false.foundation](https://taskset.false.foundation/)
 | **Research** | Record evidence, options, and a recommendation |
 | **Decision** | Lock a lasting choice with context and consequences |
 | **Runbook** | Make recovery and operations repeatable |
+| **Lesson** | Prevent rediscovery of a recurring mistake or correct pattern |
+| **Concern** | Track open or residual risk with a review cadence |
+| **Audit** | Store structured inventory or spot-check evidence |
 | **Task** | Execute scoped work with owners, status, and dependencies |
 
-Tasks move delivery forward. Documents preserve the product and engineering memory that tasks alone cannot hold. Link them with `--related` so the graph stays reviewable.
+Tasks move delivery forward. Documents preserve product, engineering, and operational memory. Link them with `--related` so the graph stays reviewable.
 
 ## Why teams and agents use it
 
 - Context travels with the repository, not a SaaS tab
 - Markdown stays readable in PRs, editors, and diffs without Taskset installed
-- Agents plan, research, decide, and track through one CLI and skill surface
+- Agents plan, research, decide, operate, and track through one CLI and skill surface
 - Paths, packages, and impact queries keep work attached to real code
 - Any language repository can adopt it; the CLI ships on Node
 
@@ -73,11 +76,19 @@ taskset task status your_task_id_here doing
 taskset doctor
 ```
 
-Cite every entity by its short hex `id`, never by the filename sequence prefix.
+Operational memory for agent-heavy repos:
+
+```bash
+taskset document create concern --title "Capability must not grant authz" --class authz --related your_task_id_here
+taskset document create lesson --title "Capability flags are enablement only" --severity high --related your_task_id_here
+taskset task program your_parent_task_id_here --json
+```
+
+Use short hex `id` values in commands and `--related`. Filename sequence prefixes are display metadata only. When you write a Markdown hyperlink to a file, use the repository-relative filepath (for example [memory model](docs/memory-model.md)), not a bare hex id.
 
 ## Optional configuration
 
-Commands discover the nearest `.taskset/` directory by walking upward. Optional `taskset.config.ts` at that root overlays task defaults and vocabulary:
+Commands discover the nearest `.taskset/` directory by walking upward. Optional `taskset.config.ts` at that root overlays defaults, closeout gates, and taxonomy:
 
 ```typescript
 import { defineConfig } from '@taskset/cli'
@@ -94,10 +105,19 @@ export default defineConfig({
 		},
 		priorities: ['low', 'medium', 'high', 'urgent'],
 	},
+	closeout: {
+		enforceChildCompletion: true,
+		blockDoneWithOpenConcerns: true,
+		requireLessonWhenLabeled: ['requires-lesson'],
+	},
+	taxonomy: {
+		labels: ['security', 'authz', 'requires-lesson'],
+		mode: 'error',
+	},
 })
 ```
 
-Configuration never relocates canonical `.taskset/` data.
+Configuration never relocates canonical `.taskset/` data. See [Configuration](docs/configuration.md).
 
 ## What a file looks like
 
@@ -130,11 +150,13 @@ Install the packaged skill into your agent, or load it from the published packag
 npx skills add FalseFoundation/taskset --skill taskset
 ```
 
-Offline copies ship at `node_modules/@taskset/cli/skills/` after a project install. Prefer `--json` for machine handoffs. See the [agent guide](docs/agents/index.md).
+Offline copies ship at `node_modules/@taskset/cli/skills/` after a project install. Prefer `--json` for machine handoffs. See the [agent guide](docs/agents/index.md) and [query recipes](docs/agents/query-recipes.md).
 
 ## Next
 
 - [Start a Taskset repository](docs/getting-started.md)
 - [Choose a document type](docs/document-types.md)
+- [Choose memory layers](docs/memory-model.md)
 - [Understand task files](docs/task-files.md)
 - [CLI reference](docs/cli-reference.md)
+- [Security tracking](docs/security-compliance-tracking.md)

@@ -1,11 +1,17 @@
 export {
+	type CloseoutConfig,
 	type Config,
 	ConfigSchema,
+	type DoctorConfig,
 	type ProjectConfig,
 	type TaskDefaultsConfig,
 	type TasksConfig,
+	type TaxonomyConfig,
 } from './config.ts'
 export {
+	CONCERN_CLASSES,
+	type ConcernClass,
+	ConcernClassSchema,
 	DOCUMENT_KINDS,
 	DOCUMENT_STATUSES,
 	type DocumentFile,
@@ -19,6 +25,9 @@ export {
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
 	DocumentTitleSchema,
+	LESSON_SEVERITIES,
+	type LessonSeverity,
+	LessonSeveritySchema,
 } from './document.ts'
 export {
 	CANONICAL_ENTITY_ID_PATTERN,
