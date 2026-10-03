@@ -6,7 +6,7 @@ describe('document contracts', () => {
 		for (const type of DOCUMENT_KINDS) {
 			expect(
 				DocumentMetadataSchema.parse({
-					id: '0000001-example-document',
+					id: 'a1b2c3',
 					type,
 					title: 'Example document',
 					status: type === 'decision' ? 'accepted' : 'draft',
@@ -21,7 +21,7 @@ describe('document contracts', () => {
 		expect(
 			DocumentFileSchema.parse({
 				metadata: {
-					id: '0000001-sign-in',
+					id: 'd4e5f6',
 					type: 'flow',
 					title: 'Sign in',
 					status: 'ready',

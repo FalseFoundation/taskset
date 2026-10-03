@@ -1,9 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { DOCUMENT_DIRECTORY_NAMES, type Repository, RepositorySchema } from '../config/config.ts'
+import {
+	type DocumentIdMigration,
+	listDocuments,
+	migrateDocumentIds,
+} from '../documents/documentRepository.ts'
 import { type GeneratedViewsResult, generateViews } from '../generated/generatedViews.ts'
 import { DEFAULT_DATA_IGNORE_SOURCE } from '../repository/repository.ts'
-import { migrateTaskIds, type TaskIdMigration } from '../tasks/taskRepository.ts'
+import { listTasks, migrateTaskIds, type TaskIdMigration } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export interface RepositorySyncProgress {
@@ -20,6 +25,7 @@ export interface RepositorySyncOptions {
 
 export interface RepositorySyncResult {
 	readonly migrations: readonly TaskIdMigration[]
+	readonly documentMigrations: readonly DocumentIdMigration[]
 	readonly generated: GeneratedViewsResult
 }
 
@@ -97,9 +103,18 @@ export async function syncRepository(
 	])
 	await ensureDataIgnore(validated)
 	options.onProgress?.({ completed: 1, total: 3, percent: 33, phase: 'directories' })
-	const migrations = await migrateTaskIds(validated, { concurrency: options.concurrency })
+	const documentIds = (await listDocuments(validated)).map((record) => record.document.metadata.id)
+	const migrations = await migrateTaskIds(validated, {
+		concurrency: options.concurrency,
+		reservedIds: documentIds,
+	})
+	const taskIds = (await listTasks(validated)).map((record) => record.task.metadata.id)
+	const documentMigrations = await migrateDocumentIds(validated, {
+		concurrency: options.concurrency,
+		reservedIds: taskIds,
+	})
 	options.onProgress?.({ completed: 2, total: 3, percent: 67, phase: 'migrations' })
 	const generated = await generateViews(validated)
 	options.onProgress?.({ completed: 3, total: 3, percent: 100, phase: 'generated' })
-	return Object.freeze({ migrations, generated })
+	return Object.freeze({ migrations, documentMigrations, generated })
 }

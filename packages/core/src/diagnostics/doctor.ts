@@ -187,7 +187,7 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 							: diagnostic.code === 'parent-cycle'
 								? 'Remove or change at least one parent edge from the reported cycle.'
 								: diagnostic.code === 'duplicate-id'
-									? 'Assign one file a new Taskset ID and rename it to match.'
+									? 'Assign one file a new short hex Taskset ID and rename it to `{sequence}-{slug}-{id}.md`.'
 									: diagnostic.code === 'self-dependency'
 										? 'Remove the self-dependency from dependsOn.'
 										: `Remove the self-reference from ${diagnostic.field ?? 'the relationship'}.`,

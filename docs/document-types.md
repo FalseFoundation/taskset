@@ -28,9 +28,11 @@ taskset document create research --title "Evaluate queue providers" --related <t
 taskset document create runbook --title "Recover consumer lag"
 ```
 
-IDs and filenames use a per-type seven-digit sequence and title slug, for
-example `.taskset/flows/0000001-member-signs-in-via-sso.md`. Disposable metadata
-indexes for that kind live beside the files in `.taskset/flows/.generated/`.
+Document IDs are immutable 5-6 character lowercase hex values. Filenames keep a
+per-type display sequence and title slug, for example
+`.taskset/flows/0000001-member-signs-in-via-sso-a1b2c3.md`. Agents and commands
+reference the short `id`. Disposable metadata indexes for that kind live beside
+the files in `.taskset/flows/.generated/`.
 
 ## Query And Mutation
 
@@ -82,8 +84,8 @@ safe for automation.
 [
   { "action": "create", "input": { "type": "story", "title": "Member upgrades" } },
   { "action": "import", "sourcePath": "docs/flows/checkout.md", "options": { "type": "flow" } },
-  { "action": "update", "id": "0000001-member-upgrades", "type": "story", "input": { "status": "ready" } },
-  { "action": "export", "id": "0000001-member-upgrades", "type": "story", "targetPath": "exports/member-upgrades.md" }
+  { "action": "update", "id": "a1b2c3", "type": "story", "input": { "status": "ready" } },
+  { "action": "export", "id": "a1b2c3", "type": "story", "targetPath": "exports/member-upgrades.md" }
 ]
 ```
 
@@ -93,8 +95,10 @@ taskset sync --concurrency 8
 ```
 
 `taskset sync` creates missing document-kind directories inside `.taskset`,
-migrates legacy task filenames and references throughout repository text files,
-refreshes data `.gitignore` rules for scoped `.generated/` directories, removes
-legacy global `.taskset/generated/`, and rebuilds generated views. Build
-outputs, dependencies, caches, snapshots, and Git internals are excluded from
-reference rewriting.
+migrates legacy task and document IDs to short hex IDs, normalizes
+`{sequence}-{slug}-{id}.md` filenames, repairs duplicate sequence prefixes by
+`createdAt`, rewrites repository text references, refreshes data `.gitignore`
+rules for scoped `.generated/` directories, removes legacy global
+`.taskset/generated/`, and rebuilds generated views. Build outputs,
+dependencies, caches, snapshots, and Git internals are excluded from reference
+rewriting.

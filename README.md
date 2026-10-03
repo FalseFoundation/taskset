@@ -78,7 +78,7 @@ Each task combines YAML metadata with a Markdown body:
 
 ```markdown
 ---
-id: 0000001-add-repository-validation
+id: a1b2c3
 title: Add repository validation
 status: todo
 priority: high
@@ -102,8 +102,10 @@ projects:
 Explain why the work exists.
 ```
 
-Task IDs are immutable seven-digit sequences plus a title slug. Taskset validates metadata,
-normalizes serialization, and preserves the human-authored Markdown body.
+Task IDs are immutable short hex values (`a1b2c3`). Filenames keep a display
+sequence and title slug (`0000001-add-repository-validation-a1b2c3.md`).
+Taskset validates metadata, normalizes serialization, and preserves the
+human-authored Markdown body.
 
 Create durable supporting documents from built-in templates, or import existing
 Markdown such as the files under `docs/adr`, `docs/flows`, or `docs/runbooks`:

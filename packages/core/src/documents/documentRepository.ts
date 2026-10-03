@@ -12,6 +12,7 @@ import {
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
 	DocumentTitleSchema,
+	needsEntityIdMigration,
 	TaskIdSchema,
 	type TaskPriority,
 	TaskPrioritySchema,
@@ -27,6 +28,14 @@ import {
 	RepositorySchema,
 } from '../config/config.ts'
 import { buildDocumentGraph, DocumentGraphError } from '../graph/documentGraph.ts'
+import {
+	assertEntityFileNameMatchesId,
+	generateEntityId,
+	nextEntitySequence,
+	planEntitySequences,
+	resolveEntityFileName,
+	slugifyTitle,
+} from '../ids/entityId.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
@@ -270,14 +279,7 @@ export function normalizeDocumentKind(value: string): DocumentKind {
 }
 
 export function slugifyDocumentTitle(title: string): string {
-	const slug = title
-		.normalize('NFKD')
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/gu, '-')
-		.replace(/^-|-$/gu, '')
-		.slice(0, 72)
-		.replace(/-$/u, '')
-	return slug || 'untitled'
+	return slugifyTitle(title)
 }
 
 function schemaIssues(error: z.ZodError): readonly DocumentRepositoryIssue[] {
@@ -505,18 +507,27 @@ export function serializeDocumentFile(document: DocumentFile): string {
 	return serializeFrontmatter(orderedMetadata, parsed.body)
 }
 
-async function nextId(repository: Repository, type: DocumentKind, title: string): Promise<string> {
+async function allocateDocumentIdentity(
+	repository: Repository,
+	type: DocumentKind,
+	title: string,
+	occupiedIds: ReadonlySet<string>,
+): Promise<{ readonly id: string; readonly fileName: string }> {
 	let entries: Dirent<string>[] = []
 	try {
 		entries = await readdir(documentKindDirectory(repository, type), { withFileTypes: true })
 	} catch {
 		// Directory may not exist yet for a freshly initialized kind.
 	}
-	const maximum = entries.reduce((value, entry) => {
-		const match = /^(\d{7})-/u.exec(entry.name)
-		return Math.max(value, match ? Number(match[1]) : 0)
-	}, 0)
-	return `${String(maximum + 1).padStart(7, '0')}-${slugifyDocumentTitle(title)}`
+	const fileNames = entries
+		.filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+		.map((entry) => entry.name)
+	const id = generateEntityId(occupiedIds)
+	const sequence = nextEntitySequence(fileNames)
+	return {
+		id,
+		fileName: resolveEntityFileName({ id, title, sequence }),
+	}
 }
 
 export async function listDocuments(
@@ -545,6 +556,15 @@ export async function listDocuments(
 			const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 			try {
 				const document = parseDocumentFile(await readFile(absolutePath, 'utf8'))
+				try {
+					assertEntityFileNameMatchesId(entry.name, document.metadata.id)
+				} catch (error) {
+					throw new DocumentRepositoryError(
+						'document-invalid',
+						error instanceof Error ? error.message : 'Document filename does not match its id',
+						{ filePath: relativePath, documentId: document.metadata.id },
+					)
+				}
 				const existingPath = documentIds.get(document.metadata.id)
 				if (existingPath) {
 					throw new DocumentRepositoryError(
@@ -569,8 +589,10 @@ export async function listDocuments(
 	}
 
 	return Object.freeze(
-		records.sort((left, right) =>
-			left.document.metadata.id.localeCompare(right.document.metadata.id),
+		records.sort(
+			(left, right) =>
+				left.relativePath.localeCompare(right.relativePath) ||
+				left.document.metadata.id.localeCompare(right.document.metadata.id),
 		),
 	)
 }
@@ -626,7 +648,14 @@ export async function createDocument(
 	const status = validatedInput.status ?? defaultStatus(type)
 	const priority = validatedInput.priority
 	validateConfiguredPriority(validatedRepository, priority)
-	const id = await nextId(validatedRepository, type, title)
+	const existingRecords = await listDocuments(validatedRepository)
+	const occupiedIds = new Set(existingRecords.map((record) => record.document.metadata.id))
+	const { id, fileName } = await allocateDocumentIdentity(
+		validatedRepository,
+		type,
+		title,
+		occupiedIds,
+	)
 	const timestamp = formatDate(validatedOptions.now?.() ?? new Date())
 	const document = DocumentFileSchema.parse({
 		metadata: {
@@ -657,12 +686,11 @@ export async function createDocument(
 		},
 		body: validatedInput.body ?? documentTemplate(type, title),
 	})
-	const absolutePath = path.join(documentKindDirectory(validatedRepository, type), `${id}.md`)
+	const absolutePath = path.join(documentKindDirectory(validatedRepository, type), fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 	const contents = serializeDocumentFile(document)
 	const parsedDocument = parseDocumentFile(contents)
-	const existingRecords = await listDocuments(validatedRepository)
-	if (existingRecords.some((record) => record.document.metadata.id === id)) {
+	if (occupiedIds.has(id)) {
 		throw new DocumentRepositoryError('document-exists', `Document ${id} already exists`, {
 			filePath: relativePath,
 			documentId: id,
@@ -717,6 +745,275 @@ export async function importDocument(
 	})
 	if (options.move) await unlink(absoluteSource)
 	return record
+}
+
+export interface DocumentIdMigration {
+	readonly from: string
+	readonly to: string
+}
+
+export interface DocumentIdMigrationProgress {
+	readonly completed: number
+	readonly total: number
+	readonly percent: number
+	readonly phase: 'documents' | 'references'
+}
+
+export interface DocumentIdMigrationOptions {
+	readonly concurrency?: number
+	readonly reservedIds?: Iterable<string>
+	readonly onProgress?: (progress: DocumentIdMigrationProgress) => void
+}
+
+const REFERENCE_SCAN_IGNORED_DIRECTORIES = new Set([
+	'.git',
+	'.next',
+	'.turbo',
+	'coverage',
+	'dist',
+	'node_modules',
+])
+
+async function repositoryTextFiles(
+	root: string,
+	excludedDirectories: readonly string[],
+): Promise<string[]> {
+	const excluded = new Set(excludedDirectories)
+	const files: string[] = []
+	const visit = async (directory: string): Promise<void> => {
+		let entries: Dirent<string>[]
+		try {
+			entries = await readdir(directory, { withFileTypes: true })
+		} catch {
+			return
+		}
+		for (const entry of entries) {
+			const target = path.join(directory, entry.name)
+			if (entry.isDirectory()) {
+				const disposableTasksetDirectory =
+					directory === path.join(root, '.taskset') &&
+					['generated', 'index', 'snapshots', 'cache'].includes(entry.name)
+				if (
+					excluded.has(target) ||
+					disposableTasksetDirectory ||
+					REFERENCE_SCAN_IGNORED_DIRECTORIES.has(entry.name)
+				) {
+					continue
+				}
+				await visit(target)
+			} else if (entry.isFile()) {
+				files.push(target)
+			}
+		}
+	}
+	await visit(root)
+	return files
+}
+
+async function pacedMap<T, R>(
+	items: readonly T[],
+	worker: (item: T, index: number) => Promise<R>,
+	concurrency: number,
+	onSettled?: (completed: number) => void,
+): Promise<R[]> {
+	if (items.length === 0) return []
+	const results: R[] = new Array(items.length)
+	let completed = 0
+	let firstError: Error | undefined
+	await new Promise<void>((resolve) => {
+		const queue = new AsyncQueuer<{ item: T; index: number }>(
+			async ({ item, index }) => {
+				results[index] = await worker(item, index)
+			},
+			{
+				concurrency,
+				started: false,
+				throwOnError: false,
+				onError: (error) => {
+					firstError ??= error
+				},
+				onSettled: () => {
+					completed += 1
+					onSettled?.(completed)
+					if (completed === items.length) resolve()
+				},
+			},
+		)
+		items.forEach((item, index) => {
+			queue.addItem({ item, index }, 'back', false)
+		})
+		queue.start()
+	})
+	if (firstError) throw firstError
+	return results
+}
+
+/**
+ * Atomically migrates legacy document IDs to immutable short hex IDs, rewrites
+ * relationships and repository text references, normalizes filenames to
+ * `{sequence}-{slug}-{id}.md`, and repairs duplicate sequence prefixes by
+ * `createdAt` within each document kind.
+ */
+export async function migrateDocumentIds(
+	repository: Repository,
+	options: DocumentIdMigrationOptions = {},
+): Promise<readonly DocumentIdMigration[]> {
+	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'document ID migration')
+	const concurrency = z
+		.number()
+		.int()
+		.min(1)
+		.max(32)
+		.parse(options.concurrency ?? 8)
+	const records = await listDocuments(validatedRepository)
+	const occupied = new Set<string>([
+		...(options.reservedIds ?? []),
+		...records.map((record) => record.document.metadata.id),
+	])
+	const migrations = records
+		.filter((record) => needsEntityIdMigration(record.document.metadata.id))
+		.map((record) => {
+			const to = generateEntityId(occupied)
+			occupied.add(to)
+			return { from: record.document.metadata.id, to }
+		})
+	const replacements = new Map(migrations.map((migration) => [migration.from, migration.to]))
+	const replace = (id: string) => replacements.get(id) ?? id
+	const sequencesByKind = new Map<DocumentKind, Map<string, number>>()
+	for (const kind of Object.keys(DOCUMENT_DIRECTORY_NAMES) as DocumentKind[]) {
+		const kindRecords = records.filter((record) => record.document.metadata.type === kind)
+		if (kindRecords.length === 0) continue
+		sequencesByKind.set(
+			kind,
+			planEntitySequences(kindRecords, {
+				idFor: (candidate) => replace(candidate.document.metadata.id),
+				createdAtFor: (candidate) => candidate.document.metadata.createdAt,
+				fileNameFor: (candidate) => path.basename(candidate.relativePath),
+				legacyIdFor: (candidate) => candidate.document.metadata.id,
+			}),
+		)
+	}
+	const rewrittenRecords = records.map((record) => {
+		const id = replace(record.document.metadata.id)
+		const sequence = sequencesByKind.get(record.document.metadata.type)?.get(id)
+		if (sequence === undefined) {
+			throw new DocumentRepositoryError(
+				'document-invalid',
+				`Unable to allocate a display sequence for document ${id}`,
+				{ documentId: id, filePath: record.relativePath },
+			)
+		}
+		const fileName = resolveEntityFileName({
+			id,
+			title: record.document.metadata.title,
+			sequence,
+		})
+		const relativePath = toRepositoryRelativePath(
+			validatedRepository,
+			path.join(
+				documentKindDirectory(validatedRepository, record.document.metadata.type),
+				fileName,
+			),
+		)
+		return {
+			record,
+			id,
+			relativePath,
+			changed:
+				id !== record.document.metadata.id ||
+				relativePath !== record.relativePath ||
+				(record.document.metadata.dependsOn?.some((value) => replace(value) !== value) ?? false) ||
+				(record.document.metadata.related?.some((value) => replace(value) !== value) ?? false) ||
+				(record.document.metadata.duplicates?.some((value) => replace(value) !== value) ?? false) ||
+				(record.document.metadata.parent !== undefined &&
+					replace(record.document.metadata.parent) !== record.document.metadata.parent),
+		}
+	})
+	if (!rewrittenRecords.some((item) => item.changed) && migrations.length === 0) {
+		return Object.freeze([])
+	}
+	const documentOperationGroups = await pacedMap(
+		rewrittenRecords,
+		async (item) => {
+			const oldPath = path.join(validatedRepository.rootDirectory, item.record.relativePath)
+			const oldContents = await readDocumentContents(
+				validatedRepository,
+				item.record,
+				item.record.document.metadata.id,
+			)
+			const document: DocumentFile = {
+				metadata: {
+					...item.record.document.metadata,
+					id: item.id,
+					dependsOn: item.record.document.metadata.dependsOn?.map(replace),
+					related: item.record.document.metadata.related?.map(replace),
+					duplicates: item.record.document.metadata.duplicates?.map(replace),
+					parent: item.record.document.metadata.parent
+						? replace(item.record.document.metadata.parent)
+						: undefined,
+				},
+				body: item.record.document.body,
+			}
+			const newPath = path.join(validatedRepository.rootDirectory, item.relativePath)
+			const contents = serializeDocumentFile(document)
+			if (!item.changed) return []
+			return oldPath === newPath
+				? [{ targetPath: oldPath, contents, expectedContents: oldContents }]
+				: [
+						{ targetPath: newPath, contents, expectedContents: null },
+						{ targetPath: oldPath, contents: null, expectedContents: oldContents },
+					]
+		},
+		concurrency,
+		(completed) => {
+			options.onProgress?.({
+				completed,
+				total: rewrittenRecords.length,
+				percent: Math.round((completed / rewrittenRecords.length) * 100),
+				phase: 'documents',
+			})
+		},
+	)
+	const files = await repositoryTextFiles(
+		validatedRepository.rootDirectory,
+		Object.values(DOCUMENT_DIRECTORY_NAMES).map((name) =>
+			path.join(validatedRepository.documentsDirectory, name),
+		),
+	)
+	const referenceOperations = (
+		await pacedMap(
+			files,
+			async (targetPath) => {
+				let source: string
+				try {
+					source = await readFile(targetPath, 'utf8')
+				} catch {
+					return undefined
+				}
+				if (source.includes('\0')) return undefined
+				let contents = source
+				for (const migration of migrations) {
+					contents = contents.split(migration.from).join(migration.to)
+				}
+				return contents === source ? undefined : { targetPath, contents, expectedContents: source }
+			},
+			concurrency,
+			(completed) =>
+				options.onProgress?.({
+					completed,
+					total: files.length,
+					percent: Math.round((completed / files.length) * 100),
+					phase: 'references',
+				}),
+		)
+	).filter((operation): operation is NonNullable<typeof operation> => operation !== undefined)
+	const operations = [...documentOperationGroups.flat(), ...referenceOperations]
+	if (operations.length === 0) return Object.freeze([])
+	await applyFileTransaction(operations)
+	await refreshGeneratedViews(validatedRepository, undefined)
+	return Object.freeze(
+		migrations.map((migration): DocumentIdMigration => Object.freeze({ ...migration })),
+	)
 }
 
 /**

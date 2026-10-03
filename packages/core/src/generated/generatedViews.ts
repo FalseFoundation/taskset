@@ -124,9 +124,14 @@ function generatedFileName(value: string): string {
 	return `${readableName || 'empty'}.md`
 }
 
-function entityLink(id: string, title: string, order: number | undefined): string {
+function entityLink(
+	id: string,
+	title: string,
+	order: number | undefined,
+	fileName: string,
+): string {
 	const orderPrefix = order !== undefined ? `[${order}] ` : ''
-	return `- ${orderPrefix}[${id}: ${title}](../${id}.md)`
+	return `- ${orderPrefix}[${id}: ${title}](../${fileName})`
 }
 
 function compareByOrderThenId(
@@ -234,6 +239,7 @@ function buildGroupedFiles<TRecord, TMetadata>(
 		readonly title: string
 		readonly order?: number
 	},
+	fileNameOf: (record: TRecord) => string,
 ): ReadonlyMap<string, string> {
 	const groupsByCategory = new Map<string, Map<string, TRecord[]>>()
 
@@ -277,7 +283,7 @@ function buildGroupedFiles<TRecord, TMetadata>(
 				})
 				.map((record) => {
 					const metadata = metadataOf(record)
-					return entityLink(metadata.id, metadata.title, metadata.order)
+					return entityLink(metadata.id, metadata.title, metadata.order, fileNameOf(record))
 				})
 			files.set(
 				`${category}/${generatedFileName(value)}`,
@@ -337,6 +343,7 @@ export async function generateViews(
 		taskRecords,
 		TASK_METADATA_VIEWS,
 		(record) => record.task.metadata,
+		(record) => path.basename(record.relativePath),
 	)
 	const taskScope = await writeGeneratedScope({
 		entityDirectory: repository.tasksDirectory,
@@ -360,6 +367,7 @@ export async function generateViews(
 			documentRecords,
 			DOCUMENT_METADATA_VIEWS,
 			(record) => record.document.metadata,
+			(record) => path.basename(record.relativePath),
 		)
 		const written = await writeGeneratedScope({
 			entityDirectory: path.join(repository.documentsDirectory, DOCUMENT_DIRECTORY_NAMES[kind]),

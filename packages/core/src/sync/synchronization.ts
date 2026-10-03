@@ -26,9 +26,10 @@ import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { buildTaskGraph } from '../graph/taskGraph.ts'
+import { generateEntityId, nextEntitySequence, resolveEntityFileName } from '../ids/entityId.ts'
 import { applyFileTransaction } from '../repository/fileTransaction.ts'
 import { parseTaskFile, serializeTaskFile } from '../tasks/taskFile.ts'
-import { generateTaskId, listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
+import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
 export type SynchronizationErrorCode = 'adapter-invalid' | 'conflict' | 'stale' | 'local-invalid'
@@ -333,19 +334,17 @@ export async function planSynchronization(
 	const conflicts: SyncConflict[] = []
 	const generatedAt = formatDate(validatedOptions.now?.() ?? new Date())
 	const deletionBehavior = validatedOptions.deletionBehavior ?? 'preserve'
-	let nextSequence =
-		localRecords.reduce((maximum, record) => {
-			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
-			return Math.max(maximum, match ? Number(match[1]) : 0)
-		}, 0) + 1
+	const occupiedIds = new Set(localRecords.map((record) => record.task.metadata.id))
 
 	for (const externalRecord of externalRecords) {
 		const mappedTaskId = externalRecord.identity.taskId
 		const localRecord = mappedTaskId ? localById.get(mappedTaskId) : undefined
 		const local = localRecord ? taskData(localRecord) : null
 		const external = externalRecord.data
-		const taskId =
-			mappedTaskId ?? generateTaskId(external?.title ?? 'imported-task', nextSequence++)
+		const taskId = mappedTaskId ?? generateEntityId(occupiedIds)
+		if (!mappedTaskId) {
+			occupiedIds.add(taskId)
+		}
 		const identity = Object.freeze({ ...externalRecord.identity, taskId })
 
 		if (mappedTaskId) {
@@ -623,6 +622,9 @@ async function applyLocalChanges(
 ): Promise<readonly TaskRecord[]> {
 	const existingRecords = await listTasks(repository)
 	const finalRecords = new Map(existingRecords.map((record) => [record.task.metadata.id, record]))
+	let nextSequence = nextEntitySequence(
+		existingRecords.map((record) => path.basename(record.relativePath)),
+	)
 	const operations: {
 		readonly targetPath: string
 		readonly contents: string | null
@@ -640,7 +642,11 @@ async function applyLocalChanges(
 				)
 			}
 
-			const relativePath = `.taskset/tasks/${change.taskId}.md`
+			const relativePath = `.taskset/tasks/${resolveEntityFileName({
+				id: change.taskId,
+				title: change.data.title,
+				sequence: nextSequence++,
+			})}`
 			const task = parseTaskFile(
 				serializeTaskFile(taskFromData(change.taskId, change.data, generatedAt, generatedAt), {
 					filePath: relativePath,

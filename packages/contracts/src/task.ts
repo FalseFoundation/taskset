@@ -1,5 +1,6 @@
 import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
+import { EntityIdSchema } from './entityId.ts'
 
 export const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'canceled'] as const
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
@@ -41,12 +42,7 @@ export interface TaskFile {
 }
 
 /** Strict immutable ID contract shared by canonical files and public inputs. */
-export const TaskIdSchema = z
-	.string()
-	.regex(
-		/^(?:\d{7}-[a-z0-9]+(?:-[a-z0-9]+)*|TS-[0-9A-HJKMNP-TV-Z]{26})$/u,
-		'Expected 0000001-short-task-title (legacy TS-ULIDs are accepted for migration)',
-	)
+export const TaskIdSchema = EntityIdSchema
 
 export const TaskTitleSchema = z
 	.string()

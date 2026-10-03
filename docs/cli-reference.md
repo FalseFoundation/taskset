@@ -311,7 +311,7 @@ Human output is the serialized task Markdown. JSON output contains:
 
 ```json
 {
-  "relativePath": ".taskset/tasks/0000001-short-title.md",
+  "relativePath": ".taskset/tasks/0000001-short-title-a1b2c3.md",
   "metadata": {},
   "body": "...",
   "derived": {}
@@ -384,11 +384,12 @@ alongside the deleted task record.
 taskset task migrate-ids [--json] [--cwd <path>]
 ```
 
-Atomically converts legacy `TS-` task IDs to seven-digit, title-derived IDs and
-rewrites canonical relationships plus references in repository text files.
-Dependencies, Git internals, build output, caches, generated views, indexes,
-and snapshots are excluded. Human output is a tab-separated
-old-to-new mapping; JSON emits the same mapping as objects.
+Atomically converts legacy `TS-` and sequential task IDs to immutable short hex
+IDs, normalizes filenames to `{sequence}-{slug}-{id}.md`, repairs duplicate
+sequence prefixes by `createdAt`, and rewrites canonical relationships plus
+references in repository text files. Dependencies, Git internals, build output,
+caches, generated views, indexes, and snapshots are excluded. Human output is a
+tab-separated old-to-new mapping; JSON emits the same mapping as objects.
 
 ### `sync`
 
@@ -396,9 +397,11 @@ old-to-new mapping; JSON emits the same mapping as objects.
 taskset sync [--concurrency <count>] [--json] [--cwd <path>]
 ```
 
-Ensures every canonical document directory exists under `.taskset`, applies
-legacy task-ID and repository-reference migrations, and rebuilds generated
-views. Progress counts and percentages are sent to stderr.
+Ensures every canonical document directory exists under `.taskset`, migrates
+legacy task and document IDs to short hex IDs, normalizes filenames, repairs
+duplicate sequence prefixes by `createdAt`, rewrites repository text
+references, and rebuilds generated views. Progress counts and percentages are
+sent to stderr.
 
 ## Document Commands
 

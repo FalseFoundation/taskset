@@ -958,7 +958,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			stdout(
 				values.json
 					? `${JSON.stringify(result, null, 2)}\n`
-					: `Synced ${result.migrations.length} migrations and generated views\n`,
+					: `Synced ${result.migrations.length + result.documentMigrations.length} migrations and generated views\n`,
 			)
 			return 0
 		}

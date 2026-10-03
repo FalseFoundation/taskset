@@ -126,12 +126,15 @@ Non-negotiable rules:
 - Document mutations, imports, exports, and batches belong to core. The CLI
   validates manifests and renders output only. Use TanStack Pacer for bounded
   heavy batches and migrations, emit count and percentage progress, preserve
-  manifest result order, and serialize writes that allocate sequential IDs.
+  manifest result order, and serialize writes that allocate short hex IDs plus
+  filename display sequences.
 - Disposable metadata indexes live in each entity folder's `.generated/`
   directory (for example `.taskset/tasks/.generated/` and
   `.taskset/research/.generated/`), not a global `.taskset/generated/` tree.
 - Repository sync is the maintenance entrypoint: ensure canonical `.taskset/`
-  directories, migrate task IDs and repository text references atomically,
+  directories, migrate task and document IDs to immutable short hex IDs,
+  normalize `{sequence}-{slug}-{id}.md` filenames, repair duplicate sequence
+  prefixes by `createdAt`, rewrite repository text references atomically,
   refresh data `.gitignore` rules for scoped generated output, remove legacy
   global generated directories, then rebuild disposable generated views.
 - `taskset.config.ts` marks the repository root and configures validated project

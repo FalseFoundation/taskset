@@ -1,5 +1,6 @@
 import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
+import { EntityIdSchema } from './entityId.ts'
 import {
 	type TASK_PRIORITIES,
 	type TASK_RISKS,
@@ -62,9 +63,8 @@ const uniqueArray = <T>(schema: z.ZodType<T>) =>
 		.array(schema)
 		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 
-export const DocumentIdSchema = z
-	.string()
-	.regex(/^\d{7}-[a-z0-9]+(?:-[a-z0-9]+)*$/u, 'Expected 0000001-short-document-title')
+/** Document IDs share the same immutable short-hex contract as task IDs. */
+export const DocumentIdSchema = EntityIdSchema
 export const DocumentKindSchema = z.enum(DOCUMENT_KINDS)
 export const DocumentStatusSchema = z.enum(DOCUMENT_STATUSES)
 export const DocumentTitleSchema = TrimmedValueSchema

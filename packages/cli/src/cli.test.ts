@@ -50,7 +50,8 @@ describe('runCli', () => {
 				stderr: created.writeStderr,
 			}),
 		).toBe(0)
-		expect(created.stdout.trim()).toBe('0000001-use-postgres')
+		const createdId = created.stdout.trim()
+		expect(createdId).toMatch(/^[0-9a-f]{6}$/u)
 
 		const source = path.join(cwd, 'existing-research.md')
 		await writeFile(source, '# Queue providers\n\nEvidence.\n')
@@ -62,7 +63,7 @@ describe('runCli', () => {
 				stderr: imported.writeStderr,
 			}),
 		).toBe(0)
-		expect(imported.stdout).toContain('.taskset/research/0000001-queue-providers.md')
+		expect(imported.stdout).toMatch(/\.taskset\/research\/0000001-queue-providers-[0-9a-f]{6}\.md/u)
 		const listed = createOutput()
 		expect(await runCli(['document', 'list', '--json'], { cwd, stdout: listed.writeStdout })).toBe(
 			0,
@@ -107,6 +108,7 @@ describe('runCli', () => {
 		).toBe(0)
 		expect(JSON.parse(output.stdout)).toMatchObject({
 			migrations: [],
+			documentMigrations: [],
 			generated: { files: expect.any(Array), fingerprint: expect.any(String) },
 		})
 		expect(output.stderr).toContain('100%')
@@ -148,7 +150,7 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		const taskId = createOutputState.stdout.trim()
-		expect(taskId).toBe('0000001-use-taskset-in-this-repository')
+		expect(taskId).toMatch(/^[0-9a-f]{6}$/u)
 
 		const listOutput = createOutput()
 		expect(

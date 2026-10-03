@@ -21,6 +21,16 @@ export {
 	DocumentTitleSchema,
 } from './document.ts'
 export {
+	CANONICAL_ENTITY_ID_PATTERN,
+	EntityIdSchema,
+	isCanonicalEntityId,
+	isLegacySequentialEntityId,
+	isLegacyUlidEntityId,
+	LEGACY_SEQUENTIAL_ENTITY_ID_PATTERN,
+	LEGACY_ULID_ENTITY_ID_PATTERN,
+	needsEntityIdMigration,
+} from './entityId.ts'
+export {
 	SYNC_DELETION_BEHAVIORS,
 	SYNC_DIRECTIONS,
 	SYNC_TASK_FIELDS,

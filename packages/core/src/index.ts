@@ -37,6 +37,9 @@ export {
 	type DocumentBatchOptions,
 	type DocumentBatchProgress,
 	type DocumentBatchResult,
+	type DocumentIdMigration,
+	type DocumentIdMigrationOptions,
+	type DocumentIdMigrationProgress,
 	type DocumentRecord,
 	DocumentRepositoryError,
 	type DocumentRepositoryErrorCode,
@@ -47,6 +50,7 @@ export {
 	type ImportDocumentOptions,
 	importDocument,
 	listDocuments,
+	migrateDocumentIds,
 	normalizeDocumentKind,
 	parseDocumentFile,
 	readDocument,
@@ -84,6 +88,20 @@ export {
 	TaskRecordSchema,
 	TaskRecordsSchema,
 } from './graph/taskGraph.ts'
+export {
+	assertEntityFileNameMatchesId,
+	buildEntityFileName,
+	ENTITY_ID_LENGTH,
+	type EntityFileNameParts,
+	extractSequenceFromEntityId,
+	extractSequenceFromFileName,
+	generateEntityId,
+	nextEntitySequence,
+	parseEntityFileName,
+	planEntitySequences,
+	resolveEntityFileName,
+	slugifyTitle,
+} from './ids/entityId.ts'
 export {
 	type BuildTaskIndexOptions,
 	BuildTaskIndexOptionsSchema,

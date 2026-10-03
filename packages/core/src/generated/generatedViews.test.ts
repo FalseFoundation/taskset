@@ -19,8 +19,8 @@ describe('generated views', () => {
 		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-generated-'))
 		temporaryDirectories.push(rootDirectory)
 		const repository = await initializeRepository(rootDirectory)
-		const taskId = 'TS-01J00000000000000000000000'
-		await createTask(
+		const taskId = 'a1b2c3'
+		const created = await createTask(
 			repository,
 			{
 				title: 'Indexed',
@@ -42,12 +42,13 @@ describe('generated views', () => {
 		const manifest = JSON.parse(
 			await readFile(path.join(repository.generatedDirectory, 'manifest.json'), 'utf8'),
 		) as Record<string, unknown>
+		const fileName = path.basename(created.relativePath)
 
 		expect(second.fingerprint).toBe(first.fingerprint)
 		expect(Object.keys(manifest).sort()).toEqual(['files', 'fingerprint'])
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'status', 'todo.md'), 'utf8'),
-		).toContain(`- [20] [${taskId}: Indexed](../${taskId}.md)`)
+		).toContain(`- [20] [${taskId}: Indexed](../${fileName})`)
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'projects', 'alpha∕beta.md'), 'utf8'),
 		).toContain(taskId)

@@ -8,7 +8,7 @@ import {
 } from './task.ts'
 
 const validV1Metadata = {
-	id: 'TS-01J00000000000000000000000',
+	id: 'a1b2c3',
 	title: 'Add deterministic task parsing',
 	status: 'doing',
 	priority: 'high',
@@ -30,9 +30,9 @@ const validV2Metadata = {
 	effort: 3,
 	risk: 'high',
 	dueDate: '2026-06-30',
-	related: ['TS-01J00000000000000000000001'],
-	duplicates: ['TS-01J00000000000000000000002'],
-	parent: 'TS-01J00000000000000000000003',
+	related: ['d4e5f6'],
+	duplicates: ['789abc'],
+	parent: 'def012',
 	directories: ['packages/core'],
 	projects: ['taskset'],
 } as const
@@ -47,7 +47,7 @@ describe('TaskMetadataSchema', () => {
 
 	it.each([
 		['unknown metadata fields', { ...validV1Metadata, blocks: [] }],
-		['id', { ...validV1Metadata, id: 'TS-1' }],
+		['id', { ...validV1Metadata, id: 'abcd' }],
 		['status', { ...validV1Metadata, status: 'in-progress' }],
 		['priority', { ...validV1Metadata, priority: 'critical' }],
 		['order', { ...validV1Metadata, order: -1 }],

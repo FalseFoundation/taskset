@@ -9,8 +9,8 @@ Storage, graph, and snapshot rules for canonical repository data.
   expressions.
 - Normalize stored code references to repository-relative POSIX paths.
 - Reject paths that escape the repository or `.taskset/` ownership boundary.
-- Keep IDs immutable. Do not adopt sequential IDs without a documented
-  branch-collision strategy.
+- Keep entity IDs immutable short hex values. Filename display sequences are
+  mutable maintenance metadata repaired by `sync`; they are not identity.
 - Store one canonical direction for inverse relationships unless the schema
   explicitly defines otherwise. Derive `blocks` from `dependsOn`, for example,
   rather than allowing silent divergence.

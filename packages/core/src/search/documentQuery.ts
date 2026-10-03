@@ -277,7 +277,7 @@ export function queryDocumentRecords(
 ): readonly DocumentRecord[] {
 	const validatedQuery = validateQuery(query)
 	const terms = validatedQuery.text ? searchTerms(validatedQuery.text) : []
-	const sortBy = validatedQuery.sortBy ?? 'id'
+	const sortBy = validatedQuery.sortBy ?? 'createdAt'
 	const direction = validatedQuery.direction ?? 'asc'
 	const dueBefore = validatedQuery.dueBefore ? parseDate(validatedQuery.dueBefore) : undefined
 	const dueAfter = validatedQuery.dueAfter ? parseDate(validatedQuery.dueAfter) : undefined

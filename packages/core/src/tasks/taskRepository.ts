@@ -4,6 +4,7 @@ import { readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { AsyncQueuer } from '@tanstack/pacer'
 import {
+	needsEntityIdMigration,
 	type TaskFile,
 	TaskIdSchema,
 	type TaskPriority,
@@ -18,8 +19,15 @@ import {
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import { type Repository, RepositorySchema } from '../config/config.ts'
-import { slugifyDocumentTitle } from '../documents/documentRepository.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
+import {
+	assertEntityFileNameMatchesId,
+	generateEntityId,
+	nextEntitySequence,
+	planEntitySequences,
+	resolveEntityFileName,
+	slugifyTitle,
+} from '../ids/entityId.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
@@ -94,6 +102,7 @@ export interface TaskIdMigrationProgress {
 
 export interface TaskIdMigrationOptions {
 	readonly concurrency?: number
+	readonly reservedIds?: Iterable<string>
 	readonly onProgress?: (progress: TaskIdMigrationProgress) => void
 }
 
@@ -476,17 +485,25 @@ function generateLegacyTaskId(
 	return `TS-${characters.join('')}`
 }
 
-/** Generates the canonical sequential, title-derived task ID. */
-export function generateTaskId(title: string, sequence: number): string
+/**
+ * Generates a canonical short hex task ID. The optional legacy overloads remain
+ * for callers that still construct ULID or sequential fixtures during migration.
+ */
+export function generateTaskId(existingIds?: Iterable<string>): string
 /** @deprecated Compatibility overload for callers migrating from Taskset 3 IDs. */
 export function generateTaskId(date?: Date, randomSource?: (size: number) => Uint8Array): string
+/** @deprecated Compatibility overload for sequential title-derived IDs. */
+export function generateTaskId(title: string, sequence: number): string
 export function generateTaskId(
-	titleOrDate: string | Date = new Date(),
+	titleOrDateOrIds: string | Date | Iterable<string> = [],
 	sequenceOrRandom?: number | ((size: number) => Uint8Array),
 ): string {
-	if (typeof titleOrDate !== 'string') {
+	if (typeof titleOrDateOrIds !== 'string' && !(titleOrDateOrIds instanceof Date)) {
+		return generateEntityId(titleOrDateOrIds)
+	}
+	if (titleOrDateOrIds instanceof Date || typeof sequenceOrRandom === 'function') {
 		return generateLegacyTaskId(
-			titleOrDate,
+			titleOrDateOrIds instanceof Date ? titleOrDateOrIds : new Date(),
 			typeof sequenceOrRandom === 'function' ? sequenceOrRandom : undefined,
 		)
 	}
@@ -497,7 +514,7 @@ export function generateTaskId(
 	) {
 		throw new RangeError('Task sequence must be an integer from 1 through 9999999')
 	}
-	return `${String(sequenceOrRandom).padStart(7, '0')}-${slugifyDocumentTitle(titleOrDate)}`
+	return `${String(sequenceOrRandom).padStart(7, '0')}-${slugifyTitle(titleOrDateOrIds)}`
 }
 
 /**
@@ -533,6 +550,15 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 		try {
 			const task = parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath })
 			validateConfiguredStatus(validatedRepository, task.metadata.status)
+			try {
+				assertEntityFileNameMatchesId(entry.name, task.metadata.id)
+			} catch (error) {
+				throw new TaskRepositoryError(
+					'task-invalid',
+					error instanceof Error ? error.message : 'Task filename does not match its id',
+					{ filePath: relativePath, taskId: task.metadata.id },
+				)
+			}
 			const existingPath = taskIds.get(task.metadata.id)
 
 			if (existingPath) {
@@ -566,7 +592,11 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 	}
 
 	return Object.freeze(
-		records.sort((left, right) => left.task.metadata.id.localeCompare(right.task.metadata.id)),
+		records.sort(
+			(left, right) =>
+				left.relativePath.localeCompare(right.relativePath) ||
+				left.task.metadata.id.localeCompare(right.task.metadata.id),
+		),
 	)
 }
 
@@ -606,14 +636,17 @@ export async function createTask(
 	const validatedOptions = parseCoreInput(CreateTaskOptionsSchema, options, 'task creation options')
 	const now = validatedOptions.now?.() ?? new Date()
 	const existingRecords = await listTasks(validatedRepository)
-	const nextSequence =
-		existingRecords.reduce((maximum, record) => {
-			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
-			return Math.max(maximum, match ? Number(match[1]) : 0)
-		}, 0) + 1
-	const taskId =
-		validatedOptions.createId?.(now) ?? generateTaskId(validatedInput.title, nextSequence)
+	const occupiedIds = new Set(existingRecords.map((record) => record.task.metadata.id))
+	const nextSequence = nextEntitySequence(
+		existingRecords.map((record) => path.basename(record.relativePath)),
+	)
+	const taskId = validatedOptions.createId?.(now) ?? generateEntityId(occupiedIds)
 	parseTaskId(taskId)
+	const fileName = resolveEntityFileName({
+		id: taskId,
+		title: validatedInput.title,
+		sequence: nextSequence,
+	})
 	const timestamp = formatDate(now)
 	const defaults = validatedRepository.config.tasks.defaults
 	const priority = validatedInput.priority ?? defaults.priority
@@ -651,7 +684,7 @@ export async function createTask(
 		},
 		body: validatedInput.body ?? '',
 	}
-	const absolutePath = path.join(validatedRepository.tasksDirectory, `${taskId}.md`)
+	const absolutePath = path.join(validatedRepository.tasksDirectory, fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
 	const contents = serializeTaskFile(task, { filePath: relativePath })
 	const parsedTask = parseTaskFile(contents, { filePath: relativePath })
@@ -691,9 +724,10 @@ export async function createTask(
 }
 
 /**
- * Atomically replaces legacy task IDs and every canonical relationship with
- * stable sequential, title-derived IDs. The returned map is suitable for
- * updating references in external documentation.
+ * Atomically migrates legacy task IDs to immutable short hex IDs, rewrites
+ * relationships and repository text references, normalizes filenames to
+ * `{sequence}-{slug}-{id}.md`, and repairs duplicate sequence prefixes by
+ * `createdAt`.
  */
 export async function migrateTaskIds(
 	repository: Repository,
@@ -707,45 +741,88 @@ export async function migrateTaskIds(
 		.max(32)
 		.parse(options.concurrency ?? 8)
 	const records = await listTasks(validatedRepository)
-	let nextSequence =
-		records.reduce((maximum, record) => {
-			const match = /^(\d{7})-/u.exec(record.task.metadata.id)
-			return Math.max(maximum, match ? Number(match[1]) : 0)
-		}, 0) + 1
+	const occupied = new Set<string>([
+		...(options.reservedIds ?? []),
+		...records.map((record) => record.task.metadata.id),
+	])
 	const migrations = records
-		.filter((record) => record.task.metadata.id.startsWith('TS-'))
-		.map((record) => ({
-			from: record.task.metadata.id,
-			to: generateTaskId(record.task.metadata.title, nextSequence++),
-		}))
-	if (migrations.length === 0) return Object.freeze([])
+		.filter((record) => needsEntityIdMigration(record.task.metadata.id))
+		.map((record) => {
+			const to = generateEntityId(occupied)
+			occupied.add(to)
+			return { from: record.task.metadata.id, to }
+		})
 	const replacements = new Map(migrations.map((migration) => [migration.from, migration.to]))
 	const replace = (id: string) => replacements.get(id) ?? id
+	const sequences = planEntitySequences(records, {
+		idFor: (record) => replace(record.task.metadata.id),
+		createdAtFor: (record) => record.task.metadata.createdAt,
+		fileNameFor: (record) => path.basename(record.relativePath),
+		legacyIdFor: (record) => record.task.metadata.id,
+	})
+	const rewrittenRecords = records.map((record) => {
+		const id = replace(record.task.metadata.id)
+		const sequence = sequences.get(id)
+		if (sequence === undefined) {
+			throw new TaskRepositoryError(
+				'task-invalid',
+				`Unable to allocate a display sequence for task ${id}`,
+				{ taskId: id, filePath: record.relativePath },
+			)
+		}
+		const fileName = resolveEntityFileName({
+			id,
+			title: record.task.metadata.title,
+			sequence,
+		})
+		const relativePath = toRepositoryRelativePath(
+			validatedRepository,
+			path.join(validatedRepository.tasksDirectory, fileName),
+		)
+		return {
+			record,
+			id,
+			relativePath,
+			changed:
+				id !== record.task.metadata.id ||
+				relativePath !== record.relativePath ||
+				(record.task.metadata.dependsOn?.some((value) => replace(value) !== value) ?? false) ||
+				(record.task.metadata.related?.some((value) => replace(value) !== value) ?? false) ||
+				(record.task.metadata.duplicates?.some((value) => replace(value) !== value) ?? false) ||
+				(record.task.metadata.parent !== undefined &&
+					replace(record.task.metadata.parent) !== record.task.metadata.parent),
+		}
+	})
+	if (!rewrittenRecords.some((item) => item.changed) && migrations.length === 0) {
+		return Object.freeze([])
+	}
 	const taskOperationGroups = await pacedMap(
-		records,
-		async (record) => {
-			const oldPath = path.join(validatedRepository.rootDirectory, record.relativePath)
+		rewrittenRecords,
+		async (item) => {
+			const oldPath = path.join(validatedRepository.rootDirectory, item.record.relativePath)
 			const oldContents = await readTaskContents(
 				validatedRepository,
-				record,
-				record.task.metadata.id,
+				item.record,
+				item.record.task.metadata.id,
 			)
-			const id = replace(record.task.metadata.id)
 			const task: TaskFile = {
 				metadata: {
-					...record.task.metadata,
-					id,
-					dependsOn: record.task.metadata.dependsOn?.map(replace),
-					related: record.task.metadata.related?.map(replace),
-					duplicates: record.task.metadata.duplicates?.map(replace),
-					parent: record.task.metadata.parent ? replace(record.task.metadata.parent) : undefined,
+					...item.record.task.metadata,
+					id: item.id,
+					dependsOn: item.record.task.metadata.dependsOn?.map(replace),
+					related: item.record.task.metadata.related?.map(replace),
+					duplicates: item.record.task.metadata.duplicates?.map(replace),
+					parent: item.record.task.metadata.parent
+						? replace(item.record.task.metadata.parent)
+						: undefined,
 				},
-				body: record.task.body,
+				body: item.record.task.body,
 			}
-			const newPath = path.join(validatedRepository.tasksDirectory, `${id}.md`)
-			const contents = serializeTaskFile(task, {
-				filePath: toRepositoryRelativePath(validatedRepository, newPath),
-			})
+			const newPath = path.join(validatedRepository.rootDirectory, item.relativePath)
+			const contents = serializeTaskFile(task, { filePath: item.relativePath })
+			if (!item.changed) {
+				return []
+			}
 			return oldPath === newPath
 				? [{ targetPath: oldPath, contents, expectedContents: oldContents }]
 				: [
@@ -757,8 +834,8 @@ export async function migrateTaskIds(
 		(completed) => {
 			options.onProgress?.({
 				completed,
-				total: records.length,
-				percent: Math.round((completed / records.length) * 100),
+				total: rewrittenRecords.length,
+				percent: Math.round((completed / rewrittenRecords.length) * 100),
 				phase: 'tasks',
 			})
 		},
@@ -793,7 +870,9 @@ export async function migrateTaskIds(
 				}),
 		)
 	).filter((operation): operation is NonNullable<typeof operation> => operation !== undefined)
-	await applyFileTransaction([...taskOperationGroups.flat(), ...referenceOperations])
+	const operations = [...taskOperationGroups.flat(), ...referenceOperations]
+	if (operations.length === 0) return Object.freeze([])
+	await applyFileTransaction(operations)
 	await invalidateTaskIndex(validatedRepository)
 	await refreshGeneratedViews(validatedRepository, undefined)
 	return Object.freeze(

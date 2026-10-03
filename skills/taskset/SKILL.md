@@ -123,14 +123,18 @@ pnpm taskset sync
 - Use `document batch <manifest.json>` for repeatable multi-document create,
   import, update, and export jobs. Progress belongs on stderr and `--json`
   output on stdout. Use `sync` after upgrades to ensure canonical directories,
-  migrate legacy IDs and repository text references, refresh data `.gitignore`
-  patterns for scoped `.generated/` directories, and rebuild views.
+  migrate legacy IDs to short hex IDs, normalize filenames, repair duplicate
+  sequence prefixes, rewrite repository text references, refresh data
+  `.gitignore` patterns for scoped `.generated/` directories, and rebuild views.
 - Disposable metadata indexes live beside each entity folder
   (`.taskset/tasks/.generated/`, `.taskset/stories/.generated/`, and the other
   document-kind folders), not under a global `.taskset/generated/`.
-- New task and document IDs use `0000001-short-title` naming. Use
-  `task migrate-ids` for legacy task repositories; do not rename task files by
-  hand because canonical relationships must be rewritten together.
+- New task and document IDs are immutable 5-6 character lowercase hex values
+  such as `a1b2c3`. Filenames use `{sequence}-{slug}-{id}.md`. Agents MUST
+  reference the short `id` in commands, relationships, and handoffs—never the
+  mutable filename sequence prefix. Use `sync` or `task migrate-ids` for legacy
+  repositories; do not rename entity files by hand because canonical
+  relationships must be rewritten together.
 - When a task change affects repository behavior, follow up with the relevant tests, docs, and `git diff --check`.
 
 ## Task Modeling
@@ -223,5 +227,8 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 - In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.
 - In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
 - Prefer the smallest Taskset command that proves the intended state.
+- Cite tasks and documents by their short hex `id` (`a1b2c3`), not by filename
+  sequence numbers. Use that `id` with `task show`, `task update`, `--related`,
+  `--depends-on`, and `--parent`.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
 - Report validation failures plainly and only claim success after the command has run.

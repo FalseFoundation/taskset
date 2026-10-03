@@ -8,7 +8,7 @@ Use YAML frontmatter for machine metadata and Markdown for human context:
 
 ```markdown
 ---
-id: 0000001-add-task-validation
+id: a1b2c3
 title: Add task validation
 status: doing
 priority: high
@@ -30,6 +30,8 @@ Describe why the work exists.
 
 - [ ] Invalid statuses produce an actionable diagnostic.
 ```
+
+Filename: `0000001-add-task-validation-a1b2c3.md`
 
 Rules:
 
@@ -53,9 +55,12 @@ Rules:
   reading the documented legacy ISO 8601 UTC form until a compatibility change
   explicitly removes it.
 - Keep IDs immutable and compare them exactly.
-- Format new task IDs as a seven-digit sequence plus a lowercase title slug.
-  Keep legacy `TS-` ULIDs readable only so `task migrate-ids` can rewrite them
-  and all canonical relationships atomically.
+- Format new task and document IDs as 5-6 character lowercase hex values.
+  Store display order in the filename as `{sequence}-{slug}-{id}.md`. Keep
+  legacy `TS-` ULIDs and sequential `0000001-title` IDs readable only so
+  `sync` / `task migrate-ids` can rewrite them, normalize filenames, repair
+  duplicate sequence prefixes by `createdAt`, and update canonical
+  relationships atomically.
 - Preserve user-authored body text and meaningful list order.
 - Use stable key ordering and one final newline in generated output.
 - Generated metadata indexes cover supported non-ID metadata fields, group

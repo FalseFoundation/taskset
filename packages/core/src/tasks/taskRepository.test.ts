@@ -15,6 +15,7 @@ import {
 } from './taskRepository.ts'
 
 const temporaryDirectories: string[] = []
+const SHORT_ID = /^[0-9a-f]{6}$/u
 
 async function createTemporaryDirectory(): Promise<string> {
 	const directory = await mkdtemp(path.join(tmpdir(), 'taskset-tasks-'))
@@ -29,6 +30,10 @@ afterEach(async () => {
 })
 
 describe('generateTaskId', () => {
+	it('generates a short hex entity ID by default', () => {
+		expect(generateTaskId()).toMatch(SHORT_ID)
+	})
+
 	it('encodes the timestamp and random bytes as a branch-safe ULID', () => {
 		expect(generateTaskId(new Date('2026-06-12T00:00:00.000Z'), () => new Uint8Array(10))).toMatch(
 			/^TS-[0-9A-HJKMNP-TV-Z]{26}$/u,
@@ -53,22 +58,68 @@ describe('task repository', () => {
 			`Track ${firstId} and .taskset/tasks/${firstId}.md.\n`,
 		)
 
-		expect(await migrateTaskIds(repository)).toEqual([
-			{ from: firstId, to: '0000001-first-task' },
-			{ from: secondId, to: '0000002-second-task' },
-		])
+		const migrations = await migrateTaskIds(repository)
+		expect(migrations).toHaveLength(2)
+		expect(migrations[0]).toMatchObject({ from: firstId })
+		expect(migrations[1]).toMatchObject({ from: secondId })
+		expect(migrations[0]?.to).toMatch(SHORT_ID)
+		expect(migrations[1]?.to).toMatch(SHORT_ID)
+		expect(migrations[0]?.to).not.toBe(migrations[1]?.to)
+
 		const records = await listTasks(repository)
 		expect(records.map((record) => record.task.metadata.id)).toEqual([
-			'0000001-first-task',
-			'0000002-second-task',
+			migrations[0]?.to,
+			migrations[1]?.to,
 		])
-		expect(records[1]?.task.metadata.dependsOn).toEqual(['0000001-first-task'])
+		expect(records[0]?.relativePath).toBe(
+			`.taskset/tasks/0000001-first-task-${migrations[0]?.to}.md`,
+		)
+		expect(records[1]?.relativePath).toBe(
+			`.taskset/tasks/0000002-second-task-${migrations[1]?.to}.md`,
+		)
+		expect(records[1]?.task.metadata.dependsOn).toEqual([migrations[0]?.to])
 		expect(await readFile(path.join(rootDirectory, 'README.md'), 'utf8')).toBe(
-			'Track 0000001-first-task and .taskset/tasks/0000001-first-task.md.\n',
+			`Track ${migrations[0]?.to} and .taskset/tasks/${migrations[0]?.to}.md.\n`,
 		)
 		await expect(
 			access(path.join(repository.tasksDirectory, `${firstId}.md`)),
 		).rejects.toMatchObject({ code: 'ENOENT' })
+	})
+
+	it('repairs duplicate sequence prefixes using createdAt', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const older = await createTask(
+			repository,
+			{ title: 'Older collision' },
+			{
+				createId: () => 'aaaaaa',
+				now: () => new Date('2026-06-12T00:00:00.000Z'),
+			},
+		)
+		const newerPath = path.join(repository.tasksDirectory, '0000001-newer-collision-bbbbbb.md')
+		await writeFile(
+			newerPath,
+			`---
+id: bbbbbb
+title: Newer collision
+status: todo
+createdAt: 2026-06-13 00:00 UTC
+updatedAt: 2026-06-13 00:00 UTC
+---
+
+# Context
+`,
+		)
+
+		expect(await migrateTaskIds(repository)).toEqual([])
+		const records = await listTasks(repository)
+		expect(records.map((record) => record.relativePath).sort()).toEqual([
+			'.taskset/tasks/0000001-older-collision-aaaaaa.md',
+			'.taskset/tasks/0000002-newer-collision-bbbbbb.md',
+		])
+		expect(records.map((record) => record.task.metadata.id).sort()).toEqual(['aaaaaa', 'bbbbbb'])
+		expect(older.task.metadata.id).toBe('aaaaaa')
 	})
 
 	it('keeps canonical CRUD successful when generated view refreshes fail', async () => {
@@ -88,7 +139,7 @@ describe('task repository', () => {
 		const created = await createTask(
 			failureRepository,
 			{ title: 'Warning task' },
-			{ ...options, createId: () => 'TS-01J00000000000000000000009' },
+			{ ...options, createId: () => 'abcdef' },
 		)
 		const updated = await updateTask(
 			failureRepository,
@@ -123,7 +174,7 @@ describe('task repository', () => {
 `,
 		)
 		const configuredRepository = await initializeRepository(rootDirectory)
-		const id = 'TS-01J00000000000000000000000'
+		const id = 'a1b2c3'
 
 		const created = await createTask(
 			configuredRepository,
@@ -138,7 +189,7 @@ describe('task repository', () => {
 			},
 		)
 
-		expect(created.relativePath).toBe(`.taskset/tasks/${id}.md`)
+		expect(created.relativePath).toBe(`.taskset/tasks/0000001-use-taskset-inside-taskset-${id}.md`)
 		expect(created.task.metadata).toMatchObject({
 			id,
 			status: 'todo',
@@ -155,7 +206,7 @@ describe('task repository', () => {
 	it('does not overwrite an existing task ID', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
-		const id = 'TS-01J00000000000000000000000'
+		const id = 'a1b2c3'
 		const options = {
 			createId: () => id,
 			now: () => new Date('2026-06-12T00:00:00.000Z'),
@@ -207,7 +258,7 @@ describe('task repository', () => {
 `,
 		)
 		const configuredRepository = await initializeRepository(rootDirectory)
-		const id = 'TS-01J00000000000000000000000'
+		const id = 'a1b2c3'
 
 		await expect(
 			createTask(configuredRepository, {
@@ -246,7 +297,7 @@ describe('task repository', () => {
 	it('updates task metadata and body atomically while enforcing lifecycle transitions', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
-		const id = 'TS-01J00000000000000000000000'
+		const id = 'a1b2c3'
 		await createTask(
 			repository,
 			{ title: 'Original', body: '# Context\n\nKeep this.\n' },
@@ -282,8 +333,8 @@ describe('task repository', () => {
 	it('validates relationship changes and blocks deletion with inbound dependencies', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
-		const first = 'TS-01J00000000000000000000000'
-		const second = 'TS-01J00000000000000000000001'
+		const first = 'a1b2c3'
+		const second = 'd4e5f6'
 		const options = {
 			now: () => new Date('2026-06-12T00:00:00.000Z'),
 		}
@@ -306,7 +357,9 @@ describe('task repository', () => {
 			now: () => new Date('2026-06-12T02:00:00.000Z'),
 		})
 		expect(deleted.task.metadata.id).toBe(first)
-		await expect(access(path.join(repository.tasksDirectory, `${first}.md`))).rejects.toThrow()
+		await expect(
+			access(path.join(repository.tasksDirectory, `0000001-first-${first}.md`)),
+		).rejects.toThrow()
 		expect((await readTask(repository, second)).task.metadata.dependsOn).toEqual([])
 	})
 })

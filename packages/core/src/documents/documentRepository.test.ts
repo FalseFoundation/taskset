@@ -18,15 +18,22 @@ afterEach(async () =>
 )
 
 describe('document repository', () => {
-	it('creates typed templates with sequential title-derived IDs', async () => {
+	it('creates typed templates with short hex IDs and sequenced filenames', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'taskset-documents-'))
 		directories.push(root)
 		const repository = await initializeRepository(root)
 		await rm(path.join(repository.documentsDirectory, 'flows'), { recursive: true })
 		const first = await createDocument(repository, { type: 'flow', title: 'Sign in via SSO' })
 		const second = await createDocument(repository, { type: 'flow', title: 'Verify phone' })
-		expect(first.document.metadata.id).toBe('0000001-sign-in-via-sso')
-		expect(second.document.metadata.id).toBe('0000002-verify-phone')
+		expect(first.document.metadata.id).toMatch(/^[0-9a-f]{6}$/u)
+		expect(second.document.metadata.id).toMatch(/^[0-9a-f]{6}$/u)
+		expect(first.document.metadata.id).not.toBe(second.document.metadata.id)
+		expect(first.relativePath).toBe(
+			`.taskset/flows/0000001-sign-in-via-sso-${first.document.metadata.id}.md`,
+		)
+		expect(second.relativePath).toBe(
+			`.taskset/flows/0000002-verify-phone-${second.document.metadata.id}.md`,
+		)
 		expect(first.document.body).toContain('## User flow')
 		expect(await readDocument(repository, first.document.metadata.id)).toEqual(first)
 		expect(await listDocuments(repository, 'flow')).toEqual([first, second])
