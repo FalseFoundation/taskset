@@ -34,6 +34,7 @@ Why:
 - Keep generated API reference separate from hand-authored concepts
 - Keep architecture, ADRs, development workflows, and technology preferences under `docs/maintainers/`
 - Keep agent operating contracts under `docs/agents/`
+- Keep `/llms.txt` in `apps/www/public/llms.txt`, not under `docs/`, so Nextra does not import it as a page module
 - Keep chronological release and project posts under `apps/www/posts/`
 - Require `title`, `description`, and `date` frontmatter for blog posts
 - Register each post in `apps/www/src/blog/posts.ts` so the static build can enumerate `/posts/[slug]`

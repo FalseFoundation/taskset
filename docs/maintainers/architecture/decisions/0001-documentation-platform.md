@@ -19,7 +19,7 @@ Taskset needs one documentation source that is readable on Git hosts and can als
 - Keep human usage pages at the top level of `docs/`
 - Keep agent operating guidance under `docs/agents/`, with root `AGENTS.md` and packaged `skills/` as offline entrypoints
 - Keep contributor, product, architecture, ADR, testing, and technology material under `docs/maintainers/`
-- Publish an agent discovery index at `docs/agents/llms.txt` and mirror it from the website when practical
+- Publish an agent discovery index at `apps/www/public/llms.txt` (served as `/llms.txt`); copy it into the packaged CLI docs for offline use
 - Use plain Markdown by default and MDX only for interactive pages
 - Build `apps/www` with Next.js App Router, Nextra, and the stock Nextra docs and blog themes
 - Expose root `docs/` as the app’s Nextra `content` directory through a repository-relative symlink
@@ -33,7 +33,7 @@ This keeps one Markdown source of truth while matching how agent-first tools exp
 
 ## Implementation Contract
 
-`apps/www/content` points to `../../docs`. The usage docs catch-all route loads top-level content, including `docs/agents/`, and excludes `docs/maintainers/` from its page map. The `/maintainers` route loads the same content directory with a maintainer-rooted page map. Root `AGENTS.md` is repository-local agent guidance and may be linked from docs, but docs remain canonical for published pages.
+`apps/www/content` points to `../../docs`. The usage docs catch-all route loads top-level content, including `docs/agents/`, and excludes `docs/maintainers/` from its page map. The `/maintainers` route loads the same content directory with a maintainer-rooted page map. Root `AGENTS.md` is repository-local agent guidance and may be linked from docs, but docs remain canonical for published pages. Do not place non-Markdown discovery files such as `llms.txt` under `docs/`; Nextra imports the content tree as modules and only Markdown/MDX pages belong there.
 
 ## Consequences
 
