@@ -1,12 +1,15 @@
 ---
-title: Task Files
+title: Understand Taskset task files
 description: The canonical Markdown representation for Taskset work items.
+contentType: Conceptual
+navLabel: Task Files
 ---
 
-# Task Files
+# Understand Taskset task files
 
-Task files live under `.taskset/tasks/`. YAML frontmatter owns structured
-metadata and the Markdown body owns durable human context.
+Tasks are the executable layer of Taskset. Use them to carry ownership, status, dependencies, and code impact for delivery work. Pair them with [stories, research, decisions, flows, and runbooks](document-types.md) when the surrounding memory should stay durable.
+
+Task files live under `.taskset/tasks/`. YAML frontmatter owns structured metadata. The Markdown body owns durable human context for that piece of execution.
 
 ```markdown
 ---

@@ -1,54 +1,83 @@
-# Taskset
+# Keep the whole delivery story beside the code
 
-Taskset is a local-first work-document manager that stores tasks, user stories,
-user flows, decisions, research, and runbooks as human-readable Markdown beside the code.
+Taskset is the Git-native workspace for how software gets planned, researched, decided, and shipped. You store stories, research, decisions, flows, runbooks, and the tasks that execute them as Markdown in the repository. Agents and humans read the same files. Git carries history, branches, and review.
 
-Tasks remain useful in editors, Git history, pull requests, scripts, and AI
-workflows without requiring a hosted project-management database.
-
-> Taskset is pre-alpha. The CLI supports repository initialization, validated
-> task CRUD and lifecycle changes, repository diagnostics, queries, and
-> file-impact analysis.
+No second project board. No hidden database. The work lives where the code lives.
 
 Documentation: [taskset.false.foundation](https://taskset.false.foundation/)
 
-## Why Taskset
+- Humans: [Getting started](docs/getting-started.md)
+- Agents: [Agent guide](docs/agents/index.md)
+- Maintainers: [Maintainer docs](docs/maintainers/index.md)
 
-- Work stays in the repository that it describes.
-- Markdown remains readable without Taskset installed.
-- Git supplies history, branches, review, and collaboration.
-- Humans and AI agents inspect the same source of truth.
-- CLI, editor, terminal, web, and automation interfaces can share one domain
-  model.
+## What you keep in Taskset
 
-Canonical project state lives under `.taskset/`. Generated views and caches are
-disposable and rebuildable.
+| Kind | Use it when you need to |
+| --- | --- |
+| **Story** | Capture a user outcome and acceptance criteria |
+| **Flow** | Describe a journey, variants, and checks |
+| **Research** | Record evidence, options, and a recommendation |
+| **Decision** | Lock a lasting choice with context and consequences |
+| **Runbook** | Make recovery and operations repeatable |
+| **Task** | Execute scoped work with owners, status, and dependencies |
 
-## Quick Start
+Tasks move delivery forward. Documents preserve the product and engineering memory that tasks alone cannot hold. Link them with `--related` so the graph stays reviewable.
 
-Install Taskset in the project that will own the work:
+## Why teams and agents use it
+
+- Context travels with the repository, not a SaaS tab
+- Markdown stays readable in PRs, editors, and diffs without Taskset installed
+- Agents plan, research, decide, and track through one CLI and skill surface
+- Paths, packages, and impact queries keep work attached to real code
+- Any language repository can adopt it; the CLI ships on Node
+
+Canonical state lives under `.taskset/`. Generated views and caches are disposable.
+
+## Install
+
+Run the CLI through a package runner, or install it in the project or globally:
+
+```bash
+npx @taskset/cli@latest init
+pnpm dlx @taskset/cli init
+yarn dlx @taskset/cli init
+bunx @taskset/cli init
+```
+
+Project install:
 
 ```bash
 pnpm add --save-dev @taskset/cli
-pnpm taskset init
+pnpm exec taskset init
 ```
 
-Create and inspect work:
+Global install:
 
 ```bash
-pnpm taskset task create --title "Add repository validation"
-pnpm taskset task list
-pnpm taskset task show <task-id>
-pnpm taskset task status <task-id> doing
-pnpm taskset doctor
+npm install --global @taskset/cli
+taskset init
 ```
 
-Initialization creates a root `taskset.config.ts`, the canonical
-`.taskset/tasks/`, `stories/`, `flows/`, `decisions/`, `research/`, and
-`runbooks/` directories, and `.taskset/.gitignore` rules for disposable
-cache, per-entity `.generated/` indexes, and non-authoritative safety snapshots.
+`init` creates `.taskset/` with directories for tasks and every document kind. It does not require `taskset.config.ts`. Add `--config` only when you want an optional TypeScript overlay.
 
-## Configuration
+## A first delivery loop
+
+Capture intent, lock a choice, then track the work that implements it:
+
+```bash
+taskset document create story --title "Member signs in via SSO"
+taskset document create research --title "Compare SSO providers"
+taskset document create adr --title "Use OIDC for member SSO" --related your_research_id_here
+taskset task create --title "Add SSO callback handler" --related your_decision_id_here --file packages/api/src/auth.ts
+taskset task status your_task_id_here doing
+taskset doctor
+```
+
+Cite every entity by its short hex `id`, never by the filename sequence prefix.
+
+## Optional configuration
+
+Commands discover the nearest `.taskset/` directory by walking upward. Optional `taskset.config.ts` at that root overlays task defaults and vocabulary:
 
 ```typescript
 import { defineConfig } from '@taskset/cli'
@@ -68,98 +97,44 @@ export default defineConfig({
 })
 ```
 
-Commands started in nested directories discover `taskset.config.ts` by walking
-upward. Configuration controls validated behavior and defaults; it does not
-relocate canonical `.taskset/` data.
+Configuration never relocates canonical `.taskset/` data.
 
-## Task Files
+## What a file looks like
 
-Each task combines YAML metadata with a Markdown body:
+Every entity pairs YAML metadata with a Markdown body. A decision records the choice; a task records the execution:
 
 ```markdown
 ---
 id: a1b2c3
-title: Add repository validation
-status: todo
-priority: high
-owner: platform
-assignees:
-  - maintainer
-risk: medium
-dueDate: 2026-06-30
-createdAt: 2026-06-12
-updatedAt: 2026-06-12 09:30 UTC
-files:
-  - packages/core/src/index.ts
-directories:
-  - packages/core
-projects:
-  - taskset
+type: decision
+title: Use OIDC for member SSO
+status: accepted
+related:
+  - b2c3d4
 ---
 
 ## Context
 
-Explain why the work exists.
+Members need one sign-in path across apps.
+
+## Decision
+
+Use OIDC with the existing identity provider.
 ```
 
-Task IDs are immutable short hex values (`a1b2c3`). Filenames keep a display
-sequence and title slug (`0000001-add-repository-validation-a1b2c3.md`).
-Taskset validates metadata, normalizes serialization, and preserves the
-human-authored Markdown body.
+## Agent workflow
 
-Create durable supporting documents from built-in templates, or import existing
-Markdown such as the files under `docs/adr`, `docs/flows`, or `docs/runbooks`:
+Install the packaged skill into your agent, or load it from the published package:
 
 ```bash
-pnpm taskset document create story --title "Member signs in"
-pnpm taskset document create adr --title "Use Postgres"
-pnpm taskset document import docs/flows/sign-in.md --type flow --move
-pnpm taskset document list
+npx skills add FalseFoundation/taskset --skill taskset
 ```
 
-## Queries And Maintenance
+Offline copies ship at `node_modules/@taskset/cli/skills/` after a project install. Prefer `--json` for machine handoffs. See the [agent guide](docs/agents/index.md).
 
-Core owns deterministic graph, filtering, search, indexing, and file-impact
-semantics. The CLI exposes scriptable forms:
+## Next
 
-```bash
-pnpm taskset task list --status doing --label core --json
-pnpm taskset task list --file packages/core --impact --json
-pnpm taskset task list --estimate-min 30 --estimate-max 120 --risk high
-pnpm taskset doctor --json
-pnpm taskset task update <task-id> --priority urgent
-pnpm taskset task delete <task-id> --remove-dependencies --json
-pnpm taskset generate
-pnpm taskset snapshot create
-pnpm taskset task migrate-ids
-```
-
-`doctor` scans all task files without modifying them. Deletion is blocked when
-other tasks depend on the target unless `--remove-dependencies` is selected to
-repair those inbound relationships in the same failure-safe mutation.
-
-Migration and snapshot restore are dry runs unless `--apply` is supplied.
-Applying a schema migration first creates an immutable snapshot under
-`.taskset/snapshots/`. Generated metadata indexes live beside each entity folder
-under `.generated/` (for example `.taskset/tasks/.generated/`), cover supported
-non-ID metadata fields, group dates by calendar date, keep generated filenames
-readable, and refresh automatically after canonical mutations.
-
-## Documentation
-
-User documentation:
-
-- [Getting started](docs/getting-started.md)
-- [Configuration](docs/configuration.md)
+- [Start a Taskset repository](docs/getting-started.md)
+- [Choose a document type](docs/document-types.md)
+- [Understand task files](docs/task-files.md)
 - [CLI reference](docs/cli-reference.md)
-- [Task files](docs/task-files.md)
-- [Document types and imports](docs/document-types.md)
-
-The website in `apps/www` renders the same `docs/` files with Nextra.
-
-## License
-
-Taskset is available under the [MIT License](LICENSE).
-
-Taskset is a [FalseFoundation](https://github.com/falsefoundation) project,
-created by [junkieshuffle](https://github.com/junkieshuffle).

@@ -51,9 +51,7 @@ Publishing the CLI is the first distribution milestone for Taskset. A team can
 now install the same executable in a project, commit its task data, and share
 that workflow without depending on a hosted service or a hidden database.
 
-The package is intentionally pre-alpha. The immediate work is to strengthen
-the task lifecycle, graph behavior, search, and the interfaces built on the
-same core contracts.
-
-This is the first npm release, not the finished product. It is the point where
-Taskset becomes something another repository can install and use.
+This is the first npm release. It is the point where Taskset becomes something
+another repository can install and use. Follow-on work continues to expand the
+task lifecycle, graph behavior, search, and the interfaces built on the same
+core contracts.

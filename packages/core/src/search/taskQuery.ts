@@ -455,7 +455,7 @@ function validateConfiguredStatuses(
 	)
 
 	if (disabledStatus) {
-		throw new TypeError(`Status "${disabledStatus}" is not enabled by taskset.config.ts`)
+		throw new TypeError(`Status "${disabledStatus}" is not enabled by repository configuration`)
 	}
 }
 

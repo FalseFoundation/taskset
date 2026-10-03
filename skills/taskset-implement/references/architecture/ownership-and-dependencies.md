@@ -39,7 +39,8 @@ surfaces such as package names, the CLI command, `taskset.config.ts`, and
 `.taskset/`.
 
 Taskset dogfoods these boundaries. The root workspace installs core and CLI,
-loads `taskset.config.ts`, and stores its own planned work in `.taskset/tasks/`.
+may load optional `taskset.config.ts`, and stores its own planned work in
+`.taskset/tasks/`.
 
 ## Dependency Flow
 

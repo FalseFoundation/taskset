@@ -1,70 +1,44 @@
 ---
 title: "ADR 0001: Documentation Platform"
-description: Render canonical user documentation through the Taskset website.
+description: Render canonical documentation through the Taskset website for humans, agents, and maintainers.
 ---
 
 # ADR 0001: Documentation Platform
 
 - Status: Accepted
 - Date: 2026-06-12
+- Updated: 2026-10-03
 
 ## Context
 
-Taskset needs one documentation source that is readable on Git hosts and can
-also power a documentation website. User guidance and repository maintenance
-material have different audiences and should remain visibly separated.
+Taskset needs one documentation source that is readable on Git hosts and can also power a documentation website. Human usage guidance, agent operating contracts, and repository maintenance material have different audiences and should remain visibly separated.
 
 ## Decision
 
-- Keep canonical user documentation in the root `docs/` directory.
-- Keep contributor, product, architecture, ADR, testing, and technology
-  material under `docs/maintainers/`.
-- Use plain Markdown by default and MDX only for interactive pages.
-- Build `apps/www` with Next.js App Router, Nextra, and the stock Nextra docs
-  and blog themes.
-- Expose root `docs/` as the app's Nextra `content` directory through a
-  repository-relative symlink.
-- Render top-level usage docs and `docs/maintainers/` through separate route
-  layouts and page maps so their navigation stays audience-specific.
-- Keep chronological release and project posts under `apps/www/posts/`.
-- Isolate usage docs, maintainer docs, and blog layouts and MDX component sets
-  by route.
-- Keep the Nextra configuration and layout close to the upstream defaults.
-
-Nextra supports App Router content-directory routing and typed `_meta.ts`
-navigation:
-
-- <https://nextra.site/docs/file-conventions/content-directory>
-- <https://nextra.site/docs/docs-theme/start>
+- Keep canonical documentation in the root `docs/` directory
+- Keep human usage pages at the top level of `docs/`
+- Keep agent operating guidance under `docs/agents/`, with root `AGENTS.md` and packaged `skills/` as offline entrypoints
+- Keep contributor, product, architecture, ADR, testing, and technology material under `docs/maintainers/`
+- Publish an agent discovery index at `docs/agents/llms.txt` and mirror it from the website when practical
+- Use plain Markdown by default and MDX only for interactive pages
+- Build `apps/www` with Next.js App Router, Nextra, and the stock Nextra docs and blog themes
+- Expose root `docs/` as the app’s Nextra `content` directory through a repository-relative symlink
+- Render top-level usage docs (including `docs/agents/`) and `docs/maintainers/` through separate route layouts and page maps
+- Keep chronological release and project posts under `apps/www/posts/`
+- Follow the [Vercel writing guidelines](https://github.com/vercel-labs/writing-guidelines) for public prose voice and structure
 
 ## Why
 
-This matches the existing Next.js direction, provides navigation and search
-without a custom content loader, and keeps user documentation readable in its
-canonical location. Moving maintainer material into a dedicated
-`docs/maintainers/` section prevents the root README and user pages from
-becoming contributor handbooks.
+This keeps one Markdown source of truth while matching how agent-first tools expose denser contracts beside human onboarding. Maintainer material stays out of the primary product navigation. Agent pages and `llms.txt` give coding agents a short index without inventing a second product truth.
 
 ## Implementation Contract
 
-`apps/www/content` points to `../../docs`. The usage docs catch-all route loads
-top-level content and excludes `docs/maintainers/` from its page map. The
-`/maintainers` route loads the same content directory with a maintainer-rooted
-page map. The app may generate `.next/`, search data, and static output, but
-none of those become documentation source.
-
-`apps/www/posts/` is the source for blog Markdown. An app-local registry maps
-each post to `/posts/[slug]` so static export can enumerate routes without
-copying posts into `docs/`. The global MDX component file contains only base
-Nextra components; docs and blog routes apply their own theme components.
+`apps/www/content` points to `../../docs`. The usage docs catch-all route loads top-level content, including `docs/agents/`, and excludes `docs/maintainers/` from its page map. The `/maintainers` route loads the same content directory with a maintainer-rooted page map. Root `AGENTS.md` is repository-local agent guidance and may be linked from docs, but docs remain canonical for published pages.
 
 ## Consequences
 
-- Documentation changes are reviewable without building the site.
-- Blog posts are reviewable as app-local Markdown without a CMS.
-- The site build must include root `docs/` files in its input.
-- New posts must be added to the app-local static post registry.
-- MDX components remain owned by `apps/www`.
-- Maintainer documentation is reviewed from `docs/maintainers/` and remains in
-  its own `/maintainers` navigation section.
-- Broken links and invalid frontmatter should fail CI.
+- Documentation changes are reviewable without building the site
+- Blog posts are reviewable as app-local Markdown without a CMS
+- New agent pages belong under `docs/agents/` and appear in usage navigation
+- Maintainer documentation remains in its own `/maintainers` navigation section
+- Broken links and invalid frontmatter should fail CI

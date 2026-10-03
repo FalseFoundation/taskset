@@ -1,13 +1,29 @@
 ---
-title: Configuration
-description: How taskset.config.ts identifies and configures a Taskset repository.
+title: Configure Taskset defaults
+description: Optionally add taskset.config.ts to overlay defaults and vocabulary on a `.taskset/` repository.
+contentType: How-to
+navLabel: Configuration
 ---
 
-# Configuration
+# Configure Taskset defaults
 
-Taskset usage begins with `taskset.config.ts` at the repository root. Commands
-started in nested packages or directories walk upward until they find this
-file.
+Taskset repositories are identified by a `.taskset/` directory. `taskset.config.ts` is optional. When the file is absent, built-in statuses, priorities, and creation defaults apply.
+
+## When to add a config file
+
+Add `taskset.config.ts` when you need at least one of these:
+
+- A repository `project.name`
+- Different task creation defaults
+- A reduced or reordered status or priority vocabulary
+
+Create one during init:
+
+```bash
+taskset init --config
+```
+
+Or author the file beside `.taskset/`:
 
 ```typescript
 import { defineConfig } from '@taskset/cli'
@@ -30,32 +46,18 @@ export default defineConfig({
 
 ## Contract
 
-- `project.name` is optional repository metadata.
-- `tasks.defaults.status`, `priority`, and `labels` are optional defaults used
-  by task creation.
-- `tasks.statuses` selects and orders the repository's active status vocabulary
-  from Taskset's canonical values. Task creation, updates, lifecycle changes,
-  listing, generated views, and diagnostics reject or report task statuses
-  outside that list. The default status must be included.
-- `tasks.priorities` selects and orders the repository's active priority
-  vocabulary from Taskset's canonical values. Task creation rejects a priority
-  outside that list, and the default priority must be included.
-- `urgent` is the highest supported priority. Taskset does not maintain a
-  separate urgency field because two overlapping importance scales make task
-  ordering harder to understand and keep consistent.
-- Unknown fields, invalid enum values, empty names, and duplicate default
-  labels or vocabulary values are rejected.
-- The config file is executable trusted project code and may use erasable
-  TypeScript syntax supported by the repository's Node version.
+- `project.name` is optional repository metadata
+- `tasks.defaults.status`, `priority`, and `labels` are optional creation defaults
+- `tasks.statuses` selects and orders the active status vocabulary from Taskset’s canonical values
+- `tasks.priorities` selects and orders the active priority vocabulary from Taskset’s canonical values
+- `urgent` is the highest supported priority
+- Unknown fields, invalid enum values, empty names, and duplicate default labels or vocabulary values are rejected
+- The config file is trusted project TypeScript and may use erasable syntax supported by your Node version
 
-The config identifies behavior; it is not task storage. Canonical task state
-remains under `.taskset/tasks/`, regardless of configuration.
+The config identifies behavior. It is not task storage. Canonical task state remains under `.taskset/tasks/`.
 
 ## Discovery
 
-`taskset init` creates a minimal config when one does not exist and initializes
-`.taskset/tasks/`. Other commands require a discoverable config and report an
-error when run outside a Taskset repository.
+Commands started in nested directories walk upward until they find `.taskset/`. If `taskset.config.ts` exists at that root, Taskset loads and validates it. Otherwise it uses built-in defaults.
 
-Use `taskset config --json` to inspect the discovered root and resolved
-defaults.
+Use `taskset config --json` to inspect the discovered root, whether a config file is present, and the resolved defaults.

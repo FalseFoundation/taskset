@@ -1,0 +1,28 @@
+# Taskset
+
+> Git-native Markdown workspace for planning, research, decisions, operations, and delivery.
+
+Taskset stores stories, flows, research, decisions, runbooks, and tasks under `.taskset/`. The CLI is published as `@taskset/cli` and runs through package runners or a global install. Config files are optional.
+
+## For agents
+
+- [Operate Taskset as an agent](https://taskset.false.foundation/docs/agents)
+- [Follow agent workflows](https://taskset.false.foundation/docs/agents/workflows)
+- [Use Taskset command contracts](https://taskset.false.foundation/docs/agents/commands)
+- [Choose a document type](https://taskset.false.foundation/docs/document-types)
+- [Understand task files](https://taskset.false.foundation/docs/task-files)
+- [CLI reference](https://taskset.false.foundation/docs/cli-reference)
+
+## For humans
+
+- [Keep the whole delivery story beside the code](https://taskset.false.foundation/docs)
+- [Start a Taskset repository](https://taskset.false.foundation/docs/getting-started)
+- [Configure Taskset defaults](https://taskset.false.foundation/docs/configuration)
+
+## Optional offline skill
+
+After install, load `node_modules/@taskset/cli/skills/taskset/SKILL.md`, or install with:
+
+```text
+npx skills add FalseFoundation/taskset --skill taskset
+```

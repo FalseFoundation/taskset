@@ -140,7 +140,7 @@ describe('runCli', () => {
 					'--priority',
 					'urgent',
 					'--file',
-					'taskset.config.ts',
+					'.taskset/tasks',
 				],
 				{
 					cwd,
@@ -182,7 +182,8 @@ describe('runCli', () => {
 		).toBe(0)
 		expect(JSON.parse(configOutput.stdout)).toMatchObject({
 			rootDirectory: cwd,
-			config: {},
+			hasConfig: false,
+			dataDirectory: path.join(cwd, '.taskset'),
 		})
 	})
 

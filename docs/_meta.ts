@@ -5,4 +5,5 @@ export default {
 	'cli-reference': 'CLI Reference',
 	'task-files': 'Task Files',
 	'document-types': 'Document Types',
+	agents: 'For Agents',
 }

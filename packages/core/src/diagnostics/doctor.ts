@@ -142,7 +142,7 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 					path: relativePath,
 					field: 'status',
 					taskId: task.metadata.id,
-					message: `Status "${task.metadata.status}" is not enabled by taskset.config.ts`,
+					message: `Status "${task.metadata.status}" is not enabled by repository configuration`,
 					remediation:
 						'Enable the status in tasks.statuses or update the task to an enabled status.',
 				})

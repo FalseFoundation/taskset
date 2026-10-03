@@ -96,9 +96,10 @@ must remain available. Root-only architecture tests run once after Turbo rather
 than being duplicated inside every package. There is no `transit` script;
 Turbo's dependency traversal is orchestration, not another test suite.
 
-`taskset.config.ts` is loaded as trusted project code using Node's native
-erasable TypeScript support. Keep it free of syntax that requires TypeScript
-code generation.
+Optional `taskset.config.ts` is loaded as trusted project code using Node's
+native erasable TypeScript support when present. Keep it free of syntax that
+requires TypeScript code generation. Repository discovery uses `.taskset/`, not
+the config file.
 
 If Turbo reports duplicate workspace names, fix the incorrect package manifest.
 Do not work around the graph with directory filters or aliases.

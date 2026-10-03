@@ -1,14 +1,13 @@
 ---
-title: Document Types
+title: Choose a Taskset document type
 description: Canonical stories, flows, decisions, research, and runbooks.
+contentType: Conceptual
+navLabel: Document Types
 ---
 
-# Document Types
+# Choose a Taskset document type
 
-Taskset stores durable project context beside tasks without forcing every note
-into a task lifecycle. Each type has strict common frontmatter and a body
-template suited to its purpose. Documents use the same planning, people, path,
-and relationship metadata fields as tasks, with document-specific statuses.
+Documents are how Taskset keeps product and engineering memory: what to build, what you learned, what you decided, and how to recover. Use them when the material should outlive a single task. Each type has strict common frontmatter and a body template suited to its purpose. Documents share planning, people, path, and relationship fields with tasks, and use document-specific statuses.
 
 | Type | Directory | Template focus |
 | --- | --- | --- |
@@ -24,7 +23,7 @@ Create a document from its template:
 taskset document create story --title "Member signs in via SSO"
 taskset document create flow --title "Recover a delayed deposit"
 taskset document create adr --title "Use transactional outbox"
-taskset document create research --title "Evaluate queue providers" --related <task-id>
+taskset document create research --title "Evaluate queue providers" --related your_task_id_here
 taskset document create runbook --title "Recover consumer lag"
 ```
 

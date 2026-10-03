@@ -19,15 +19,15 @@ afterEach(async () => {
 })
 
 describe('initializeRepository', () => {
-	it('creates a default config, task directory, and derived-state ignore file', async () => {
+	it('creates .taskset directories without a config file by default', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 
-		const repository = await initializeRepository(rootDirectory)
+		const repository = await initializeRepository(rootDirectory, { resolveRoot: false })
 
-		expect(await readFile(path.join(rootDirectory, CONFIG_FILE_NAME), 'utf8')).toBe(
-			`export default {}
-`,
-		)
+		await expect(access(path.join(rootDirectory, CONFIG_FILE_NAME))).rejects.toMatchObject({
+			code: 'ENOENT',
+		})
+		expect(repository.hasConfig).toBe(false)
 		await expect(access(repository.tasksDirectory)).resolves.toBeUndefined()
 		expect(await readFile(path.join(repository.dataDirectory, '.gitignore'), 'utf8')).toBe(
 			'cache/\nsnapshots/\n**/.generated/\n**/.generated.*/\n',
@@ -35,15 +35,30 @@ describe('initializeRepository', () => {
 		expect((await loadRepository(rootDirectory)).rootDirectory).toBe(rootDirectory)
 	})
 
+	it('writes optional config when requested', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+
+		const repository = await initializeRepository(rootDirectory, {
+			resolveRoot: false,
+			writeConfig: true,
+		})
+
+		expect(repository.hasConfig).toBe(true)
+		expect(await readFile(path.join(rootDirectory, CONFIG_FILE_NAME), 'utf8')).toBe(
+			`export default {}
+`,
+		)
+	})
+
 	it('is idempotent and preserves existing repository-owned files', async () => {
 		const rootDirectory = await createTemporaryDirectory()
-		await initializeRepository(rootDirectory)
+		await initializeRepository(rootDirectory, { resolveRoot: false, writeConfig: true })
 		const configPath = path.join(rootDirectory, CONFIG_FILE_NAME)
 		const ignorePath = path.join(rootDirectory, '.taskset', '.gitignore')
 		const originalConfig = await readFile(configPath, 'utf8')
 		await writeFile(ignorePath, 'cache/\ngenerated/\nlocal-export/\n')
 
-		await initializeRepository(rootDirectory)
+		await initializeRepository(rootDirectory, { resolveRoot: false, writeConfig: true })
 
 		expect(await readFile(configPath, 'utf8')).toBe(originalConfig)
 		expect(await readFile(ignorePath, 'utf8')).toBe('cache/\ngenerated/\nlocal-export/\n')

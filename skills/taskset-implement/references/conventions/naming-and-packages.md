@@ -55,7 +55,7 @@ taskset task list --file packages/core --impact
 taskset context-bundle
 ```
 
-The root usage configuration is exactly `taskset.config.ts`. Export a
+Optional root usage configuration is exactly `taskset.config.ts`. Export a
 versionless object, preferably through `defineConfig` from `@taskset/core`.
 Keep configuration fields behavioral; never use config to redirect canonical
 entity storage outside `.taskset/`.

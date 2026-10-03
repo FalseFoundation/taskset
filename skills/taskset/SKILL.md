@@ -1,11 +1,11 @@
 ---
 name: taskset
-description: Taskset workflow guidance for agents that plan and track work with tasks, stories, user flows, decisions, research, and runbooks stored in .taskset/, including batch imports and cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, create Taskset documents (research, decision, runbook, story, or flow) when work produces reusable evidence, lasting choices, or procedures, link them with --related, and update the session or repository primary skill when lasting lessons should prevent future failures.
+description: Taskset workflow guidance for agents that plan, research, decide, operate, and track delivery with stories, flows, research, decisions, runbooks, and tasks stored in .taskset/, including batch imports and cross-package monorepo work. While executing work, agents must create follow-up tasks or subtasks (Taskset child tasks or body checklist items) for newly discovered work, keep parent and subtask progress current mid-work, mark every finished subtask done or checked, create Taskset documents (research, decision, runbook, story, or flow) when work produces reusable evidence, lasting choices, or procedures, link them with --related, and update the session or repository primary skill when lasting lessons should prevent future failures.
 ---
 
 # Taskset
 
-Use this skill when working in a repository that uses Taskset to store work as human-readable Markdown beside the code.
+Use this skill when working in a repository that uses Taskset to store plans, research, decisions, runbooks, and executable tasks as human-readable Markdown beside the code. Tasks move delivery. Documents preserve the memory that makes delivery coherent.
 
 ## Packaged Docs And Skills
 
@@ -18,7 +18,8 @@ treat those paths as the detailed offline reference set:
 | `node_modules/@taskset/cli/skills/taskset/SKILL.md` | This skill (agent workflow for tasks and documents) |
 | `node_modules/@taskset/cli/skills/taskset/references/` | Task modeling, document modeling, monorepo, and Changesets examples |
 | `node_modules/@taskset/cli/skills/taskset-implement/` | Engineering standards used while developing Taskset itself |
-| `node_modules/@taskset/cli/docs/` | User docs: getting started, configuration, CLI reference, task files, document types |
+| `node_modules/@taskset/cli/docs/` | Human docs: getting started, configuration, CLI reference, task files, document types |
+| `node_modules/@taskset/cli/docs/agents/` | Agent docs: workflows, command contracts, discovery index |
 | `node_modules/@taskset/cli/docs/maintainers/` | Architecture, ADRs, testing, and maintainer workflows |
 
 In the Taskset repository itself, prefer the workspace copies at `skills/` and
@@ -43,10 +44,15 @@ package root.
 
 - Treat `.taskset/tasks/` as the canonical task source of truth and the sibling
   document-kind directories as the canonical durable project-document source.
-- Treat `taskset.config.ts` as the repository entrypoint for Taskset behavior and defaults.
+- Treat the nearest `.taskset/` directory as the repository marker. Optional
+  `taskset.config.ts` at that root overlays defaults; built-in defaults apply
+  when it is absent.
 - Do not create a second task store, hidden database, or alternate sync layer.
 - Use Taskset commands to inspect and mutate tasks instead of editing canonical task files by hand when a command exists.
-- Prefer `pnpm taskset` in project repositories; use the repo root `pnpm taskset` script when available.
+- Invoke Taskset with whatever runner the environment provides:
+  `npx @taskset/cli`, `pnpm dlx @taskset/cli`, `yarn dlx @taskset/cli`,
+  `bunx @taskset/cli`, `pnpm exec taskset`, or a global `taskset` binary. Do not
+  require `pnpm taskset`.
 - While executing or working a task, agents MUST create follow-up Taskset tasks or subtasks for newly discovered work. In this skill, "subtask" means either a Taskset child task (`--parent`) or a Markdown checklist item (`- [ ]`) in the parent task body—choose child tasks when independent status, ownership, dependencies, or history are needed; otherwise prefer checklist items. Do not leave that work only in chat, memory, or an informal note.
 - Agents MUST keep the parent task status and every subtask current mid-work: set Taskset tasks and child tasks to `doing` when work starts, check off completed checklist items as `- [x]`, update statuses when progress or blockers change, and mark each finished child task `done` when its acceptance criteria are met. Do not leave finished checklist items unchecked or finished child tasks open, and do not mark a parent task `done` while any tracked subtask (child task or checklist item) remains unfinished.
 - While executing a task, agents MUST create a Taskset document in the same change when work produces reusable evidence (`research`), a lasting choice (`decision` / `adr`), an operational procedure (`runbook`), or durable product context (`story` / `flow`). Link the document and originating task with `--related`. Do not leave that material only in chat, memory, or a closed task body. Short scratch notes and one-off checklist steps stay in the task body.
@@ -54,8 +60,8 @@ package root.
 
 ## Recommended Workflow
 
-1. Confirm the repository root and Taskset config.
-2. Inspect repository health with `taskset config --json` and `taskset doctor`.
+1. Confirm the repository root with `taskset config --json` (look for `.taskset/`, not a required config file).
+2. Inspect repository health with `taskset doctor --json`.
 3. List or show tasks and check their owner and assignees before changing or executing them.
 4. Resolve whether the current Git user is authorized to take the selected task; obtain confirmation when another person is responsible and the request does not already authorize that specific takeover.
 5. Create, update, execute, or close tasks with Taskset commands.
@@ -75,24 +81,24 @@ For ownership-gate scenarios, read [owner and assignee examples](references/task
 ## Common Commands
 
 ```bash
-pnpm taskset config --json
-pnpm taskset doctor
-pnpm taskset task list
-pnpm taskset task show <task-id>
-pnpm taskset task create --title "Describe the work"
-pnpm taskset task update <task-id> --status doing
-pnpm taskset task status <task-id> done
-pnpm taskset task delete <task-id>
-pnpm taskset task list --search "multiple terms"
-pnpm taskset task list --file packages/core --impact
-pnpm taskset document create story --title "Describe the user outcome"
-pnpm taskset document create research --title "Evaluate options" --related <task-id>
-pnpm taskset document update <document-id> --status ready --type research
-pnpm taskset document list research --search "queue" --impact
-pnpm taskset document show <document-id> --type research --include-derived --json
-pnpm taskset document import docs/adr/0001-example.md --type adr --move
-pnpm taskset document batch taskset-documents.json --concurrency 4 --json
-pnpm taskset sync
+taskset config --json
+taskset doctor --json
+taskset task list --json
+taskset task show your_task_id_here --json
+taskset task create --title "Describe the work"
+taskset task update your_task_id_here --status doing
+taskset task status your_task_id_here done
+taskset task delete your_task_id_here
+taskset task list --search "multiple terms" --json
+taskset task list --file packages/core --impact --json
+taskset document create story --title "Describe the user outcome"
+taskset document create research --title "Evaluate options" --related your_task_id_here
+taskset document update your_document_id_here --status ready --type research
+taskset document list research --search "queue" --impact --json
+taskset document show your_document_id_here --type research --include-derived --json
+taskset document import docs/adr/0001-example.md --type adr --move
+taskset document batch taskset-documents.json --concurrency 4 --json
+taskset sync --json
 ```
 
 ## Practical Guidance

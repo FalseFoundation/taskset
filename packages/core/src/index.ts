@@ -11,11 +11,13 @@ export {
 	GENERATED_DIRECTORY_NAME,
 	LEGACY_GENERATED_DIRECTORY_NAME,
 	loadRepository,
+	REPOSITORY_ROOT_MARKERS,
 	type Repository,
 	RepositoryDirectorySchema,
 	RepositorySchema,
 	type ResolvedConfig,
 	type ResolvedTaskDefaults,
+	resolveInitializationRoot,
 	SNAPSHOTS_DIRECTORY_NAME,
 	TASKS_DIRECTORY_NAME,
 } from './config/config.ts'
@@ -122,7 +124,11 @@ export {
 	type FileTransactionOperation,
 	FileTransactionOperationSchema,
 } from './repository/fileTransaction.ts'
-export { DEFAULT_DATA_IGNORE_SOURCE, initializeRepository } from './repository/repository.ts'
+export {
+	DEFAULT_DATA_IGNORE_SOURCE,
+	type InitializeRepositoryOptions,
+	initializeRepository,
+} from './repository/repository.ts'
 export {
 	DOCUMENT_SORT_DIRECTIONS,
 	DOCUMENT_SORT_KEYS,

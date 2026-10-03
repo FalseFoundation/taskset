@@ -31,7 +31,9 @@ Recommended website stack:
 Register blog posts in the app-local post registry so static export can
 enumerate `/posts/[slug]`. Keep blog posts in plain Markdown by default with
 `title`, `description`, and `date` frontmatter. Do not merge docs and blog theme
-wrappers in the global MDX component map.
+wrappers in the global MDX component map. Agent operating pages live under
+`docs/agents/` and appear in usage navigation; maintainer pages stay under
+`/maintainers`.
 
 Keep architectural decisions under
 `docs/maintainers/architecture/decisions/`.

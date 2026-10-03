@@ -60,7 +60,7 @@ import {
 import * as z from 'zod'
 
 const USAGE = `Usage:
-  taskset init [--cwd <path>]
+  taskset init [--config] [--cwd <path>]
   taskset config [--json] [--cwd <path>]
   taskset doctor [--json] [--cwd <path>]
   taskset generate [--json] [--cwd <path>]
@@ -137,6 +137,11 @@ const JsonSchema = z.boolean().optional()
 const CommonValuesSchema = z.strictObject({
 	cwd: CwdSchema,
 	json: JsonSchema,
+})
+
+const InitValuesSchema = z.strictObject({
+	cwd: CwdSchema,
+	config: z.boolean().optional(),
 })
 
 const ConcurrencySchema = z.coerce.number().int().min(1).max(32).optional()
@@ -866,6 +871,24 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 		}
 
 		if (command === 'init' || command === 'config' || command === 'doctor') {
+			if (command === 'init') {
+				const parsed = parseArgs({
+					args: commandArgs,
+					allowPositionals: false,
+					options: {
+						cwd: { type: 'string' },
+						config: { type: 'boolean' },
+					},
+				})
+				const values = parseSchema(InitValuesSchema, parsed.values, 'init options')
+				const commandCwd = resolveCommandCwd(cwd, values.cwd)
+				const repository = await initializeRepository(commandCwd, {
+					writeConfig: values.config === true,
+				})
+				stdout(`Initialized Taskset in ${repository.rootDirectory}\n`)
+				return 0
+			}
+
 			const parsed = parseArgs({
 				args: commandArgs,
 				allowPositionals: false,
@@ -873,13 +896,6 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			})
 			const values = parseSchema(CommonValuesSchema, parsed.values, `${command} options`)
 			const commandCwd = resolveCommandCwd(cwd, values.cwd)
-
-			if (command === 'init') {
-				const repository = await initializeRepository(commandCwd)
-				stdout(`Initialized Taskset in ${repository.rootDirectory}\n`)
-				return 0
-			}
-
 			const repository = await discoverRepository(commandCwd)
 
 			if (command === 'config') {
@@ -889,6 +905,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 							{
 								rootDirectory: repository.rootDirectory,
 								configPath: repository.configPath,
+								hasConfig: repository.hasConfig,
 								dataDirectory: repository.dataDirectory,
 								config: repository.config,
 							},
@@ -896,8 +913,10 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 							2,
 						)}\n`,
 					)
-				} else {
+				} else if (repository.hasConfig) {
 					stdout(`${repository.configPath}\n`)
+				} else {
+					stdout(`defaults (${repository.rootDirectory})\n`)
 				}
 				return 0
 			}

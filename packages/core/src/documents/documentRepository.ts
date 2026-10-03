@@ -346,7 +346,7 @@ function validateConfiguredPriority(
 	if (priority && !repository.config.tasks.priorities.includes(priority)) {
 		throw new DocumentRepositoryError(
 			'document-invalid',
-			`Priority "${priority}" is not enabled by taskset.config.ts`,
+			`Priority "${priority}" is not enabled by repository configuration`,
 		)
 	}
 }

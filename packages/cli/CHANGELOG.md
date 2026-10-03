@@ -1,5 +1,21 @@
 # @taskset/cli
 
+## 6.0.0
+
+### Major Changes
+
+- Make Taskset agent-first and polyglot-friendly: discover repositories by `.taskset/`, treat `taskset.config.ts` as optional, support package-runner and global installs, and split docs for humans and agents.
+- 89c31c3: Replace sequential and ULID entity IDs with immutable 5-6 character lowercase hex IDs.
+  
+  Filenames are now `{sequence}-{slug}-{id}.md`. `taskset sync` and `task migrate-ids` migrate legacy IDs, normalize filenames, repair duplicate sequence prefixes by `createdAt`, and rewrite repository references. Default task and document list sorting uses `createdAt` so creation order remains stable. Agents and commands must cite the short `id`, not the mutable sequence prefix.
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [89c31c3]
+  - @taskset/core@6.0.0
+  - @taskset/contracts@6.0.0
+
 ## 5.1.0
 
 ### Minor Changes

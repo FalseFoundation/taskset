@@ -1,16 +1,15 @@
 ---
-title: CLI Reference
+title: Look up Taskset CLI commands
 description: Complete reference for the taskset command-line interface.
+contentType: Reference
+navLabel: CLI Reference
 ---
 
-# CLI Reference
+# Look up Taskset CLI commands
 
-The `taskset` command is a thin adapter over `@taskset/core`. It parses
-arguments, validates command options, calls core operations, and renders human
-or JSON output.
+The `taskset` command is a thin adapter over `@taskset/core` for the full Taskset surface: stories, flows, research, decisions, runbooks, and tasks. It parses arguments, validates options, calls core operations, and renders human or JSON output.
 
-Use `pnpm taskset <command>` when Taskset is installed as a project
-dependency. The examples below use `taskset` directly for brevity.
+Invoke it with `npx @taskset/cli`, `pnpm dlx @taskset/cli`, `yarn dlx @taskset/cli`, `bunx @taskset/cli`, a project binary, or a global install. Examples below use `taskset` directly.
 
 ## Common Behavior
 
@@ -46,12 +45,10 @@ Exit codes:
 ### `init`
 
 ```bash
-taskset init [--cwd <path>]
+taskset init [--config] [--cwd <path>]
 ```
 
-Initializes a Taskset repository in the target directory. The command creates
-`taskset.config.ts`, `.taskset/tasks/`, and `.taskset/.gitignore` when they do
-not already exist.
+Initializes a Taskset repository. The command resolves a root from an existing `.taskset/`, Git or workspace markers, or the working directory, then creates `.taskset/` task and document directories plus `.taskset/.gitignore` when they do not already exist. Pass `--config` to also write optional `taskset.config.ts`.
 
 Human output:
 
@@ -65,15 +62,15 @@ Initialized Taskset in <root-directory>
 taskset config [--json] [--cwd <path>]
 ```
 
-Discovers the nearest `taskset.config.ts` by walking upward from the working
-directory.
+Discovers the nearest `.taskset/` directory by walking upward from the working directory. Optional `taskset.config.ts` at that root overlays defaults when present.
 
-Human output is the config file path. JSON output contains:
+Human output is the config file path when a config exists, or `defaults (<root-directory>)` when it does not. JSON output contains:
 
 ```json
 {
   "rootDirectory": "...",
   "configPath": "...",
+  "hasConfig": false,
   "dataDirectory": "...",
   "config": {}
 }

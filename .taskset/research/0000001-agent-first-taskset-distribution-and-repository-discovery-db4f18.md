@@ -2,10 +2,10 @@
 id: db4f18
 type: research
 title: Agent-first Taskset distribution and repository discovery
-status: ready
+status: accepted
 owner: junkieshuffle
 createdAt: 2026-10-03 08:12 UTC
-updatedAt: 2026-10-03 08:14 UTC
+updatedAt: 2026-10-03 08:24 UTC
 labels:
   - product
   - agents
@@ -133,11 +133,10 @@ Accept an ADR that:
 
 ## Open questions
 
-- Should optional config remain TypeScript-only, or add JSON/YAML for polyglot
-  repos in the same change?
-- Should `taskset init` stop creating `taskset.config.ts` by default and only
-  emit `.taskset/`, with config as an explicit opt-in?
-- How should packaged skills be installed globally into agent skill directories
-  versus remaining inside the npm tarball?
-- Does the public package name stay `@taskset/cli`, or should a shorter
-  `taskset` package exist as the user/agent-facing bin?
+Resolved with ADR acceptance on 2026-10-03:
+
+- Optional config remains TypeScript-only for this change; JSON/YAML can wait
+- `taskset init` creates `.taskset/` only; `--config` is opt-in
+- Skills remain in the npm tarball and are also installable via `npx skills add`
+- Public package name stays `@taskset/cli`; package runners and global installs cover the bin surface
+- No legacy discovery compatibility layer is required

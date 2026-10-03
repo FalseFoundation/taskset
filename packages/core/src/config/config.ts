@@ -1,4 +1,4 @@
-import { access, stat } from 'node:fs/promises'
+import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -26,6 +26,18 @@ export const GENERATED_DIRECTORY_NAME = '.generated'
 export const SNAPSHOTS_DIRECTORY_NAME = 'snapshots'
 export const LEGACY_GENERATED_DIRECTORY_NAME = 'generated'
 
+/** Workspace or VCS markers used when choosing an init root without `.taskset/`. */
+export const REPOSITORY_ROOT_MARKERS = Object.freeze([
+	'.git',
+	'pnpm-workspace.yaml',
+	'lerna.json',
+	'nx.json',
+	'go.work',
+	'Cargo.toml',
+	'flake.nix',
+	'package.json',
+] as const)
+
 /** Disposable metadata-index directory scoped to one entity folder. */
 export function entityGeneratedDirectory(entityDirectory: string): string {
 	return path.join(entityDirectory, GENERATED_DIRECTORY_NAME)
@@ -50,7 +62,9 @@ export interface ResolvedConfig {
 
 export interface Repository {
 	readonly rootDirectory: string
+	/** Conventional `taskset.config.ts` path at the repository root. */
 	readonly configPath: string
+	readonly hasConfig: boolean
 	readonly dataDirectory: string
 	readonly tasksDirectory: string
 	readonly documentsDirectory: string
@@ -71,6 +85,7 @@ export function documentKindDirectory(
 export const RepositorySchema = z.strictObject({
 	rootDirectory: z.string().min(1),
 	configPath: z.string().min(1),
+	hasConfig: z.boolean(),
 	dataDirectory: z.string().min(1),
 	tasksDirectory: z.string().min(1),
 	documentsDirectory: z.string().min(1),
@@ -92,7 +107,7 @@ export const RepositorySchema = z.strictObject({
 
 export const RepositoryDirectorySchema = z.string().min(1, 'Directory must not be empty')
 
-export type ConfigErrorCode = 'config-not-found' | 'config-load' | 'config-schema'
+export type ConfigErrorCode = 'repository-not-found' | 'config-load' | 'config-schema'
 
 export class ConfigError extends Error {
 	readonly code: ConfigErrorCode
@@ -184,8 +199,33 @@ function schemaIssues(error: {
 	}))
 }
 
-function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
+function isMissingPath(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+	try {
+		await access(targetPath)
+		return true
+	} catch (error) {
+		if (isMissingPath(error)) {
+			return false
+		}
+
+		throw error
+	}
+}
+
+async function isDirectory(targetPath: string): Promise<boolean> {
+	try {
+		return (await stat(targetPath)).isDirectory()
+	} catch (error) {
+		if (isMissingPath(error)) {
+			return false
+		}
+
+		throw error
+	}
 }
 
 /**
@@ -219,29 +259,36 @@ async function importConfig(configPath: string): Promise<unknown> {
 	}
 }
 
+function buildRepository(rootDirectory: string, config: Config, hasConfig: boolean): Repository {
+	const dataDirectory = path.join(rootDirectory, DATA_DIRECTORY_NAME)
+	const tasksDirectory = path.join(dataDirectory, TASKS_DIRECTORY_NAME)
+
+	return Object.freeze({
+		rootDirectory,
+		configPath: path.join(rootDirectory, CONFIG_FILE_NAME),
+		hasConfig,
+		dataDirectory,
+		tasksDirectory,
+		documentsDirectory: dataDirectory,
+		generatedDirectory: entityGeneratedDirectory(tasksDirectory),
+		snapshotsDirectory: path.join(dataDirectory, SNAPSHOTS_DIRECTORY_NAME),
+		config: resolveConfig(config),
+	})
+}
+
 /**
- * Loads the config from an exact repository root and resolves immutable paths
- * and defaults. The config module is trusted code, but its exported value is
- * still validated against the strict shared schema.
+ * Loads optional config from an exact repository root and resolves immutable
+ * paths and defaults. Missing config uses built-in defaults.
  */
 export async function loadRepository(rootDirectory: string): Promise<Repository> {
 	const resolvedRoot = path.resolve(
 		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository root'),
 	)
 	const configPath = path.join(resolvedRoot, CONFIG_FILE_NAME)
+	const hasConfig = await pathExists(configPath)
 
-	try {
-		await access(configPath)
-	} catch (error) {
-		if (isMissingFile(error)) {
-			throw new ConfigError(
-				'config-not-found',
-				`No ${CONFIG_FILE_NAME} was found in ${resolvedRoot}`,
-				{ configPath, startDirectory: resolvedRoot },
-			)
-		}
-
-		throw error
+	if (!hasConfig) {
+		return buildRepository(resolvedRoot, {}, false)
 	}
 
 	const configExport = await importConfig(configPath)
@@ -259,24 +306,104 @@ export async function loadRepository(rootDirectory: string): Promise<Repository>
 		)
 	}
 
-	const dataDirectory = path.join(resolvedRoot, DATA_DIRECTORY_NAME)
-	const tasksDirectory = path.join(dataDirectory, TASKS_DIRECTORY_NAME)
+	return buildRepository(resolvedRoot, configResult.data, true)
+}
 
-	return Object.freeze({
-		rootDirectory: resolvedRoot,
-		configPath,
-		dataDirectory,
-		tasksDirectory,
-		documentsDirectory: dataDirectory,
-		generatedDirectory: entityGeneratedDirectory(tasksDirectory),
-		snapshotsDirectory: path.join(dataDirectory, SNAPSHOTS_DIRECTORY_NAME),
-		config: resolveConfig(configResult.data),
-	})
+async function findAncestorWithDataDirectory(startDirectory: string): Promise<string | undefined> {
+	let currentDirectory = path.resolve(startDirectory)
+
+	while (true) {
+		if (await isDirectory(path.join(currentDirectory, DATA_DIRECTORY_NAME))) {
+			return currentDirectory
+		}
+
+		const parentDirectory = path.dirname(currentDirectory)
+
+		if (parentDirectory === currentDirectory) {
+			return undefined
+		}
+
+		currentDirectory = parentDirectory
+	}
+}
+
+async function hasRootMarker(directory: string, marker: string): Promise<boolean> {
+	const markerPath = path.join(directory, marker)
+
+	if (marker === '.git') {
+		try {
+			const markerStat = await stat(markerPath)
+			return markerStat.isDirectory() || markerStat.isFile()
+		} catch (error) {
+			if (isMissingPath(error)) {
+				return false
+			}
+
+			throw error
+		}
+	}
+
+	if (marker === 'package.json') {
+		return pathExists(markerPath)
+	}
+
+	if (marker === 'Cargo.toml') {
+		if (!(await pathExists(markerPath))) {
+			return false
+		}
+
+		const contents = await readFile(markerPath, 'utf8')
+		return /^\s*\[workspace\]/mu.test(contents)
+	}
+
+	return pathExists(markerPath)
 }
 
 /**
- * Walks upward from a starting directory until `taskset.config.ts` is found.
- * Canonical `.taskset/` storage is always resolved relative to that root.
+ * Chooses a directory for `taskset init` when `.taskset/` is not already present.
+ * Prefers an existing Taskset root, then VCS/workspace markers, then the
+ * outermost `package.json` ancestor, then the start directory.
+ */
+export async function resolveInitializationRoot(startDirectory = process.cwd()): Promise<string> {
+	const validatedStartDirectory = path.resolve(
+		parseCoreInput(RepositoryDirectorySchema, startDirectory, 'repository initialization'),
+	)
+	const existingRoot = await findAncestorWithDataDirectory(validatedStartDirectory)
+
+	if (existingRoot) {
+		return existingRoot
+	}
+
+	let currentDirectory = validatedStartDirectory
+	let outermostPackageJson: string | undefined
+
+	while (true) {
+		for (const marker of REPOSITORY_ROOT_MARKERS) {
+			if (marker === 'package.json') {
+				if (await hasRootMarker(currentDirectory, marker)) {
+					outermostPackageJson = currentDirectory
+				}
+				continue
+			}
+
+			if (await hasRootMarker(currentDirectory, marker)) {
+				return currentDirectory
+			}
+		}
+
+		const parentDirectory = path.dirname(currentDirectory)
+
+		if (parentDirectory === currentDirectory) {
+			return outermostPackageJson ?? validatedStartDirectory
+		}
+
+		currentDirectory = parentDirectory
+	}
+}
+
+/**
+ * Walks upward from a starting directory until `.taskset/` is found.
+ * Optional `taskset.config.ts` at that root overlays defaults when present.
  */
 export async function discoverRepository(startDirectory = process.cwd()): Promise<Repository> {
 	const validatedStartDirectory = parseCoreInput(
@@ -284,30 +411,15 @@ export async function discoverRepository(startDirectory = process.cwd()): Promis
 		startDirectory,
 		'repository discovery',
 	)
-	let currentDirectory = path.resolve(validatedStartDirectory)
+	const rootDirectory = await findAncestorWithDataDirectory(validatedStartDirectory)
 
-	while (true) {
-		const configPath = path.join(currentDirectory, CONFIG_FILE_NAME)
-
-		try {
-			await access(configPath)
-			return loadRepository(currentDirectory)
-		} catch (error) {
-			if (!isMissingFile(error)) {
-				throw error
-			}
-		}
-
-		const parentDirectory = path.dirname(currentDirectory)
-
-		if (parentDirectory === currentDirectory) {
-			throw new ConfigError(
-				'config-not-found',
-				`No ${CONFIG_FILE_NAME} was found from ${path.resolve(validatedStartDirectory)} upward`,
-				{ startDirectory: path.resolve(validatedStartDirectory) },
-			)
-		}
-
-		currentDirectory = parentDirectory
+	if (!rootDirectory) {
+		throw new ConfigError(
+			'repository-not-found',
+			`No ${DATA_DIRECTORY_NAME}/ directory was found from ${path.resolve(validatedStartDirectory)} upward`,
+			{ startDirectory: path.resolve(validatedStartDirectory) },
+		)
 	}
+
+	return loadRepository(rootDirectory)
 }

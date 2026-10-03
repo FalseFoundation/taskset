@@ -6,11 +6,12 @@ import {
 	loadRepository,
 	type Repository,
 	RepositoryDirectorySchema,
+	resolveInitializationRoot,
 } from '../config/config.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 import { atomicWriteFileExclusive } from './atomicWrite.ts'
 
-export { CONFIG_FILE_NAME, loadRepository }
+export { CONFIG_FILE_NAME, loadRepository, resolveInitializationRoot }
 
 const DEFAULT_CONFIG_SOURCE = `export default {}
 `
@@ -20,27 +21,46 @@ snapshots/
 **/.generated.*/
 `
 
+export interface InitializeRepositoryOptions {
+	/** When true, write a minimal optional `taskset.config.ts`. Default false. */
+	readonly writeConfig?: boolean
+	/**
+	 * When true (default), choose the repository root with
+	 * {@link resolveInitializationRoot} before creating files.
+	 */
+	readonly resolveRoot?: boolean
+}
+
 function isExistingFile(error: unknown): error is NodeJS.ErrnoException {
 	return error instanceof Error && 'code' in error && error.code === 'EEXIST'
 }
 
 /**
- * Initializes the repository marker, canonical task directory, and disposable
- * data ignore rules without replacing existing files.
+ * Initializes `.taskset/` canonical directories and ignore rules without
+ * requiring a config file. Existing files are left in place.
  */
-export async function initializeRepository(rootDirectory = process.cwd()): Promise<Repository> {
+export async function initializeRepository(
+	rootDirectory = process.cwd(),
+	options: InitializeRepositoryOptions = {},
+): Promise<Repository> {
+	const shouldResolveRoot = options.resolveRoot !== false
 	const resolvedRoot = path.resolve(
-		parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository initialization'),
+		shouldResolveRoot
+			? await resolveInitializationRoot(rootDirectory)
+			: parseCoreInput(RepositoryDirectorySchema, rootDirectory, 'repository initialization'),
 	)
-	const configPath = path.join(resolvedRoot, CONFIG_FILE_NAME)
 
 	await mkdir(resolvedRoot, { recursive: true })
 
-	try {
-		await atomicWriteFileExclusive(configPath, DEFAULT_CONFIG_SOURCE)
-	} catch (error) {
-		if (!isExistingFile(error)) {
-			throw error
+	if (options.writeConfig) {
+		const configPath = path.join(resolvedRoot, CONFIG_FILE_NAME)
+
+		try {
+			await atomicWriteFileExclusive(configPath, DEFAULT_CONFIG_SOURCE)
+		} catch (error) {
+			if (!isExistingFile(error)) {
+				throw error
+			}
 		}
 	}
 

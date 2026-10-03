@@ -4,13 +4,12 @@ Product direction and the canonical source-of-truth model.
 
 ## Product Direction
 
-Taskset began as an offline, inline, AI-friendly, human-readable task manager
-designed to accelerate software delivery and give development teams immediate
-awareness of the work surrounding their code.
+Taskset began as an offline, inline, AI-friendly, human-readable delivery
+workspace: not only tasks, but the plans, research, decisions, flows, and
+runbooks that make delivery coherent.
 
-It grows from that core into a Git-native software delivery platform. Tasks,
-stories, flows, decisions, research, runbooks, and related project knowledge
-live beside the code as human-readable Markdown.
+It is a Git-native software delivery platform. Stories, flows, decisions,
+research, runbooks, and tasks live beside the code as human-readable Markdown.
 
 Vision: become the Git-native operating system for software delivery.
 
@@ -58,8 +57,10 @@ Canonical project state lives under `.taskset/`.
 Rules:
 
 - Entity Markdown files are authoritative persisted state.
-- `taskset.config.ts` is the discoverable repository usage configuration. It
-  controls validated behavior and defaults, not canonical entity state.
+- The nearest `.taskset/` directory is the discoverable repository marker.
+  Optional `taskset.config.ts` at that root overlays validated behavior and
+  defaults. Missing config uses built-in defaults. Config never owns entity
+  state.
 - YAML frontmatter contains structured metadata. Markdown bodies contain
   durable human context.
 - Do not store the same field independently in frontmatter and body.
@@ -73,8 +74,8 @@ Rules:
   state, or another hidden store as an undeclared authority.
 - Git is the versioning and collaboration layer around the files. Do not assume
   it provides database transactions or conflict-free identifiers.
-- Repository discovery walks upward for exactly `taskset.config.ts`; canonical
-  storage remains fixed under `.taskset/`.
+- Repository discovery walks upward for `.taskset/`; canonical storage remains
+  fixed under that directory.
 
 Any persisted format change must define validation, compatibility, migration,
 and failure behavior before implementation.

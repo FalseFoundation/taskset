@@ -241,7 +241,7 @@ updatedAt: 2026-06-13 00:00 UTC
 			}),
 		).rejects.toMatchObject({
 			code: 'task-invalid',
-			message: 'Priority "urgent" is not enabled by taskset.config.ts',
+			message: 'Priority "urgent" is not enabled by repository configuration',
 		})
 	})
 
@@ -267,7 +267,7 @@ updatedAt: 2026-06-13 00:00 UTC
 			}),
 		).rejects.toMatchObject({
 			code: 'task-invalid',
-			message: 'Status "blocked" is not enabled by taskset.config.ts',
+			message: 'Status "blocked" is not enabled by repository configuration',
 		})
 
 		await createTask(
@@ -278,7 +278,7 @@ updatedAt: 2026-06-13 00:00 UTC
 		await expect(updateTask(configuredRepository, id, { status: 'blocked' })).rejects.toMatchObject(
 			{
 				code: 'task-invalid',
-				message: 'Status "blocked" is not enabled by taskset.config.ts',
+				message: 'Status "blocked" is not enabled by repository configuration',
 			},
 		)
 	})

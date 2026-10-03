@@ -182,5 +182,5 @@ Become more generic about **repository shape**, not about Taskset’s domain:
 
 ## Status
 
-Proposed / ready for acceptance. Not yet binding on implementation until status
-becomes `accepted`.
+Accepted on 2026-10-03. Implementation tracked by task `810308`. No legacy
+compatibility layer is required for the discovery and init contract change.

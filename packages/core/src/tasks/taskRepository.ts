@@ -282,7 +282,7 @@ function validateConfiguredPriority(
 	if (priority && !repository.config.tasks.priorities.includes(priority)) {
 		throw new TaskRepositoryError(
 			'task-invalid',
-			`Priority "${priority}" is not enabled by taskset.config.ts`,
+			`Priority "${priority}" is not enabled by repository configuration`,
 		)
 	}
 }
@@ -291,7 +291,7 @@ function validateConfiguredStatus(repository: Repository, status: TaskStatus): v
 	if (!repository.config.tasks.statuses.includes(status)) {
 		throw new TaskRepositoryError(
 			'task-invalid',
-			`Status "${status}" is not enabled by taskset.config.ts`,
+			`Status "${status}" is not enabled by repository configuration`,
 		)
 	}
 }

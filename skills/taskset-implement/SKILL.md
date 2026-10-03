@@ -85,9 +85,9 @@ listed in Preserve Product Invariants, the invariant takes precedence. Explain
 the conflict to the user and request an explicit override with rationale before
 proceeding.
 
-The repository is currently an early scaffold. Do not turn accidental manifest
-mistakes, empty packages, or placeholder dependencies into conventions. Report
-them and follow the intended `@taskset/<directory-name>` ownership model.
+Do not turn accidental manifest mistakes, empty packages, or placeholder
+dependencies into conventions. Report them and follow the intended
+`@taskset/<directory-name>` ownership model.
 
 ## Preserve Product Invariants
 
@@ -137,12 +137,15 @@ Non-negotiable rules:
   prefixes by `createdAt`, rewrite repository text references atomically,
   refresh data `.gitignore` rules for scoped generated output, remove legacy
   global generated directories, then rebuild disposable generated views.
-- `taskset.config.ts` marks the repository root and configures validated project
-  metadata and task creation defaults. It never relocates canonical
-  `.taskset/` data or becomes a second task store.
-- Taskset is developed using its own root config, CLI, and canonical task
-  files. Keep that dogfooding workflow operational when changing core, CLI,
-  workspace commands, or persisted contracts.
+- The nearest `.taskset/` directory marks the repository root. Optional
+  `taskset.config.ts` at that root configures validated project metadata and
+  task creation defaults. Missing config uses built-in defaults. Config never
+  relocates canonical `.taskset/` data or becomes a second task store.
+- Taskset is developed using its own `.taskset/` data, optional root config,
+  CLI, and canonical task files. Keep that dogfooding workflow operational when
+  changing core, CLI, workspace commands, or persisted contracts.
+- Public docs split three audiences: humans (`docs/`), agents (`docs/agents/`
+  plus `skills/` and root `AGENTS.md`), and maintainers (`docs/maintainers/`).
 
 ## Organize by Ownership
 

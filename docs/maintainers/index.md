@@ -5,9 +5,7 @@ description: Repository maintenance documentation for Taskset contributors.
 
 # Taskset Maintainer Documentation
 
-This section contains repository maintenance material. It is intentionally
-separate from the primary user guides while remaining available in the same
-Nextra documentation site.
+This section contains repository maintenance material for the Taskset delivery workspace. It stays separate from the primary human and agent guides while remaining available in the same Nextra documentation site.
 
 ## Contents
 

@@ -5,8 +5,7 @@ description: Repository setup, Taskset dogfooding, pull requests, and completion
 
 # Contributing
 
-Taskset is pre-alpha. Strengthen the core file format and workflow before
-expanding the number of interfaces.
+Keep the core file format and workflow coherent when you change interfaces, packages, or docs.
 
 ## Start Here
 
@@ -27,7 +26,7 @@ Use the Node and pnpm versions declared by `.nvmrc` and `packageManager`.
 
 ## Develop Taskset With Taskset
 
-The repository dogfoods Taskset. Use the root `taskset.config.ts`, the CLI, and
+The repository dogfoods Taskset. Use the root `.taskset/` data, optional `taskset.config.ts`, the CLI, and
 canonical `.taskset/tasks/` files to plan and inspect work. When the CLI
 supports the required operation, update the task through the CLI instead of
 editing generated or derived state.

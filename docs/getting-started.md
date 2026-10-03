@@ -1,99 +1,106 @@
 ---
-title: Getting Started
-description: Initialize Taskset in a project and create the first repository task.
+title: Start a Taskset repository
+description: Install the CLI, initialize `.taskset/`, and capture your first plan, decision, and task in any language repository.
+contentType: Tutorial
+navLabel: Getting Started
 ---
 
-# Getting Started
+# Start a Taskset repository
 
-Taskset keeps project work in human-readable Markdown beside the code. The
-current pre-alpha release is intended for local repository use.
+This guide initializes Taskset in a repository and walks one delivery loop: capture intent, record research or a decision, then track the work. You do not need a JavaScript app, and you do not need `taskset.config.ts`.
 
 ## Requirements
 
-- Node.js 24 or newer
-- pnpm 11 or newer
+- Node.js 24 or newer to run the published CLI
+- Any Git repository or project root you can write to
 
-## Install
+## Install the CLI
 
-Install the published package as a development dependency in the project that
-will own the tasks:
+Pick one install style:
+
+```bash
+npx @taskset/cli@latest --help
+```
 
 ```bash
 pnpm add --save-dev @taskset/cli
 ```
 
-The package exposes the `taskset` executable.
+```bash
+npm install --global @taskset/cli
+```
 
-## Initialize
+The package exposes the `taskset` executable. Package runners work in repositories that never declare a Node dependency.
 
-Run Taskset from the repository root:
+## Initialize the repository
+
+Run init from the repository root, or from a nested directory when Git or workspace markers identify the root:
 
 ```bash
-pnpm taskset init
+taskset init
 ```
 
 This creates:
 
 ```text
-taskset.config.ts
 .taskset/
 ├── .gitignore
-└── tasks/
+├── tasks/
+├── stories/
+├── flows/
+├── decisions/
+├── research/
+└── runbooks/
 ```
 
-The config controls validated defaults. Task Markdown under `.taskset/tasks/`
-remains the canonical project state. The nested ignore file excludes
-`.taskset/cache/`, per-entity `.generated/` directories, and `.taskset/snapshots/`.
-Snapshots are non-authoritative safety checkpoints; tasks remain canonical.
-
-## Create And Inspect Work
+Add an optional config file only when you need custom task defaults:
 
 ```bash
-pnpm taskset task create --title "Add repository validation"
-pnpm taskset task list
-pnpm taskset task show <task-id>
-pnpm taskset task update <task-id> --status doing
+taskset init --config
 ```
 
-Task files can also be read and reviewed directly without Taskset installed.
+The nested ignore file excludes `.taskset/cache/`, per-entity `.generated/` directories, and `.taskset/snapshots/`. Snapshots are non-authoritative safety checkpoints. Markdown under `.taskset/` remains canonical.
 
-## Query And Validate Work
+## Capture intent, then track delivery
+
+Start with the durable context, then create the task that implements it:
 
 ```bash
-pnpm taskset task list --status doing --label core --json
-pnpm taskset task list --file packages/core --impact --json
-pnpm taskset doctor
+taskset document create story --title "Member signs in via SSO"
+taskset document create research --title "Compare SSO providers" --related your_story_id_here
+taskset document create adr --title "Use OIDC for member SSO" --related your_research_id_here
+taskset task create --title "Add SSO callback handler" --related your_decision_id_here --file packages/api/src/auth.ts
+taskset task list
+taskset document list --json
 ```
 
-File and directory filters use normalized repository-relative containment
-matching. With `--impact`, list output groups direct matches and tasks that
-transitively depend on them. Other filters select the direct set before graph
-expansion. `doctor` reports all readable format and graph failures in one
-non-mutating pass.
+You can read every file directly in the editor without the CLI. Cite entities by short hex `id`, never by filename sequence prefixes.
 
-## Generated Views And Migration
+## Query and validate the graph
 
 ```bash
-pnpm taskset generate
-pnpm taskset snapshot create
-pnpm taskset snapshot list
+taskset task list --status doing --label core --json
+taskset document list research --search "SSO" --json
+taskset task list --file packages/api --impact --json
+taskset doctor
 ```
 
-Snapshot restore previews by default unless `--apply` is present.
+File and directory filters use repository-relative containment. With `--impact`, list output groups direct matches and work that transitively depends on them. `doctor` reports readable format and graph failures in one non-mutating pass.
 
-## Complete Or Remove Work
+## Finish or remove work
 
 ```bash
-pnpm taskset task status <task-id> done
-pnpm taskset task delete <task-id>
+taskset task status your_task_id_here done
+taskset document status your_research_id_here accepted --type research
+taskset task delete your_task_id_here
 ```
 
-Completed and canceled tasks are terminal. Deletion fails while another task
-depends on the target. Use `--remove-dependencies` only when Taskset should
-remove those inbound references and the task together.
+Completed and canceled tasks are terminal. Deletion fails while another task depends on the target. Use `--remove-dependencies` only when Taskset should remove those inbound references and the task together.
 
 ## Next
 
-- [Configure task defaults](configuration.md)
-- [Use the complete CLI reference](cli-reference.md)
+- [Choose a document type](document-types.md)
 - [Understand task files](task-files.md)
+- [Configure defaults](configuration.md)
+- [Use the complete CLI reference](cli-reference.md)
+- [Follow the agent guide](agents/index.md)

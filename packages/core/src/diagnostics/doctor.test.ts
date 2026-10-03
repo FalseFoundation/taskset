@@ -78,7 +78,7 @@ describe('repository doctor', () => {
 			expect.objectContaining({
 				code: 'disabled-status',
 				field: 'status',
-				message: 'Status "todo" is not enabled by taskset.config.ts',
+				message: 'Status "todo" is not enabled by repository configuration',
 			}),
 		)
 	})

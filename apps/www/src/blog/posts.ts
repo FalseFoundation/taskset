@@ -26,6 +26,26 @@ const postDefinitions: readonly PostDefinition[] = [
 		slug: 'taskset-cli-on-npm',
 		load: async () => (await import('../../posts/taskset-cli-on-npm.md')) as unknown as PostModule,
 	},
+	{
+		slug: 'beyond-tasks-documents-and-sync',
+		load: async () =>
+			(await import('../../posts/beyond-tasks-documents-and-sync.md')) as unknown as PostModule,
+	},
+	{
+		slug: 'skills-and-docs-ship-with-the-cli',
+		load: async () =>
+			(await import('../../posts/skills-and-docs-ship-with-the-cli.md')) as unknown as PostModule,
+	},
+	{
+		slug: 'short-hex-entity-ids',
+		load: async () =>
+			(await import('../../posts/short-hex-entity-ids.md')) as unknown as PostModule,
+	},
+	{
+		slug: 'taskset-stable-global-release',
+		load: async () =>
+			(await import('../../posts/taskset-stable-global-release.md')) as unknown as PostModule,
+	},
 ]
 
 async function loadPost(definition: PostDefinition): Promise<Post> {

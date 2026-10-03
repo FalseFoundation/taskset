@@ -1,37 +1,43 @@
 ---
-title: Taskset
-description: Offline, inline, AI-friendly project awareness stored beside the code.
+title: Keep the whole delivery story beside the code
+description: Taskset stores plans, research, decisions, runbooks, and tasks as Markdown in your repository for agents and humans.
+contentType: Landing
+navLabel: Overview
 ---
 
-# Taskset
+# Keep the whole delivery story beside the code
 
-Taskset is an offline, inline, AI-friendly, human-readable task manager designed
-to accelerate software delivery and give development teams immediate awareness
-of the work surrounding their code.
+Taskset is a local-first delivery workspace. You keep stories, research, decisions, flows, runbooks, and executable tasks as Markdown under `.taskset/`, so agents and humans share one reviewable source of truth.
 
-Tasks and project knowledge live inside the repository as Markdown. Git supplies
-history, branches, review, and collaboration. Taskset supplies a consistent
-domain model and interfaces over those files.
+Install the CLI as `@taskset/cli` from npm. Run it with `npx`, `pnpm dlx`, `yarn dlx`, `bunx`, a project dependency, or a global install.
 
-Install the command-line package from npm as `@taskset/cli`.
+## What belongs in Taskset
 
-## Core Promise
+- **Plan**: stories and flows that define outcomes and journeys
+- **Learn**: research that captures evidence and recommendations
+- **Decide**: decisions and ADRs that lock lasting choices
+- **Operate**: runbooks that make recovery safe to repeat
+- **Deliver**: tasks that carry ownership, status, dependencies, and code impact
 
-- Work remains readable without Taskset installed.
-- Developers can operate locally without a mandatory service.
-- Humans and AI agents inspect the same project context.
-- CLI, TUI, MCP, editor, Kanban, and reporting views share one source of truth.
-- Monorepo projects and code relationships are first-class.
+Documents preserve memory. Tasks move work. Relationships keep the graph honest.
 
-## Current Status
+## What you get
 
-Taskset is pre-alpha. The CLI supports repository initialization, configuration
-inspection, validated task CRUD and lifecycle changes, repository diagnostics,
-generated views, snapshots, metadata queries, and file-impact analysis.
+- Project knowledge stays in the repository it describes
+- Markdown remains readable without Taskset installed
+- Agents and humans inspect the same plans, decisions, and work
+- CLI, skills, and future interfaces share one domain model
+- Monorepo paths and code relationships are first-class
 
-## Read Next
+## What the CLI covers
 
-- [Getting started](getting-started.md)
-- [Configuration](configuration.md)
-- [CLI reference](cli-reference.md)
-- [Task files](task-files.md)
+The CLI initializes repositories, manages optional configuration, creates and queries tasks and documents, runs diagnostics, builds generated views, snapshots state, and syncs the tree after upgrades or repairs.
+
+## Choose your path
+
+- [Start a Taskset repository](getting-started.md)
+- [Choose a document type](document-types.md)
+- [Understand task files](task-files.md)
+- [Configure defaults when you need them](configuration.md)
+- [Look up every CLI command](cli-reference.md)
+- [Read agent workflows and contracts](agents/index.md)
