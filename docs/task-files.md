@@ -53,8 +53,10 @@ Explain why the task exists.
 Required fields are `id`, `title`, `status`, `createdAt`, and `updatedAt`.
 Task IDs are immutable 5-6 character lowercase hex values, such as `a1b2c3`.
 Filenames keep a separate display sequence and title slug:
-`0000001-add-task-validation-a1b2c3.md`. Agents and commands reference the short
-`id`, never the mutable sequence prefix.
+`0000001-add-task-validation-a1b2c3.md`. Human-authored relationships use the
+complete repository-relative canonical filename, for example
+`.taskset/tasks/0000001-add-task-validation-a1b2c3.md`. The short `id` remains
+immutable internal compatibility metadata and is still accepted as input.
 
 Task files use one strict versionless metadata shape. Optional fields:
 
@@ -95,6 +97,11 @@ all other metadata and Markdown body content. Take a Git commit or
 ## Relationships
 
 `dependsOn`, `related`, `duplicates`, and `parent` are canonical. Taskset
+serializes them as repository-relative canonical filenames. Commands accept a
+full path, unique basename, filename stem, or legacy ID and resolve it to the
+immutable internal identity. Ambiguous basenames are rejected with all
+candidate paths. Numeric-looking strings are quoted when serialized so YAML
+cannot coerce them to numbers. Taskset
 derives:
 
 - `blockedBy`: direct dependencies

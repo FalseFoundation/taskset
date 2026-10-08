@@ -7,9 +7,10 @@ navLabel: Query Recipes
 
 # Query operational memory
 
-Prefer `--json` for agent handoffs. Use short hex IDs in commands and
-`--related`. Filename sequence prefixes are display-only. Markdown hyperlinks
-to files must use repository-relative paths (see [commands](commands.md)).
+Prefer `--json` for agent handoffs. Use complete repository-relative canonical
+filenames in commands, `--related`, and prose links. Short hex IDs remain
+accepted compatibility metadata. Unique basenames and stems are convenient
+inputs, but full paths avoid ambiguity (see [commands](commands.md)).
 
 ## Open concerns on a path
 
@@ -24,7 +25,7 @@ taskset document list concern --class authz --status active --json
 ```bash
 taskset document list lesson --search "casl capability" --json
 taskset document list lesson --severity high --json
-taskset document show <lesson-id> --type lesson --json
+taskset document show .taskset/lessons/0000004-capability-flags-a1b2c3.md --json
 ```
 
 ## Audits and research
@@ -37,7 +38,7 @@ taskset document list research --status ready --json
 ## Program health
 
 ```bash
-taskset task program <parent-id> --json
+taskset task program .taskset/tasks/0000001-security-program-c3d4e5.md --json
 ```
 
 Useful fields:
@@ -59,8 +60,11 @@ Interpret:
 
 | Code | Meaning |
 | --- | --- |
-| `missing-template-heading` | lesson/concern/audit body missing required `##` section |
-| `missing-reference` | related/dependsOn target ID does not exist |
+| `missing-template-heading` | document body missing a required `##` section |
+| `missing-document-type` | canonical directory can safely supply a missing type |
+| `conflicting-document-type` | explicit type disagrees with the canonical directory |
+| `invalid-reference-type` | YAML parsed a relationship as a non-string value |
+| `missing-reference` | relationship target cannot be resolved |
 | `unknown-taxonomy` | label/project/class outside allowlist |
 | `closeout-gap` | done task labeled for lesson without a related lesson |
 | `missing-owner` | active concern without owner (when configured) |

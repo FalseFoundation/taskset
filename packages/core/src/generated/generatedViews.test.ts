@@ -48,7 +48,7 @@ describe('generated views', () => {
 		expect(Object.keys(manifest).sort()).toEqual(['files', 'fingerprint'])
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'status', 'todo.md'), 'utf8'),
-		).toContain(`- [20] [${taskId}: Indexed](../${fileName})`)
+		).toContain(`- [20] [${fileName}: Indexed](../${fileName})`)
 		expect(
 			await readFile(path.join(repository.generatedDirectory, 'projects', 'alpha∕beta.md'), 'utf8'),
 		).toContain(taskId)

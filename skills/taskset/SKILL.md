@@ -87,17 +87,17 @@ For ownership-gate scenarios, read [owner and assignee examples](references/task
 taskset config --json
 taskset doctor --json
 taskset task list --json
-taskset task show your_task_id_here --json
+taskset task show .taskset/tasks/0000001-describe-the-work-a1b2c3.md --json
 taskset task create --title "Describe the work"
-taskset task update your_task_id_here --status doing
-taskset task status your_task_id_here done
-taskset task delete your_task_id_here
+taskset task update .taskset/tasks/0000001-describe-the-work-a1b2c3.md --status doing
+taskset task status .taskset/tasks/0000001-describe-the-work-a1b2c3.md done
+taskset task delete .taskset/tasks/0000001-describe-the-work-a1b2c3.md
 taskset task list --search "multiple terms" --json
 taskset task list --file packages/core --impact --json
 taskset document create story --title "Describe the user outcome"
-taskset document create research --title "Evaluate options" --related your_task_id_here
-taskset document create lesson --title "Capability flags are enablement only" --severity high --related your_task_id_here
-taskset document create concern --title "Open authz residual risk" --class authz --related your_task_id_here
+taskset document create research --title "Evaluate options" --related .taskset/tasks/0000001-describe-the-work-a1b2c3.md
+taskset document create lesson --title "Capability flags are enablement only" --severity high --related .taskset/tasks/0000001-describe-the-work-a1b2c3.md
+taskset document create concern --title "Open authz residual risk" --class authz --related .taskset/tasks/0000001-describe-the-work-a1b2c3.md
 taskset document update your_document_id_here --status ready --type research
 taskset document list research --search "queue" --impact --json
 taskset document list concern --directory apps/foo --status active --json
@@ -105,7 +105,8 @@ taskset document show your_document_id_here --type research --include-derived --
 taskset document import docs/adr/0001-example.md --type adr --move
 taskset document batch taskset-documents.json --concurrency 4 --json
 taskset task program your_parent_task_id_here --json
-taskset sync --json
+taskset sync --fix --dry-run --json
+taskset sync --fix --json
 ```
 
 ## Practical Guidance
@@ -248,12 +249,15 @@ For paired examples of required, multi-package, and unnecessary changesets, read
 - In monorepos, verify affected packages and consumers against the workspace and task-runner graphs rather than relying only on the initially named directory.
 - In repositories using Changesets, reconcile the task's declared Changeset requirement with the actual affected packages before completion.
 - Prefer the smallest Taskset command that proves the intended state.
-- Use short hex `id` values (`a1b2c3`) with `task show`, `task update`,
-  `--related`, `--depends-on`, and `--parent`. Filename sequence prefixes are
-  display metadata only—never identity and never Markdown link targets.
+- Use complete repository-relative canonical filenames with `task show`,
+  `task update`, `--related`, `--depends-on`, and `--parent`. Taskset also
+  accepts a unique basename, filename stem, or short immutable `id` for
+  compatibility, but full paths are the unambiguous human-facing format.
 - When writing a Markdown hyperlink to a Taskset entity, doc, or skill file,
   use the repository-relative filepath (for example
   `.taskset/lessons/0000001-…-a1b2c3.md` or `docs/memory-model.md`). Inline
-  mentions may still show the short `id` for humans and CLI copy-paste.
+  mentions should use the canonical filename as their visible label.
+- Before migrations or repair, run `taskset sync --fix --dry-run --json`; review
+  every diagnostic and planned change, then run `taskset sync --fix --json`.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
 - Report validation failures plainly and only claim success after the command has run.

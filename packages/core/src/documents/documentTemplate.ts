@@ -2,6 +2,40 @@ import type { DocumentKind } from '@taskset/contracts'
 
 const REQUIRED_HEADINGS: Readonly<Partial<Record<DocumentKind, readonly string[]>>> = Object.freeze(
 	{
+		story: Object.freeze(['User story', 'Context', 'Acceptance criteria', 'Out of scope', 'Notes']),
+		flow: Object.freeze([
+			'Goal',
+			'Preconditions',
+			'User flow',
+			'Failure variants',
+			'Acceptance checks',
+			'Related stories',
+		]),
+		decision: Object.freeze([
+			'Context',
+			'Decision',
+			'Alternatives',
+			'Consequences',
+			'Migration',
+			'Status',
+		]),
+		research: Object.freeze([
+			'Question',
+			'Sources',
+			'Findings',
+			'Recommendation',
+			'Open questions',
+		]),
+		runbook: Object.freeze([
+			'Purpose',
+			'Preconditions',
+			'Symptoms',
+			'Checks',
+			'Actions',
+			'Rollback',
+			'Escalation',
+			'Verification',
+		]),
 		lesson: Object.freeze([
 			'Trigger / symptom',
 			'Incorrect pattern',

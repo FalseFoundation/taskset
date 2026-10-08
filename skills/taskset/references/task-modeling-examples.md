@@ -1,6 +1,6 @@
 # Task Modeling Examples
 
-Use these examples to choose task boundaries and metadata. The IDs in commands are placeholders for IDs returned by Taskset.
+Use these examples to choose task boundaries and metadata. Canonical path placeholders represent filenames returned by Taskset.
 
 ## Split Independent Deliverables
 
@@ -9,9 +9,9 @@ Bad: one task titled `Do auth, docs, dashboard, and tests` with the entire promp
 Good: create separate tasks for the API, dashboard, and documentation when each produces a distinct outcome. Attach their relevant project and labels, and connect only genuine prerequisites.
 
 ```bash
-pnpm taskset task create --title "Expose session-expiry API" --project api --label auth
-pnpm taskset task create --title "Show expired sessions in the dashboard" --project web --label auth --depends-on <api-task-id>
-pnpm taskset task create --title "Document session-expiry behavior" --project docs --related <api-task-id>
+taskset task create --title "Expose session-expiry API" --project api --label auth
+taskset task create --title "Show expired sessions in the dashboard" --project web --label auth --depends-on .taskset/tasks/<canonical-api-task-file>.md
+taskset task create --title "Document session-expiry behavior" --project docs --related .taskset/tasks/<canonical-api-task-file>.md
 ```
 
 The dashboard is blocked by the API contract, so it depends on the API task. Documentation is related but need not be blocked if it can be drafted from the agreed contract.

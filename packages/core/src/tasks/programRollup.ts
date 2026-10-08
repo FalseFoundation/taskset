@@ -1,9 +1,8 @@
-import { TaskIdSchema } from '@taskset/contracts'
 import type { Repository } from '../config/config.ts'
 import { RepositorySchema } from '../config/config.ts'
 import { type DocumentRecord, listDocuments } from '../documents/documentRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
-import { listTasks, type TaskRecord } from './taskRepository.ts'
+import { listTasks, readTask, type TaskRecord } from './taskRepository.ts'
 
 const OPEN_CONCERN_STATUSES = new Set(['draft', 'ready', 'active'])
 const OPEN_TASK_STATUSES = new Set(['todo', 'doing', 'blocked'])
@@ -90,9 +89,9 @@ export async function getProgramRollup(
 	parentId: string,
 ): Promise<ProgramRollup> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'program rollup')
-	const validatedParentId = parseCoreInput(TaskIdSchema, parentId, 'program parent ID')
 	const tasks = await listTasks(validatedRepository)
-	const parent = tasks.find((record) => record.task.metadata.id === validatedParentId)
+	const parent = await readTask(validatedRepository, parentId)
+	const validatedParentId = parent.task.metadata.id
 
 	if (!parent) {
 		throw new Error(`Task ${validatedParentId} was not found`)

@@ -188,4 +188,25 @@ projects:
 
 		expect(serializeTaskFile(parseTaskFile(source))).toBe(source)
 	})
+
+	it('round-trips filename-first references and quotes numeric-looking identities', () => {
+		const source = `---
+id: "12345"
+title: Filename references
+status: todo
+createdAt: 2026-10-08
+updatedAt: 2026-10-08
+dependsOn:
+  - .taskset/tasks/0000041-prerequisite-c3d4e5.md
+related:
+  - .taskset/decisions/0000012-decision-d4e5f6.md
+  - abc12
+duplicates:
+  - "67890"
+parent: .taskset/tasks/0000042-parent-a1b2c3.md
+---
+`
+
+		expect(serializeTaskFile(parseTaskFile(source))).toBe(source)
+	})
 })

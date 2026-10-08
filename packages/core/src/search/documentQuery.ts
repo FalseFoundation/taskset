@@ -5,10 +5,10 @@ import {
 	type DocumentStatus,
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
+	EntityReferenceSchema,
 	LESSON_SEVERITIES,
 	TASK_PRIORITIES,
 	TASK_RISKS,
-	TaskIdSchema,
 	type TaskPriority,
 	TaskPrioritySchema,
 	type TaskRisk,
@@ -19,6 +19,7 @@ import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { type DocumentRecord, listDocuments } from '../documents/documentRepository.ts'
 import { buildDocumentGraph } from '../graph/documentGraph.ts'
+import { EntityReferenceIndex, normalizeEntityReference } from '../ids/entityReference.ts'
 import { normalizeRepositoryPath, repositoryPathsRelate } from '../projects/repositoryPath.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
@@ -59,10 +60,10 @@ export const DocumentQuerySchema = z
 		projects: StringListSchema.optional(),
 		classes: z.array(z.enum(CONCERN_CLASSES)).optional(),
 		severities: z.array(z.enum(LESSON_SEVERITIES)).optional(),
-		dependsOn: TaskIdSchema.optional(),
-		related: TaskIdSchema.optional(),
-		duplicate: TaskIdSchema.optional(),
-		parent: TaskIdSchema.optional(),
+		dependsOn: EntityReferenceSchema.optional(),
+		related: EntityReferenceSchema.optional(),
+		duplicate: EntityReferenceSchema.optional(),
+		parent: EntityReferenceSchema.optional(),
 		files: StringListSchema.optional(),
 		directories: StringListSchema.optional(),
 		estimateMin: NonnegativeNumberSchema.optional(),
@@ -479,8 +480,24 @@ export async function queryDocuments(
 	query: DocumentQuery = {},
 ): Promise<DocumentQueryResult> {
 	const validatedQuery = validateQuery(query)
+	const records = await listDocuments(repository)
+	const referenceIndex = new EntityReferenceIndex(
+		records.map((record) => ({
+			id: record.document.metadata.id,
+			relativePath: record.relativePath,
+			title: record.document.metadata.title,
+			kind: record.document.metadata.type,
+			status: record.document.metadata.status,
+		})),
+	)
+	const reference = (value: string | undefined) =>
+		value === undefined ? undefined : normalizeEntityReference(value, referenceIndex)
 	const normalizedQuery: DocumentQuery = {
 		...validatedQuery,
+		dependsOn: reference(validatedQuery.dependsOn),
+		related: reference(validatedQuery.related),
+		duplicate: reference(validatedQuery.duplicate),
+		parent: reference(validatedQuery.parent),
 		...(validatedQuery.files
 			? {
 					files: validatedQuery.files.map((value) => normalizeRepositoryPath(repository, value)),
@@ -494,7 +511,6 @@ export async function queryDocuments(
 				}
 			: {}),
 	}
-	const records = await listDocuments(repository)
 	const direct = queryDocumentRecords(records, normalizedQuery)
 	const directIds = new Set(direct.map((record) => record.document.metadata.id))
 	const impactedIds = new Set<string>()

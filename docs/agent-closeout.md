@@ -21,7 +21,7 @@ Before marking a Taskset task `done`, agents must leave the repository in a stat
    - recurring mistake → `lesson`
    - residual risk → `concern`
    - inventory / spot-check → `audit`
-4. Documents and tasks are linked with `--related` (short hex IDs in CLI flags).
+4. Documents and tasks are linked with `--related` using canonical repository-relative filenames.
 5. Markdown prose that points at those files uses repository-relative filepaths, not bare hex ids.
 6. Labels and projects reuse repository taxonomy; do not invent one-off tags when an allowlist exists.
 7. `taskset doctor --json` reports no errors for the paths you touched.

@@ -37,3 +37,13 @@ export const EntityIdSchema = z
 		ENTITY_ID_PATTERN,
 		'Expected a 5-6 character lowercase hex id (legacy sequential and TS-ULID ids are accepted for migration)',
 	)
+
+/** Human-facing entity references accept IDs, basenames, and repository-relative paths. */
+export const EntityReferenceSchema = z
+	.string()
+	.min(1, 'Reference must not be empty')
+	.refine((value) => value === value.trim(), 'Reference must not have surrounding whitespace')
+	.refine(
+		(value) => !value.includes('\0') && !value.includes('\n') && !value.includes('\r'),
+		'Reference contains unsafe characters',
+	)

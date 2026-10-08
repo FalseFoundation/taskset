@@ -63,7 +63,7 @@ Link documents and tasks with `--related`. Keep one-off scratch in the task body
 
 - Treat `.taskset/tasks/` and kind-specific document directories as the source of truth
 - Mutate through CLI commands when a command exists
-- Use short hex ids such as `a1b2c3` in commands and `--related`. Filename sequence prefixes are display-only.
+- Use complete repository-relative canonical filenames in commands and `--related`; immutable IDs remain accepted for compatibility.
 - Markdown hyperlinks to files must use repository-relative paths (for example [document types](../document-types.md)), not bare hex ids
 - Prefer `--json` for handoffs
 - Create follow-up tasks or checklist subtasks for newly discovered work

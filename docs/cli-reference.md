@@ -181,7 +181,7 @@ Array options are repeatable.
 | `--priority <priority>` | `priority` | One of `low`, `medium`, `high`, `urgent`. |
 | `--order <number>` | `order` | Nonnegative finite number. Lower values sort first. |
 | `--label <label>` | `labels` | Repeatable. |
-| `--depends-on <task-id>` | `dependsOn` | Repeatable. |
+| `--depends-on <reference>` | `dependsOn` | Repeatable; prefer a canonical repository-relative filename. |
 | `--file <path>` | `files` | Repeatable; normalized to a repository-relative POSIX path. |
 | `--owner <owner>` | `owner` | Trimmed string. |
 | `--assignee <assignee>` | `assignees` | Repeatable. |
@@ -191,9 +191,9 @@ Array options are repeatable.
 | `--effort <value>` | `effort` | Nonnegative finite number. |
 | `--risk <risk>` | `risk` | One of `low`, `medium`, `high`. |
 | `--due-date <date>` | `dueDate` | `YYYY-MM-DD` or `YYYY-MM-DD HH:mm UTC`. |
-| `--related <task-id>` | `related` | Repeatable. |
-| `--duplicate <task-id>` | `duplicates` | Repeatable. |
-| `--parent <task-id>` | `parent` | Single task ID. |
+| `--related <reference>` | `related` | Repeatable; tasks and documents are accepted. |
+| `--duplicate <reference>` | `duplicates` | Repeatable. |
+| `--parent <reference>` | `parent` | Single entity reference. |
 | `--directory <path>` | `directories` | Repeatable; normalized to a repository-relative POSIX path. |
 | `--project <project>` | `projects` | Repeatable. |
 | `--body <markdown>` | body | Replaces the Markdown body. |
@@ -405,14 +405,25 @@ tab-separated old-to-new mapping; JSON emits the same mapping as objects.
 ### `sync`
 
 ```bash
-taskset sync [--concurrency <count>] [--json] [--cwd <path>]
+taskset sync [--dry-run] [--fix] [--concurrency <count>] [--json] [--cwd <path>]
 ```
 
-Ensures every canonical document directory exists under `.taskset`, migrates
-legacy task and document IDs to short hex IDs, normalizes filenames, repairs
-duplicate sequence prefixes by `createdAt`, rewrites repository text
-references, and rebuilds generated views. Progress counts and percentages are
-sent to stderr.
+Runs a complete non-mutating preflight before any repository change, then plans
+legacy identity migrations, filename normalization, relationship rewrites, and
+generated views in a temporary staging area. `--dry-run` prints the plan without
+publishing it. `--fix` permits only deterministic repairs: quoting numeric
+references, inferring a missing type from its canonical directory, inserting
+empty required sections, resolving known aliases, and linking proven entity
+mentions in managed prose. Conflicting types and ambiguous or unknown targets
+remain errors. Canonical files publish in one optimistic transaction; generated
+views rebuild afterward. JSON diagnostics stay on stdout and progress stays on
+stderr.
+
+Normal command input accepts a repository-relative path, unique basename,
+canonical filename stem, or immutable ID for compatibility. Human output and
+persisted relationships prefer complete repository-relative filenames. JSON
+retains `id` and adds resolved relationship objects with `path`, `filename`,
+`title`, `kind`, and `status`.
 
 ## Document Commands
 

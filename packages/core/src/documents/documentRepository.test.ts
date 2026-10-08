@@ -99,11 +99,43 @@ describe('document repository', () => {
 			created.document.metadata.id,
 			{
 				status: 'active',
-				body: '# Recover workers\n\nUpdated steps.\n',
+				body: created.document.body.replace(
+					'## Actions\n\n1. …',
+					'## Actions\n\n1. Updated steps.',
+				),
 			},
 			'runbook',
 		)
 		expect(updated.document.metadata.id).toBe(created.document.metadata.id)
 		expect(updated.document.body).toContain('Updated steps')
+	})
+
+	it('accepts filenames and persists document and task relationships as paths', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'taskset-documents-'))
+		directories.push(root)
+		const repository = await initializeRepository(root)
+		const { createTask } = await import('../tasks/taskRepository.ts')
+		const task = await createTask(
+			repository,
+			{ title: 'Implementation task' },
+			{ createId: () => 'a1b2c3' },
+		)
+		const decision = await createDocument(repository, { type: 'decision', title: 'Use paths' })
+		const research = await createDocument(repository, {
+			type: 'research',
+			title: 'Reference evidence',
+			dependsOn: [path.basename(decision.relativePath)],
+			related: [task.relativePath],
+		})
+
+		const persisted = await readFile(path.join(root, research.relativePath), 'utf8')
+		expect(persisted).toContain(`  - ${decision.relativePath}`)
+		expect(persisted).toContain(`  - ${task.relativePath}`)
+		expect((await readDocument(repository, research.relativePath)).document.metadata).toMatchObject(
+			{
+				dependsOn: [decision.document.metadata.id],
+				related: [task.task.metadata.id],
+			},
+		)
 	})
 })

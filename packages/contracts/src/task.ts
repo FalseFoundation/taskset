@@ -1,6 +1,6 @@
 import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
-import { EntityIdSchema } from './entityId.ts'
+import { EntityIdSchema, EntityReferenceSchema } from './entityId.ts'
 
 export const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'canceled'] as const
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
@@ -78,7 +78,7 @@ export const TaskMetadataSchema = z.strictObject({
 	createdAt: TaskTimestampSchema,
 	updatedAt: TaskTimestampSchema,
 	labels: uniqueArray(TrimmedValueSchema).optional(),
-	dependsOn: uniqueArray(TaskIdSchema).optional(),
+	dependsOn: uniqueArray(EntityReferenceSchema).optional(),
 	files: uniqueArray(TrimmedValueSchema).optional(),
 	owner: TrimmedValueSchema.optional(),
 	assignees: uniqueArray(TrimmedValueSchema).optional(),
@@ -88,9 +88,9 @@ export const TaskMetadataSchema = z.strictObject({
 	effort: z.number().finite().nonnegative().optional(),
 	risk: TaskRiskSchema.optional(),
 	dueDate: TaskTimestampSchema.optional(),
-	related: uniqueArray(TaskIdSchema).optional(),
-	duplicates: uniqueArray(TaskIdSchema).optional(),
-	parent: TaskIdSchema.optional(),
+	related: uniqueArray(EntityReferenceSchema).optional(),
+	duplicates: uniqueArray(EntityReferenceSchema).optional(),
+	parent: EntityReferenceSchema.optional(),
 	directories: uniqueArray(TrimmedValueSchema).optional(),
 	projects: uniqueArray(TrimmedValueSchema).optional(),
 }) satisfies z.ZodType<TaskMetadata>

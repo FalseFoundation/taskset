@@ -7,13 +7,13 @@ import {
 	ConcernClassSchema,
 	type DocumentFile,
 	DocumentFileSchema,
-	DocumentIdSchema,
 	type DocumentKind,
 	DocumentKindSchema,
 	type DocumentStatus,
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
 	DocumentTitleSchema,
+	EntityReferenceSchema,
 	type LessonSeverity,
 	LessonSeveritySchema,
 	needsEntityIdMigration,
@@ -40,9 +40,16 @@ import {
 	resolveEntityFileName,
 	slugifyTitle,
 } from '../ids/entityId.ts'
+import {
+	EntityReferenceError,
+	EntityReferenceIndex,
+	type EntityReferenceTarget,
+	normalizeEntityReference,
+} from '../ids/entityReference.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
+import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { collectTaxonomyViolations } from '../taxonomy/taxonomy.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 import { missingDocumentHeadings } from './documentTemplate.ts'
@@ -62,7 +69,7 @@ function uniqueArray<T>(schema: z.ZodType<T>) {
 		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 }
 
-const TaskIdListSchema = uniqueArray(TaskIdSchema)
+const TaskIdListSchema = uniqueArray(EntityReferenceSchema)
 const StringListSchema = uniqueArray(TrimmedStringSchema)
 const RepositoryPathListSchema = uniqueArray(RepositoryRelativePathSchema)
 
@@ -85,7 +92,7 @@ export const CreateDocumentInputSchema = z.strictObject({
 	dueDate: DocumentTimestampSchema.optional(),
 	related: TaskIdListSchema.optional(),
 	duplicates: TaskIdListSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	directories: RepositoryPathListSchema.optional(),
 	projects: StringListSchema.optional(),
 	severity: LessonSeveritySchema.optional(),
@@ -129,7 +136,7 @@ export const UpdateDocumentInputSchema = z
 		dueDate: DocumentTimestampSchema.nullable().optional(),
 		related: TaskIdListSchema.optional(),
 		duplicates: TaskIdListSchema.optional(),
-		parent: TaskIdSchema.nullable().optional(),
+		parent: EntityReferenceSchema.nullable().optional(),
 		directories: RepositoryPathListSchema.optional(),
 		projects: StringListSchema.optional(),
 		severity: LessonSeveritySchema.nullable().optional(),
@@ -326,10 +333,6 @@ function parseInput<T>(schema: z.ZodType<T>, value: unknown, operation: string):
 	return result.data
 }
 
-function parseDocumentId(documentId: string): string {
-	return parseInput(DocumentIdSchema, documentId, 'document ID')
-}
-
 function resolveOptional<T>(next: T | null | undefined, current: T | undefined): T | undefined {
 	return next === null ? undefined : (next ?? current)
 }
@@ -346,6 +349,86 @@ function freezeRecord(relativePath: string, document: DocumentFile): DocumentRec
 	return Object.freeze({ relativePath, document })
 }
 
+function documentReferenceTarget(record: DocumentRecord): EntityReferenceTarget {
+	return {
+		id: record.document.metadata.id,
+		relativePath: record.relativePath,
+		title: record.document.metadata.title,
+		kind: record.document.metadata.type,
+		status: record.document.metadata.status,
+	}
+}
+
+function taskReferenceTarget(record: TaskRecord): EntityReferenceTarget {
+	return {
+		id: record.task.metadata.id,
+		relativePath: record.relativePath,
+		title: record.task.metadata.title,
+		kind: 'task',
+		status: record.task.metadata.status,
+	}
+}
+
+function normalizedDocumentFile(document: DocumentFile, index: EntityReferenceIndex): DocumentFile {
+	const map = (values: readonly string[] | undefined) =>
+		values?.map((value) => normalizeEntityReference(value, index))
+	const metadata = document.metadata
+	return DocumentFileSchema.parse({
+		metadata: {
+			...metadata,
+			dependsOn: map(metadata.dependsOn),
+			related: map(metadata.related),
+			duplicates: map(metadata.duplicates),
+			parent: metadata.parent ? normalizeEntityReference(metadata.parent, index) : undefined,
+		},
+		body: document.body,
+	})
+}
+
+function resolveDocumentInputReferences<T extends CreateDocumentInput | UpdateDocumentInput>(
+	input: T,
+	index: EntityReferenceIndex,
+): T {
+	const resolve = (values: readonly string[] | undefined, requireLocal: boolean) => {
+		if (values === undefined) return undefined
+		return values.map((value) => {
+			const candidates = index.find(value)
+			if (candidates.length === 1) return candidates[0]?.id as string
+			if (candidates.length > 1) throw new EntityReferenceError('ambiguous', value, candidates)
+			const normalized = normalizeEntityReference(value)
+			if (!requireLocal && TaskIdSchema.safeParse(normalized).success) return normalized
+			throw new EntityReferenceError('missing', value)
+		})
+	}
+	try {
+		return {
+			...input,
+			dependsOn: resolve(input.dependsOn, true),
+			related: resolve(input.related, false),
+			duplicates: resolve(input.duplicates, false),
+			parent: typeof input.parent === 'string' ? index.resolveId(input.parent) : input.parent,
+		} as T
+	} catch (error) {
+		if (error instanceof EntityReferenceError) {
+			throw new DocumentRepositoryError('document-invalid', error.message, {
+				issues: [{ field: 'relationship', message: error.message }],
+			})
+		}
+		throw error
+	}
+}
+
+async function repositoryReferenceIndex(
+	repository: Repository,
+	documents: readonly DocumentRecord[],
+): Promise<EntityReferenceIndex> {
+	const tasks = await listTasks(repository)
+	return new EntityReferenceIndex([
+		...documents.map(documentReferenceTarget),
+		...tasks.map(taskReferenceTarget),
+	])
+}
+
 function defaultStatus(type: DocumentKind): DocumentStatus {
 	if (type === 'decision') {
 		return 'accepted'
@@ -357,6 +440,10 @@ function defaultStatus(type: DocumentKind): DocumentStatus {
 }
 
 function validateDocumentBody(type: DocumentKind, body: string): void {
+	// Preserve the existing import/update compatibility contract for the older
+	// document kinds. Repository preflight and doctor still report every
+	// missing heading across all kinds before sync can publish changes.
+	if (type !== 'lesson' && type !== 'concern' && type !== 'audit') return
 	const missing = missingDocumentHeadings(type, body)
 	if (missing.length === 0) {
 		return
@@ -518,9 +605,13 @@ export function parseDocumentFile(source: string): DocumentFile {
 	return DocumentFileSchema.parse({ metadata: parsed.attributes, body: parsed.body })
 }
 
-export function serializeDocumentFile(document: DocumentFile): string {
+export function serializeDocumentFile(
+	document: DocumentFile,
+	options: { readonly referencePathForId?: (id: string) => string | undefined } = {},
+): string {
 	const parsed = DocumentFileSchema.parse(document)
 	const { metadata } = parsed
+	const reference = (value: string): string => options.referencePathForId?.(value) ?? value
 	const orderedMetadata: Record<string, unknown> = {
 		id: metadata.id,
 		type: metadata.type,
@@ -566,16 +657,16 @@ export function serializeDocumentFile(document: DocumentFile): string {
 		orderedMetadata.labels = metadata.labels
 	}
 	if (metadata.dependsOn !== undefined) {
-		orderedMetadata.dependsOn = metadata.dependsOn
+		orderedMetadata.dependsOn = metadata.dependsOn.map(reference)
 	}
 	if (metadata.related !== undefined) {
-		orderedMetadata.related = metadata.related
+		orderedMetadata.related = metadata.related.map(reference)
 	}
 	if (metadata.duplicates !== undefined) {
-		orderedMetadata.duplicates = metadata.duplicates
+		orderedMetadata.duplicates = metadata.duplicates.map(reference)
 	}
 	if (metadata.parent !== undefined) {
-		orderedMetadata.parent = metadata.parent
+		orderedMetadata.parent = reference(metadata.parent)
 	}
 	if (metadata.files !== undefined) {
 		orderedMetadata.files = metadata.files
@@ -686,11 +777,15 @@ export async function listDocuments(
 		}
 	}
 
+	const orderedRecords = records.sort(
+		(left, right) =>
+			left.relativePath.localeCompare(right.relativePath) ||
+			left.document.metadata.id.localeCompare(right.document.metadata.id),
+	)
+	const referenceIndex = new EntityReferenceIndex(orderedRecords.map(documentReferenceTarget))
 	return Object.freeze(
-		records.sort(
-			(left, right) =>
-				left.relativePath.localeCompare(right.relativePath) ||
-				left.document.metadata.id.localeCompare(right.document.metadata.id),
+		orderedRecords.map((record) =>
+			freezeRecord(record.relativePath, normalizedDocumentFile(record.document, referenceIndex)),
 		),
 	)
 }
@@ -701,10 +796,20 @@ export async function readDocument(
 	type?: DocumentKind,
 ): Promise<DocumentRecord> {
 	parseCoreInput(RepositorySchema, repository, 'document read repository')
-	const validatedId = parseDocumentId(id)
-	const matches = (await listDocuments(repository, type)).filter(
-		(item) => item.document.metadata.id === validatedId,
-	)
+	const records = await listDocuments(repository, type)
+	let validatedId: string
+	try {
+		validatedId = new EntityReferenceIndex(records.map(documentReferenceTarget)).resolveId(id)
+	} catch (error) {
+		if (error instanceof EntityReferenceError)
+			throw new DocumentRepositoryError(
+				error.code === 'ambiguous' ? 'document-ambiguous' : 'document-not-found',
+				error.message,
+				{ documentId: id },
+			)
+		throw error
+	}
+	const matches = records.filter((item) => item.document.metadata.id === validatedId)
 	if (matches.length === 0) {
 		throw new DocumentRepositoryError(
 			'document-not-found',
@@ -735,12 +840,15 @@ export async function createDocument(
 	options: CreateDocumentOptions = {},
 ): Promise<DocumentRecord> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'document repository')
-	const validatedInput = parseInput(CreateDocumentInputSchema, input, 'document creation')
+	const parsedInput = parseInput(CreateDocumentInputSchema, input, 'document creation')
 	const validatedOptions = parseCoreInput(
 		CreateDocumentOptionsSchema,
 		options,
 		'document creation options',
 	)
+	const existingRecords = await listDocuments(validatedRepository)
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, existingRecords)
+	const validatedInput = resolveDocumentInputReferences(parsedInput, referenceIndex)
 	const type = validatedInput.type
 	const title = validatedInput.title
 	const status = validatedInput.status ?? defaultStatus(type)
@@ -753,7 +861,6 @@ export async function createDocument(
 	})
 	const body = validatedInput.body ?? documentTemplate(type, title)
 	validateDocumentBody(type, body)
-	const existingRecords = await listDocuments(validatedRepository)
 	const occupiedIds = new Set(existingRecords.map((record) => record.document.metadata.id))
 	const { id, fileName } = await allocateDocumentIdentity(
 		validatedRepository,
@@ -800,8 +907,14 @@ export async function createDocument(
 	})
 	const absolutePath = path.join(documentKindDirectory(validatedRepository, type), fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
-	const contents = serializeDocumentFile(document)
-	const parsedDocument = parseDocumentFile(contents)
+	const writeIndex = new EntityReferenceIndex([
+		...referenceIndex.targets,
+		{ id, relativePath, title, kind: type, status },
+	])
+	const contents = serializeDocumentFile(document, {
+		referencePathForId: (referenceId) => writeIndex.pathForId(referenceId),
+	})
+	const parsedDocument = normalizedDocumentFile(parseDocumentFile(contents), writeIndex)
 	if (occupiedIds.has(id)) {
 		throw new DocumentRepositoryError('document-exists', `Document ${id} already exists`, {
 			filePath: relativePath,
@@ -1144,14 +1257,28 @@ export async function updateDocument(
 		repository,
 		'document update repository',
 	)
-	const validatedId = parseDocumentId(id)
-	const validatedInput = parseInput(UpdateDocumentInputSchema, input, 'document update')
+	const parsedInput = parseInput(UpdateDocumentInputSchema, input, 'document update')
 	const validatedOptions = parseCoreInput(
 		UpdateDocumentOptionsSchema,
 		options,
 		'document update options',
 	)
 	const records = await listDocuments(validatedRepository)
+	const documentIndex = new EntityReferenceIndex(records.map(documentReferenceTarget))
+	let validatedId: string
+	try {
+		validatedId = documentIndex.resolveId(id)
+	} catch (error) {
+		if (error instanceof EntityReferenceError)
+			throw new DocumentRepositoryError(
+				error.code === 'ambiguous' ? 'document-ambiguous' : 'document-not-found',
+				error.message,
+				{ documentId: id },
+			)
+		throw error
+	}
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const validatedInput = resolveDocumentInputReferences(parsedInput, referenceIndex)
 	const existing = type
 		? records.find(
 				(record) =>
@@ -1179,7 +1306,7 @@ export async function updateDocument(
 
 	const absolutePath = path.join(validatedRepository.rootDirectory, existing.relativePath)
 	const originalContents = await readDocumentContents(validatedRepository, existing, validatedId)
-	const current = parseDocumentFile(originalContents)
+	const current = normalizedDocumentFile(parseDocumentFile(originalContents), referenceIndex)
 
 	if (current.metadata.id !== validatedId) {
 		throw new DocumentRepositoryError(
@@ -1255,8 +1382,10 @@ export async function updateDocument(
 		},
 		body: nextBody,
 	}
-	const contents = serializeDocumentFile(updatedDocument)
-	const parsedDocument = parseDocumentFile(contents)
+	const contents = serializeDocumentFile(updatedDocument, {
+		referencePathForId: (referenceId) => referenceIndex.pathForId(referenceId),
+	})
+	const parsedDocument = normalizedDocumentFile(parseDocumentFile(contents), referenceIndex)
 	const updatedRecord = freezeRecord(existing.relativePath, parsedDocument)
 	validateGraph(records.map((record) => (record === existing ? updatedRecord : record)))
 
@@ -1298,13 +1427,25 @@ export async function deleteDocument(
 		repository,
 		'document deletion repository',
 	)
-	const validatedId = parseDocumentId(id)
 	const validatedOptions = parseCoreInput(
 		DeleteDocumentOptionsSchema,
 		options,
 		'document deletion options',
 	)
 	const records = await listDocuments(validatedRepository)
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	let validatedId: string
+	try {
+		validatedId = new EntityReferenceIndex(records.map(documentReferenceTarget)).resolveId(id)
+	} catch (error) {
+		if (error instanceof EntityReferenceError)
+			throw new DocumentRepositoryError(
+				error.code === 'ambiguous' ? 'document-ambiguous' : 'document-not-found',
+				error.message,
+				{ documentId: id },
+			)
+		throw error
+	}
 	const matches = records.filter((record) => record.document.metadata.id === validatedId)
 	const existing = type
 		? matches.find((record) => record.document.metadata.type === type)
@@ -1361,7 +1502,10 @@ export async function deleteDocument(
 				record,
 				record.document.metadata.id,
 			)
-			const currentDocument = parseDocumentFile(originalContents)
+			const currentDocument = normalizedDocumentFile(
+				parseDocumentFile(originalContents),
+				referenceIndex,
+			)
 			const repairedDocument: DocumentFile = {
 				metadata: {
 					...currentDocument.metadata,
@@ -1385,7 +1529,9 @@ export async function deleteDocument(
 
 			return {
 				targetPath: absolutePath,
-				contents: serializeDocumentFile(repairedDocument),
+				contents: serializeDocumentFile(repairedDocument, {
+					referencePathForId: (referenceId) => referenceIndex.pathForId(referenceId),
+				}),
 				expectedContents: originalContents,
 			}
 		}),

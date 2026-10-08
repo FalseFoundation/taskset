@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -38,6 +38,10 @@ function createOutput() {
 	}
 }
 
+function entityId(reference: string): string {
+	return /-([0-9a-f]{5,6})\.md$/u.exec(reference)?.[1] ?? reference
+}
+
 describe('runCli', () => {
 	it('creates and imports typed documents', async () => {
 		const cwd = await createTemporaryDirectory()
@@ -51,7 +55,7 @@ describe('runCli', () => {
 			}),
 		).toBe(0)
 		const createdId = created.stdout.trim()
-		expect(createdId).toMatch(/^[0-9a-f]{6}$/u)
+		expect(createdId).toMatch(/^\.taskset\/decisions\/0000001-use-postgres-[0-9a-f]{6}\.md$/u)
 
 		const source = path.join(cwd, 'existing-research.md')
 		await writeFile(source, '# Queue providers\n\nEvidence.\n')
@@ -198,6 +202,66 @@ describe('runCli', () => {
 		expect(output.stderr).toContain('100%')
 	})
 
+	it('reports sync diagnostics as JSON and supports a non-mutating repair plan', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		await writeFile(
+			path.join(cwd, '.taskset/tasks/0000001-parent-12345.md'),
+			`---
+id: "12345"
+title: Parent
+status: todo
+createdAt: 2026-10-08
+updatedAt: 2026-10-08
+---
+`,
+		)
+		const flowPath = path.join(cwd, '.taskset/flows/0000001-flow-abcde.md')
+		const source = `---
+id: abcde
+title: Flow
+status: draft
+createdAt: 2026-10-08
+updatedAt: 2026-10-08
+related:
+  - 12345
+---
+
+# Flow
+`
+		await writeFile(flowPath, source)
+
+		const invalid = createOutput()
+		expect(
+			await runCli(['sync', '--json'], {
+				cwd,
+				stdout: invalid.writeStdout,
+				stderr: invalid.writeStderr,
+			}),
+		).toBe(1)
+		expect(JSON.parse(invalid.stdout)).toMatchObject({
+			ok: false,
+			error: 'repository-sync',
+			diagnostics: expect.arrayContaining([
+				expect.objectContaining({ code: 'invalid-reference-type', field: 'related[0]' }),
+			]),
+		})
+
+		const plan = createOutput()
+		expect(
+			await runCli(['sync', '--fix', '--dry-run', '--json'], {
+				cwd,
+				stdout: plan.writeStdout,
+				stderr: plan.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(plan.stdout)).toMatchObject({ applied: false })
+		expect(JSON.parse(plan.stdout).changes).toEqual(
+			expect.arrayContaining([expect.objectContaining({ action: 'quote-reference' })]),
+		)
+		expect(await readFile(flowPath, 'utf8')).toBe(source)
+	})
+
 	it('initializes a repository and supports create, list, show, and config commands', async () => {
 		const cwd = await createTemporaryDirectory()
 		const initOutput = createOutput()
@@ -234,7 +298,9 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		const taskId = createOutputState.stdout.trim()
-		expect(taskId).toMatch(/^[0-9a-f]{6}$/u)
+		expect(taskId).toMatch(
+			/^\.taskset\/tasks\/0000001-use-taskset-in-this-repository-[0-9a-f]{6}\.md$/u,
+		)
 
 		const listOutput = createOutput()
 		expect(
@@ -254,7 +320,7 @@ describe('runCli', () => {
 				stdout: showOutput.writeStdout,
 			}),
 		).toBe(0)
-		expect(showOutput.stdout).toContain(`id: ${taskId}`)
+		expect(showOutput.stdout).toMatch(new RegExp(`id: ["']?${entityId(taskId)}["']?`, 'u'))
 
 		const configOutput = createOutput()
 		expect(
@@ -302,7 +368,7 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		expect(JSON.parse(updateOutput.stdout)).toMatchObject({
-			id: firstId,
+			id: entityId(firstId),
 			title: 'Updated core task',
 			status: 'doing',
 		})
@@ -342,8 +408,8 @@ describe('runCli', () => {
 			}),
 		).toBe(0)
 		expect(JSON.parse(impactOutput.stdout)).toMatchObject({
-			direct: [{ id: firstId }],
-			impacted: [{ id: secondId }],
+			direct: [{ id: entityId(firstId) }],
+			impacted: [{ id: entityId(secondId) }],
 		})
 
 		const blockedDelete = createOutput()
@@ -354,7 +420,7 @@ describe('runCli', () => {
 				stderr: blockedDelete.writeStderr,
 			}),
 		).toBe(1)
-		expect(blockedDelete.stderr).toContain(secondId)
+		expect(blockedDelete.stderr).toContain(entityId(secondId))
 
 		const deleteOutput = createOutput()
 		expect(
@@ -364,7 +430,7 @@ describe('runCli', () => {
 				stderr: deleteOutput.writeStderr,
 			}),
 		).toBe(0)
-		expect(JSON.parse(deleteOutput.stdout)).toMatchObject({ deleted: true, id: firstId })
+		expect(JSON.parse(deleteOutput.stdout)).toMatchObject({ deleted: true, id: entityId(firstId) })
 	})
 
 	it('filters task lists and reports doctor failures with a nonzero exit code', async () => {
@@ -397,6 +463,44 @@ describe('runCli', () => {
 			valid: false,
 			diagnostics: [{ code: 'frontmatter' }],
 		})
+	})
+
+	it('prints doctor considerations without failing a valid repository', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		await runCli(['task', 'create', '--title', 'Remaining work'], { cwd })
+		await runCli(
+			['document', 'create', 'decision', '--title', 'Approve rollout', '--status', 'ready'],
+			{ cwd },
+		)
+
+		const jsonOutput = createOutput()
+		expect(
+			await runCli(['doctor', '--json'], {
+				cwd,
+				stdout: jsonOutput.writeStdout,
+				stderr: jsonOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(JSON.parse(jsonOutput.stdout)).toMatchObject({
+			valid: true,
+			considerations: expect.arrayContaining([
+				expect.objectContaining({ code: 'open-task', title: 'Remaining work' }),
+				expect.objectContaining({ code: 'decision-awaiting-approval', title: 'Approve rollout' }),
+			]),
+		})
+
+		const humanOutput = createOutput()
+		expect(
+			await runCli(['doctor'], {
+				cwd,
+				stdout: humanOutput.writeStdout,
+				stderr: humanOutput.writeStderr,
+			}),
+		).toBe(0)
+		expect(humanOutput.stdout).toContain('Considerations (2)')
+		expect(humanOutput.stdout).toContain('open-task')
+		expect(humanOutput.stdout).toContain('decision-awaiting-approval')
 	})
 
 	it('validates metadata with Zod and supports generated views and snapshots', async () => {
@@ -642,8 +746,8 @@ describe('runCli', () => {
 			),
 		).toBe(0)
 		expect(JSON.parse(output.stdout)).toMatchObject({
-			direct: [{ id: directId, derived: { blocks: [impactedId] } }],
-			impacted: [{ id: impactedId, derived: { blockedBy: [directId] } }],
+			direct: [{ id: entityId(directId), derived: { blocks: [entityId(impactedId)] } }],
+			impacted: [{ id: entityId(impactedId), derived: { blockedBy: [entityId(directId)] } }],
 		})
 
 		const sortedOutput = createOutput()
@@ -658,7 +762,7 @@ describe('runCli', () => {
 			JSON.parse(sortedOutput.stdout)
 				.map((item: { id: string }) => item.id)
 				.slice(0, 2),
-		).toEqual([orderedId, directId])
+		).toEqual([orderedId, entityId(directId)])
 
 		const clearOutput = createOutput()
 		expect(

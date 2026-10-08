@@ -26,10 +26,10 @@ Matching ownership does not override blockers. A generic instruction such as “
 - Check off finished checklist items as `- [x]`
 - Mark finished child tasks `done`
 - Create research, decision, runbook, story, flow, lesson, concern, or audit documents when evidence, lasting choices, recurring patterns, or residual risks appear
-- Link documents and tasks with `--related` (short hex ids in CLI flags)
+- Link documents and tasks with `--related` using canonical repository-relative filenames
 - When linking to those files in Markdown prose, use the repository-relative filepath
 - Update a primary skill when the session designates one and a lasting lesson emerges; if a lesson uses `--related-skill`, update those skill paths in the same change
-- For multi-task programs, inspect health with `taskset task program <parent-id> --json`
+- For multi-task programs, inspect health with `taskset task program .taskset/tasks/<canonical-parent-file>.md --json`
 
 Do not leave discovered work only in chat.
 

@@ -1,10 +1,9 @@
 import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
-import { EntityIdSchema } from './entityId.ts'
+import { EntityIdSchema, EntityReferenceSchema } from './entityId.ts'
 import {
 	type TASK_PRIORITIES,
 	type TASK_RISKS,
-	TaskIdSchema,
 	TaskPrioritySchema,
 	TaskRiskSchema,
 } from './task.ts'
@@ -112,7 +111,7 @@ export const DocumentMetadataSchema = z
 		createdAt: DocumentTimestampSchema,
 		updatedAt: DocumentTimestampSchema,
 		labels: uniqueArray(TrimmedValueSchema).optional(),
-		dependsOn: uniqueArray(TaskIdSchema).optional(),
+		dependsOn: uniqueArray(EntityReferenceSchema).optional(),
 		files: uniqueArray(TrimmedValueSchema).optional(),
 		owner: TrimmedValueSchema.optional(),
 		assignees: uniqueArray(TrimmedValueSchema).optional(),
@@ -122,9 +121,9 @@ export const DocumentMetadataSchema = z
 		effort: z.number().finite().nonnegative().optional(),
 		risk: TaskRiskSchema.optional(),
 		dueDate: DocumentTimestampSchema.optional(),
-		related: uniqueArray(TaskIdSchema).optional(),
-		duplicates: uniqueArray(TaskIdSchema).optional(),
-		parent: TaskIdSchema.optional(),
+		related: uniqueArray(EntityReferenceSchema).optional(),
+		duplicates: uniqueArray(EntityReferenceSchema).optional(),
+		parent: EntityReferenceSchema.optional(),
 		directories: uniqueArray(TrimmedValueSchema).optional(),
 		projects: uniqueArray(TrimmedValueSchema).optional(),
 		severity: LessonSeveritySchema.optional(),

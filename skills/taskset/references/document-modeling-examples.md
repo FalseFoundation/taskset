@@ -1,7 +1,7 @@
 # Document Modeling Examples
 
 Use these examples to choose document kinds and when to create them mid-work.
-IDs in commands are placeholders for IDs returned by Taskset.
+Paths in commands are placeholders for canonical filenames returned by Taskset.
 
 ## Research Versus Task Notes
 
@@ -12,13 +12,13 @@ Good: create a research document, keep the task focused on the delivery outcome,
 and link both.
 
 ```bash
-taskset document create research --title "Evaluate queue providers" --related <task-id>
-taskset task update <task-id> --related <research-id>
+taskset document create research --title "Evaluate queue providers" --related .taskset/tasks/<canonical-task-file>.md
+taskset task update .taskset/tasks/<canonical-task-file>.md --related .taskset/research/<canonical-research-file>.md
 ```
 
 In Markdown prose, link the created file by filepath (for example
-`.taskset/research/0000001-evaluate-queue-providers-<research-id>.md`), not by
-a bare hex id as the link target.
+`.taskset/research/0000001-evaluate-queue-providers-a1b2c3.md`), not by a bare
+hex id as the link target.
 
 ## Decision Versus Research
 
@@ -30,7 +30,7 @@ When the choice is made, create or update a `decision` (`adr`) with context,
 alternatives, and consequences, then `--related` the research and the task.
 
 ```bash
-pnpm taskset document create adr --title "Use transactional outbox" --related <task-id> --related <research-id>
+taskset document create adr --title "Use transactional outbox" --related .taskset/tasks/<canonical-task-file>.md --related .taskset/research/<canonical-research-file>.md
 ```
 
 ## Runbook Versus Checklist

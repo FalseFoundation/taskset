@@ -360,4 +360,31 @@ updatedAt: 2026-06-13 00:00 UTC
 		).rejects.toThrow()
 		expect((await readTask(repository, second)).task.metadata.dependsOn).toEqual([])
 	})
+
+	it('accepts filename references while persisting repository-relative paths', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const parent = await createTask(
+			repository,
+			{ title: 'Parent' },
+			{ createId: () => 'a1b2c3', now: () => new Date('2026-10-08T00:00:00.000Z') },
+		)
+		const child = await createTask(
+			repository,
+			{
+				title: 'Child',
+				parent: path.basename(parent.relativePath),
+				dependsOn: [parent.relativePath],
+			},
+			{ createId: () => 'd4e5f6', now: () => new Date('2026-10-08T00:01:00.000Z') },
+		)
+
+		const persisted = await readFile(path.join(rootDirectory, child.relativePath), 'utf8')
+		expect(persisted).toContain(`parent: ${parent.relativePath}`)
+		expect(persisted).toContain(`  - ${parent.relativePath}`)
+		expect((await readTask(repository, child.relativePath)).task.metadata.parent).toBe('a1b2c3')
+		expect((await readTask(repository, path.basename(child.relativePath))).relativePath).toBe(
+			child.relativePath,
+		)
+	})
 })

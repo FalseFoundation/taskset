@@ -62,15 +62,16 @@ Documents support the same command surface as tasks:
 taskset document list research --search "queue" --owner platform --impact
 taskset document list concern --directory apps/foo --status active --class authz --json
 taskset document list lesson --search "casl" --severity high --json
-taskset document show <document-id> --type research --include-derived --json
-taskset document update <document-id> --status ready --label infra --file packages/core
-taskset document status <document-id> accepted --type decision
-taskset document delete <document-id> --remove-dependencies
+taskset document show .taskset/research/0000003-queue-options-a1b2c3.md --include-derived --json
+taskset document update .taskset/research/0000003-queue-options-a1b2c3.md --status ready --label infra --file packages/core
+taskset document status .taskset/decisions/0000002-use-postgres-d4e5f6.md accepted
+taskset document delete .taskset/research/0000003-queue-options-a1b2c3.md --remove-dependencies
 ```
 
 Statuses are `draft`, `ready`, `active`, `accepted`, `superseded`, and
-`archived`. `--related` may point at tasks or documents. `--depends-on` and
-`--parent` must resolve to other Taskset documents.
+`archived`. `--related` may point at tasks or documents. Prefer complete
+repository-relative canonical filenames for all relationships; unique
+basenames, stems, and immutable IDs remain accepted for compatibility.
 
 ## Import Existing Markdown
 
@@ -115,10 +116,15 @@ safe for automation.
 
 ```bash
 taskset document batch taskset-documents.json --concurrency 4 --json
-taskset sync --concurrency 8
+taskset sync --fix --dry-run --json
+taskset sync --fix --concurrency 8
 ```
 
-`taskset sync` creates missing document-kind directories inside `.taskset`,
+`taskset sync` preflights every canonical file and reports all invalid fields,
+types, relationships, and required headings before mutation. `--fix` may infer a
+missing document type from its canonical directory and add empty missing
+template sections; it never overrides a conflicting explicit type. Sync stages
+and validates the entire result, then atomically publishes canonical files. It
 migrates legacy task and document IDs to short hex IDs, normalizes
 `{sequence}-{slug}-{id}.md` filenames, repairs duplicate sequence prefixes by
 `createdAt`, rewrites repository text references, refreshes data `.gitignore`

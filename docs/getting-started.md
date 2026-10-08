@@ -67,17 +67,17 @@ Start with the durable context, then create the task that implements it:
 
 ```bash
 taskset document create story --title "Member signs in via SSO"
-taskset document create research --title "Compare SSO providers" --related your_story_id_here
-taskset document create adr --title "Use OIDC for member SSO" --related your_research_id_here
-taskset task create --title "Add SSO callback handler" --related your_decision_id_here --file packages/api/src/auth.ts
+taskset document create research --title "Compare SSO providers" --related .taskset/stories/0000001-member-signs-in-via-sso-a1b2c3.md
+taskset document create adr --title "Use OIDC for member SSO" --related .taskset/research/0000001-compare-sso-providers-c3d4e5.md
+taskset task create --title "Add SSO callback handler" --related .taskset/decisions/0000001-use-oidc-for-member-sso-d4e5f6.md --file packages/api/src/auth.ts
 taskset task list
 taskset document list --json
 ```
 
-You can read every file directly in the editor without the CLI. Use short hex
-`id` values in commands and `--related`. Filename sequence prefixes are display
-metadata only. Markdown hyperlinks to entity or docs files must use the
-repository-relative filepath (for example [document types](document-types.md)).
+You can read every file directly in the editor without the CLI. Use complete
+repository-relative canonical filenames in commands, relationships, and prose
+links. Immutable short IDs remain accepted for compatibility, but normal
+authoring does not require them.
 
 ## Query and validate the graph
 

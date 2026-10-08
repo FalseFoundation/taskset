@@ -113,6 +113,14 @@ export {
 	slugifyTitle,
 } from './ids/entityId.ts'
 export {
+	EntityReferenceError,
+	type EntityReferenceErrorCode,
+	EntityReferenceIndex,
+	type EntityReferenceTarget,
+	entityIdFromCanonicalReference,
+	normalizeEntityReference,
+} from './ids/entityReference.ts'
+export {
 	type BuildTaskIndexOptions,
 	BuildTaskIndexOptionsSchema,
 	buildTaskIndex,
@@ -173,6 +181,9 @@ export {
 	type SnapshotManifest,
 } from './snapshots/snapshotRepository.ts'
 export {
+	type RepositorySyncChange,
+	type RepositorySyncChangeAction,
+	RepositorySyncError,
 	type RepositorySyncOptions,
 	type RepositorySyncProgress,
 	type RepositorySyncResult,

@@ -17,10 +17,14 @@ export interface TaskFileIssue {
 
 export interface ParseTaskFileOptions {
 	readonly filePath?: string
+	readonly referencePathForId?: (id: string) => string | undefined
 }
 
 export const ParseTaskFileOptionsSchema = z.strictObject({
 	filePath: z.string().min(1).optional(),
+	referencePathForId: z
+		.custom<(id: string) => string | undefined>((value) => typeof value === 'function')
+		.optional(),
 }) satisfies z.ZodType<ParseTaskFileOptions>
 
 export class TaskFileError extends Error {
@@ -279,6 +283,7 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 	validateTaskMetadata(taskResult.data.metadata, validatedOptions.filePath)
 
 	const { metadata } = taskResult.data
+	const reference = (value: string): string => validatedOptions.referencePathForId?.(value) ?? value
 	const orderedMetadata: Record<string, unknown> = {
 		id: metadata.id,
 		title: metadata.title,
@@ -333,19 +338,19 @@ export function serializeTaskFile(task: TaskFile, options: ParseTaskFileOptions 
 	}
 
 	if (metadata.dependsOn !== undefined) {
-		orderedMetadata.dependsOn = metadata.dependsOn
+		orderedMetadata.dependsOn = metadata.dependsOn.map(reference)
 	}
 
 	if (metadata.related !== undefined) {
-		orderedMetadata.related = metadata.related
+		orderedMetadata.related = metadata.related.map(reference)
 	}
 
 	if (metadata.duplicates !== undefined) {
-		orderedMetadata.duplicates = metadata.duplicates
+		orderedMetadata.duplicates = metadata.duplicates.map(reference)
 	}
 
 	if (metadata.parent !== undefined) {
-		orderedMetadata.parent = metadata.parent
+		orderedMetadata.parent = reference(metadata.parent)
 	}
 
 	if (metadata.files !== undefined) {

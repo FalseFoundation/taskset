@@ -1,17 +1,19 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { parseDate } from '@taskset/utils'
+import type { DocumentKind } from '@taskset/contracts'
+import { FrontmatterError, parseDate, parseFrontmatter, serializeFrontmatter } from '@taskset/utils'
 import {
 	DOCUMENT_DIRECTORY_NAMES,
 	documentKindDirectory,
 	type Repository,
 	RepositorySchema,
 } from '../config/config.ts'
-import { type DocumentRecord, listDocuments } from '../documents/documentRepository.ts'
+import { type DocumentRecord, parseDocumentFile } from '../documents/documentRepository.ts'
 import { missingDocumentHeadings } from '../documents/documentTemplate.ts'
 import { inspectDocumentGraph } from '../graph/documentGraph.ts'
 import { inspectTaskGraph } from '../graph/taskGraph.ts'
+import { EntityReferenceIndex, normalizeEntityReference } from '../ids/entityReference.ts'
 import { parseTaskFile, TaskFileError } from '../tasks/taskFile.ts'
 import type { TaskRecord } from '../tasks/taskRepository.ts'
 import {
@@ -37,6 +39,9 @@ export type RepositoryDiagnosticCode =
 	| 'dependency-cycle'
 	| 'parent-cycle'
 	| 'missing-template-heading'
+	| 'missing-document-type'
+	| 'conflicting-document-type'
+	| 'invalid-reference-type'
 	| 'unknown-taxonomy'
 	| 'missing-owner'
 	| 'stale-research'
@@ -51,6 +56,10 @@ export interface RepositoryDiagnostic {
 	readonly field?: string
 	readonly taskId?: string
 	readonly documentId?: string
+	readonly received?: unknown
+	readonly receivedType?: string
+	readonly expected?: string
+	readonly inferredValue?: string
 }
 
 export interface DoctorResult {
@@ -146,7 +155,9 @@ async function loadTaskRecords(
 		}
 
 		try {
-			const task = parseTaskFile(await readFile(absolutePath, 'utf8'), { filePath: relativePath })
+			const source = await readFile(absolutePath, 'utf8')
+			diagnostics.push(...relationshipTypeDiagnostics(source, relativePath))
+			const task = parseTaskFile(source, { filePath: relativePath })
 
 			if (!repository.config.tasks.statuses.includes(task.metadata.status)) {
 				diagnostics.push({
@@ -190,19 +201,133 @@ async function loadDocumentRecords(
 	repository: Repository,
 	diagnostics: RepositoryDiagnostic[],
 ): Promise<DocumentRecord[]> {
+	const records: DocumentRecord[] = []
+	for (const [kind, directoryName] of Object.entries(DOCUMENT_DIRECTORY_NAMES) as [
+		DocumentKind,
+		string,
+	][]) {
+		const directory = path.join(repository.documentsDirectory, directoryName)
+		let entries: Dirent<string>[] = []
+		try {
+			entries = await readdir(directory, { withFileTypes: true })
+		} catch (error) {
+			if (!isMissingFile(error)) throw error
+			continue
+		}
+		for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+			if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+			const absolutePath = path.join(directory, entry.name)
+			const relativePath = path
+				.relative(repository.rootDirectory, absolutePath)
+				.split(path.sep)
+				.join('/')
+			try {
+				const source = await readFile(absolutePath, 'utf8')
+				diagnostics.push(...relationshipTypeDiagnostics(source, relativePath))
+				const frontmatter = parseFrontmatter(source)
+				if (
+					!frontmatter.attributes ||
+					typeof frontmatter.attributes !== 'object' ||
+					Array.isArray(frontmatter.attributes)
+				) {
+					throw new TypeError('Document frontmatter must be a mapping')
+				}
+				const attributes = frontmatter.attributes as Record<string, unknown>
+				if (attributes.type === undefined) {
+					diagnostics.push({
+						code: 'missing-document-type',
+						severity: 'error',
+						path: relativePath,
+						field: 'type',
+						expected: kind,
+						inferredValue: kind,
+						message: `Document type is missing; canonical directory implies "${kind}"`,
+						remediation: `Run "taskset sync --fix" to insert type: ${kind}.`,
+					})
+				} else if (attributes.type !== kind) {
+					diagnostics.push({
+						code: 'conflicting-document-type',
+						severity: 'error',
+						path: relativePath,
+						field: 'type',
+						received: attributes.type,
+						receivedType: typeof attributes.type,
+						expected: kind,
+						message: `Document type "${String(attributes.type)}" conflicts with canonical directory type "${kind}"`,
+						remediation:
+							'Move the file to the matching canonical directory or correct its explicit type.',
+					})
+					continue
+				}
+				const normalizedSource =
+					attributes.type === undefined
+						? serializeFrontmatter({ ...attributes, type: kind }, frontmatter.body)
+						: source
+				const document = parseDocumentFile(normalizedSource)
+				records.push({ relativePath, document })
+			} catch (error) {
+				diagnostics.push({
+					code: error instanceof FrontmatterError ? 'frontmatter' : 'schema',
+					severity: 'error',
+					path: relativePath,
+					message: error instanceof Error ? error.message : 'Invalid document file',
+					remediation: 'Correct the document frontmatter and run taskset doctor again.',
+				})
+			}
+		}
+	}
+	return records
+}
+
+const RELATIONSHIP_FIELDS = ['dependsOn', 'related', 'duplicates'] as const
+
+function relationshipTypeDiagnostics(
+	source: string,
+	relativePath: string,
+): readonly RepositoryDiagnostic[] {
+	let attributes: unknown
 	try {
-		return [...(await listDocuments(repository))]
-	} catch (error) {
-		diagnostics.push({
-			code: 'read-error',
-			severity: 'error',
-			message: `Failed to read documents: ${
-				error instanceof Error ? error.message : 'Unknown document read error'
-			}`,
-			remediation: 'Fix invalid document files under .taskset/ and run doctor again.',
-		})
+		attributes = parseFrontmatter(source).attributes
+	} catch {
 		return []
 	}
+	if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) return []
+	const metadata = attributes as Record<string, unknown>
+	const diagnostics: RepositoryDiagnostic[] = []
+	for (const field of RELATIONSHIP_FIELDS) {
+		const values = metadata[field]
+		if (!Array.isArray(values)) continue
+		values.forEach((received, index) => {
+			if (typeof received === 'string') return
+			diagnostics.push({
+				code: 'invalid-reference-type',
+				severity: 'error',
+				path: relativePath,
+				field: `${field}[${index}]`,
+				received,
+				receivedType: received === null ? 'null' : typeof received,
+				expected: 'string reference',
+				message: `Relationship ${field}[${index}] was parsed as ${received === null ? 'null' : typeof received}; expected a string reference`,
+				remediation:
+					'Quote the value in YAML or run "taskset sync --fix" for safe scalar normalization.',
+			})
+		})
+	}
+	if (metadata.parent !== undefined && typeof metadata.parent !== 'string') {
+		diagnostics.push({
+			code: 'invalid-reference-type',
+			severity: 'error',
+			path: relativePath,
+			field: 'parent',
+			received: metadata.parent,
+			receivedType: metadata.parent === null ? 'null' : typeof metadata.parent,
+			expected: 'string reference',
+			message: `Relationship parent was parsed as ${metadata.parent === null ? 'null' : typeof metadata.parent}; expected a string reference`,
+			remediation:
+				'Quote the value in YAML or run "taskset sync --fix" for safe scalar normalization.',
+		})
+	}
+	return diagnostics
 }
 
 function entityIds(
@@ -223,8 +348,61 @@ function entityIds(
 export async function diagnoseRepository(repository: Repository): Promise<DoctorResult> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'repository diagnostics')
 	const diagnostics: RepositoryDiagnostic[] = []
-	const records = await loadTaskRecords(validatedRepository, diagnostics)
-	const documents = await loadDocumentRecords(validatedRepository, diagnostics)
+	const rawRecords = await loadTaskRecords(validatedRepository, diagnostics)
+	const rawDocuments = await loadDocumentRecords(validatedRepository, diagnostics)
+	const referenceIndex = new EntityReferenceIndex([
+		...rawRecords.map((record) => ({
+			id: record.task.metadata.id,
+			relativePath: record.relativePath,
+			title: record.task.metadata.title,
+			kind: 'task',
+			status: record.task.metadata.status,
+		})),
+		...rawDocuments.map((record) => ({
+			id: record.document.metadata.id,
+			relativePath: record.relativePath,
+			title: record.document.metadata.title,
+			kind: record.document.metadata.type,
+			status: record.document.metadata.status,
+		})),
+	])
+	const normalizeMetadata = <
+		T extends TaskRecord['task']['metadata'] | DocumentRecord['document']['metadata'],
+	>(
+		metadata: T,
+	): T => ({
+		...metadata,
+		...(metadata.dependsOn
+			? {
+					dependsOn: metadata.dependsOn.map((value) =>
+						normalizeEntityReference(value, referenceIndex),
+					),
+				}
+			: {}),
+		...(metadata.related
+			? {
+					related: metadata.related.map((value) => normalizeEntityReference(value, referenceIndex)),
+				}
+			: {}),
+		...(metadata.duplicates
+			? {
+					duplicates: metadata.duplicates.map((value) =>
+						normalizeEntityReference(value, referenceIndex),
+					),
+				}
+			: {}),
+		...(metadata.parent
+			? { parent: normalizeEntityReference(metadata.parent, referenceIndex) }
+			: {}),
+	})
+	const records = rawRecords.map((record) => ({
+		...record,
+		task: { ...record.task, metadata: normalizeMetadata(record.task.metadata) },
+	}))
+	const documents = rawDocuments.map((record) => ({
+		...record,
+		document: { ...record.document, metadata: normalizeMetadata(record.document.metadata) },
+	}))
 	const ids = entityIds(records, documents)
 	const taxonomyMode = validatedRepository.config.taxonomy.mode
 

@@ -124,14 +124,9 @@ function generatedFileName(value: string): string {
 	return `${readableName || 'empty'}.md`
 }
 
-function entityLink(
-	id: string,
-	title: string,
-	order: number | undefined,
-	fileName: string,
-): string {
+function entityLink(title: string, order: number | undefined, fileName: string): string {
 	const orderPrefix = order !== undefined ? `[${order}] ` : ''
-	return `- ${orderPrefix}[${id}: ${title}](../${fileName})`
+	return `- ${orderPrefix}[${fileName}: ${title}](../${fileName})`
 }
 
 function compareByOrderThenId(
@@ -240,6 +235,7 @@ function buildGroupedFiles<TRecord, TMetadata>(
 		readonly order?: number
 	},
 	fileNameOf: (record: TRecord) => string,
+	displayReference: (value: string) => string,
 ): ReadonlyMap<string, string> {
 	const groupsByCategory = new Map<string, Map<string, TRecord[]>>()
 
@@ -254,7 +250,10 @@ function buildGroupedFiles<TRecord, TMetadata>(
 				groupsByCategory.set(view.category, groups)
 			}
 
-			for (const value of view.values(metadata)) {
+			for (const rawValue of view.values(metadata)) {
+				const value = ['dependsOn', 'related', 'duplicates', 'parent'].includes(view.category)
+					? displayReference(rawValue)
+					: rawValue
 				const group = groups.get(value) ?? []
 				group.push(record)
 				groups.set(value, group)
@@ -283,7 +282,7 @@ function buildGroupedFiles<TRecord, TMetadata>(
 				})
 				.map((record) => {
 					const metadata = metadataOf(record)
-					return entityLink(metadata.id, metadata.title, metadata.order, fileNameOf(record))
+					return entityLink(metadata.title, metadata.order, fileNameOf(record))
 				})
 			files.set(
 				`${category}/${generatedFileName(value)}`,
@@ -337,13 +336,24 @@ export async function generateViews(
 		force: true,
 	})
 
-	const taskRecords = await listTasks(repository)
+	const [taskRecords, allDocumentRecords] = await Promise.all([
+		listTasks(repository),
+		listDocuments(repository),
+	])
+	const referencePaths = new Map([
+		...taskRecords.map((record) => [record.task.metadata.id, record.relativePath] as const),
+		...allDocumentRecords.map(
+			(record) => [record.document.metadata.id, record.relativePath] as const,
+		),
+	])
+	const displayReference = (value: string): string => referencePaths.get(value) ?? value
 	const taskFingerprint = fingerprintTaskRecords(taskRecords)
 	const taskFiles = buildGroupedFiles(
 		taskRecords,
 		TASK_METADATA_VIEWS,
 		(record) => record.task.metadata,
 		(record) => path.basename(record.relativePath),
+		displayReference,
 	)
 	const taskScope = await writeGeneratedScope({
 		entityDirectory: repository.tasksDirectory,
@@ -361,13 +371,16 @@ export async function generateViews(
 	]
 
 	for (const kind of Object.keys(DOCUMENT_DIRECTORY_NAMES) as DocumentKind[]) {
-		const documentRecords = await listDocuments(repository, kind)
+		const documentRecords = allDocumentRecords.filter(
+			(record) => record.document.metadata.type === kind,
+		)
 		const fingerprint = fingerprintDocumentRecords(documentRecords)
 		const files = buildGroupedFiles(
 			documentRecords,
 			DOCUMENT_METADATA_VIEWS,
 			(record) => record.document.metadata,
 			(record) => path.basename(record.relativePath),
+			displayReference,
 		)
 		const written = await writeGeneratedScope({
 			entityDirectory: path.join(repository.documentsDirectory, DOCUMENT_DIRECTORY_NAMES[kind]),

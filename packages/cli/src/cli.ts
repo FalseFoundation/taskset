@@ -3,11 +3,10 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
 	ConcernClassSchema,
-	DocumentIdSchema,
 	DocumentStatusSchema,
 	DocumentTimestampSchema,
+	EntityReferenceSchema,
 	LessonSeveritySchema,
-	TaskIdSchema,
 	TaskPrioritySchema,
 	TaskRiskSchema,
 	TaskStatusSchema,
@@ -38,17 +37,17 @@ import {
 	initializeRepository,
 	listDocuments,
 	listSnapshots,
+	listTasks,
 	migrateTaskIds,
 	normalizeDocumentKind,
 	normalizeRepositoryPath,
 	queryDocuments,
 	queryTasks,
 	RepositoryPathError,
+	RepositorySyncError,
 	readDocument,
 	readTask,
 	restoreSnapshot,
-	serializeDocumentFile,
-	serializeTaskFile,
 	syncRepository,
 	TASK_SORT_DIRECTIONS,
 	TASK_SORT_KEYS,
@@ -77,7 +76,7 @@ const USAGE = `Usage:
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
   taskset task migrate-ids [--json] [--cwd <path>]
   taskset task program <parent-id> [--json] [--cwd <path>]
-  taskset sync [--concurrency <count>] [--json] [--cwd <path>]
+  taskset sync [--dry-run] [--fix] [--concurrency <count>] [--json] [--cwd <path>]
   taskset document create <story|flow|decision|adr|dr|research|runbook|lesson|antipattern|concern|audit> --title <title> [metadata options]
   taskset document import <markdown-path> [--type <type>] [--move]
   taskset document batch <manifest.json> [--concurrency <count>] [--json]
@@ -136,7 +135,7 @@ function uniqueArray<T>(schema: z.ZodType<T>) {
 }
 
 const StringListSchema = uniqueArray(TrimmedStringSchema)
-const TaskIdListSchema = uniqueArray(TaskIdSchema)
+const TaskIdListSchema = uniqueArray(EntityReferenceSchema)
 const CwdSchema = z.string().min(1).optional()
 const JsonSchema = z.boolean().optional()
 
@@ -181,7 +180,7 @@ const DocumentInputSchema = z.strictObject({
 	dueDate: DocumentTimestampSchema.optional(),
 	related: TaskIdListSchema.optional(),
 	duplicates: TaskIdListSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	directories: StringListSchema.optional(),
 	projects: StringListSchema.optional(),
 	severity: LessonSeveritySchema.optional(),
@@ -210,7 +209,7 @@ const DocumentUpdateSchema = z
 		dueDate: DocumentTimestampSchema.nullable().optional(),
 		related: TaskIdListSchema.optional(),
 		duplicates: TaskIdListSchema.optional(),
-		parent: TaskIdSchema.nullable().optional(),
+		parent: EntityReferenceSchema.nullable().optional(),
 		directories: StringListSchema.optional(),
 		projects: StringListSchema.optional(),
 		severity: LessonSeveritySchema.nullable().optional(),
@@ -301,7 +300,7 @@ const DocumentCreateValuesSchema = z.strictObject({
 	'due-date': DocumentTimestampSchema.optional(),
 	related: TaskIdListSchema.optional(),
 	duplicate: TaskIdListSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	directory: StringListSchema.optional(),
 	project: StringListSchema.optional(),
 	severity: LessonSeveritySchema.optional(),
@@ -333,7 +332,7 @@ const DocumentUpdateValuesSchema = z
 		'due-date': DocumentTimestampSchema.optional(),
 		related: TaskIdListSchema.optional(),
 		duplicate: TaskIdListSchema.optional(),
-		parent: TaskIdSchema.optional(),
+		parent: EntityReferenceSchema.optional(),
 		directory: StringListSchema.optional(),
 		project: StringListSchema.optional(),
 		severity: LessonSeveritySchema.optional(),
@@ -404,10 +403,10 @@ const DocumentListValuesSchema = z.strictObject({
 	project: StringListSchema.optional(),
 	class: z.array(ConcernClassSchema).optional(),
 	severity: z.array(LessonSeveritySchema).optional(),
-	'depends-on': TaskIdSchema.optional(),
-	related: TaskIdSchema.optional(),
-	duplicate: TaskIdSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	'depends-on': EntityReferenceSchema.optional(),
+	related: EntityReferenceSchema.optional(),
+	duplicate: EntityReferenceSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	file: StringListSchema.optional(),
 	directory: StringListSchema.optional(),
 	'estimate-min': z.coerce.number().finite().nonnegative().optional(),
@@ -447,7 +446,7 @@ const CreateValuesSchema = z.strictObject({
 	'due-date': TaskTimestampSchema.optional(),
 	related: TaskIdListSchema.optional(),
 	duplicate: TaskIdListSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	directory: StringListSchema.optional(),
 	project: StringListSchema.optional(),
 	body: z.string().optional(),
@@ -474,7 +473,7 @@ const UpdateValuesSchema = z
 		'due-date': TaskTimestampSchema.optional(),
 		related: TaskIdListSchema.optional(),
 		duplicate: TaskIdListSchema.optional(),
-		parent: TaskIdSchema.optional(),
+		parent: EntityReferenceSchema.optional(),
 		directory: StringListSchema.optional(),
 		project: StringListSchema.optional(),
 		body: z.string().optional(),
@@ -530,10 +529,10 @@ const ListValuesSchema = z.strictObject({
 	team: StringListSchema.optional(),
 	risk: z.array(TaskRiskSchema).optional(),
 	project: StringListSchema.optional(),
-	'depends-on': TaskIdSchema.optional(),
-	related: TaskIdSchema.optional(),
-	duplicate: TaskIdSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	'depends-on': EntityReferenceSchema.optional(),
+	related: EntityReferenceSchema.optional(),
+	duplicate: EntityReferenceSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	file: StringListSchema.optional(),
 	directory: StringListSchema.optional(),
 	'estimate-min': z.coerce.number().finite().nonnegative().optional(),
@@ -647,10 +646,12 @@ function formatError(error: unknown): string {
 function taskRecordJson(
 	record: TaskRecord,
 	derived?: DerivedTaskRelationships,
+	targets?: ReadonlyMap<string, RelationshipTarget>,
 ): Record<string, unknown> {
 	return {
 		relativePath: record.relativePath,
 		...record.task.metadata,
+		...(targets ? { relationships: relationshipJson(record.task.metadata, targets) } : {}),
 		...(derived ? { derived } : {}),
 	}
 }
@@ -658,35 +659,101 @@ function taskRecordJson(
 function documentRecordJson(
 	record: DocumentRecord,
 	derived?: DerivedDocumentRelationships,
+	targets?: ReadonlyMap<string, RelationshipTarget>,
 ): Record<string, unknown> {
 	return {
 		relativePath: record.relativePath,
 		...record.document.metadata,
+		...(targets ? { relationships: relationshipJson(record.document.metadata, targets) } : {}),
 		...(derived ? { derived } : {}),
 	}
 }
 
-function writeTaskRecord(
-	record: TaskRecord,
-	json: boolean | undefined,
-	stdout: (value: string) => void,
-): void {
-	if (json) {
-		stdout(`${JSON.stringify(taskRecordJson(record), null, 2)}\n`)
-	} else {
-		stdout(`${record.task.metadata.id}\n`)
+interface RelationshipTarget {
+	readonly id: string
+	readonly path: string
+	readonly filename: string
+	readonly title: string
+	readonly kind: string
+	readonly status: string
+}
+
+async function relationshipTargets(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
+): Promise<ReadonlyMap<string, RelationshipTarget>> {
+	const [tasks, documents] = await Promise.all([listTasks(repository), listDocuments(repository)])
+	const entries: [string, RelationshipTarget][] = [
+		...tasks.map((record): [string, RelationshipTarget] => [
+			record.task.metadata.id,
+			{
+				id: record.task.metadata.id,
+				path: record.relativePath,
+				filename: path.basename(record.relativePath),
+				title: record.task.metadata.title,
+				kind: 'task',
+				status: record.task.metadata.status,
+			} satisfies RelationshipTarget,
+		]),
+		...documents.map((record): [string, RelationshipTarget] => [
+			record.document.metadata.id,
+			{
+				id: record.document.metadata.id,
+				path: record.relativePath,
+				filename: path.basename(record.relativePath),
+				title: record.document.metadata.title,
+				kind: record.document.metadata.type,
+				status: record.document.metadata.status,
+			} satisfies RelationshipTarget,
+		]),
+	]
+	return new Map(entries)
+}
+
+function relationshipJson(
+	metadata: {
+		readonly dependsOn?: readonly string[]
+		readonly related?: readonly string[]
+		readonly duplicates?: readonly string[]
+		readonly parent?: string
+	},
+	targets: ReadonlyMap<string, RelationshipTarget>,
+): Record<string, unknown> {
+	const resolve = (id: string) => targets.get(id) ?? { id }
+	return {
+		dependsOn: (metadata.dependsOn ?? []).map(resolve),
+		related: (metadata.related ?? []).map(resolve),
+		duplicates: (metadata.duplicates ?? []).map(resolve),
+		parent: metadata.parent ? resolve(metadata.parent) : null,
 	}
 }
 
-function writeDocumentRecord(
+async function writeTaskRecord(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
+	record: TaskRecord,
+	json: boolean | undefined,
+	stdout: (value: string) => void,
+): Promise<void> {
+	if (json) {
+		stdout(
+			`${JSON.stringify(taskRecordJson(record, undefined, await relationshipTargets(repository)), null, 2)}\n`,
+		)
+	} else {
+		stdout(`${record.relativePath}\n`)
+	}
+}
+
+async function writeDocumentRecord(
+	repository: Awaited<ReturnType<typeof discoverRepository>>,
 	record: DocumentRecord,
 	json: boolean | undefined,
 	stdout: (value: string) => void,
-): void {
+): Promise<void> {
 	if (json) {
-		stdout(`${JSON.stringify(documentRecordJson(record), null, 2)}\n`)
+		stdout(
+			`${JSON.stringify(documentRecordJson(record, undefined, await relationshipTargets(repository)), null, 2)}\n`,
+		)
 	} else {
-		stdout(`${record.document.metadata.id}\n`)
+		stdout(`${record.relativePath}\n`)
 	}
 }
 
@@ -970,25 +1037,61 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			const parsed = parseArgs({
 				args: commandArgs,
 				allowPositionals: false,
-				options: { ...commonOptionDefinitions, concurrency: { type: 'string' } },
+				options: {
+					...commonOptionDefinitions,
+					concurrency: { type: 'string' },
+					'dry-run': { type: 'boolean' },
+					fix: { type: 'boolean' },
+				},
 			})
 			const values = parseSchema(
-				z.strictObject({ ...CommonValuesSchema.shape, concurrency: ConcurrencySchema }),
+				z.strictObject({
+					...CommonValuesSchema.shape,
+					concurrency: ConcurrencySchema,
+					'dry-run': z.boolean().optional(),
+					fix: z.boolean().optional(),
+				}),
 				parsed.values,
 				'sync options',
 			)
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
-			const result = await syncRepository(repository, {
-				concurrency: values.concurrency,
-				onProgress: (progress) =>
-					stderr(
-						`sync ${progress.phase}: ${progress.completed}/${progress.total} (${progress.percent}%)\n`,
-					),
-			})
+			let result: Awaited<ReturnType<typeof syncRepository>>
+			try {
+				result = await syncRepository(repository, {
+					concurrency: values.concurrency,
+					dryRun: values['dry-run'],
+					fix: values.fix,
+					onProgress: (progress) =>
+						stderr(
+							`sync ${progress.phase}: ${progress.completed}/${progress.total} (${progress.percent}%)\n`,
+						),
+				})
+			} catch (error) {
+				if (error instanceof RepositorySyncError) {
+					if (values.json) {
+						stdout(
+							`${JSON.stringify(
+								{ ok: false, error: 'repository-sync', diagnostics: error.diagnostics },
+								null,
+								2,
+							)}\n`,
+						)
+					} else {
+						for (const diagnostic of error.diagnostics)
+							stderr(
+								`${diagnostic.code}\t${diagnostic.path ?? '-'}\t${diagnostic.message}\t${diagnostic.remediation}\n`,
+							)
+					}
+					return 1
+				}
+				throw error
+			}
 			stdout(
 				values.json
 					? `${JSON.stringify(result, null, 2)}\n`
-					: `Synced ${result.migrations.length + result.documentMigrations.length} migrations and generated views\n`,
+					: values['dry-run']
+						? `Planned ${result.changes.length} change(s); no files were changed\n`
+						: `Synced ${result.changes.length} change(s) across ${result.migrations.length + result.documentMigrations.length} migration(s)\n`,
 			)
 			return 0
 		}
@@ -1156,7 +1259,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					},
 					{ onWarning },
 				)
-				writeDocumentRecord(record, values.json, stdout)
+				await writeDocumentRecord(repository, record, values.json, stdout)
 				return 0
 			}
 
@@ -1291,8 +1394,9 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				const derivedGraph = values['include-derived']
 					? buildDocumentGraph(await listDocuments(repository))
 					: undefined
+				const targets = values.json ? await relationshipTargets(repository) : undefined
 				const serialize = (record: DocumentRecord) =>
-					documentRecordJson(record, derivedGraph?.derive(record.document.metadata.id))
+					documentRecordJson(record, derivedGraph?.derive(record.document.metadata.id), targets)
 
 				if (values.json) {
 					stdout(
@@ -1310,12 +1414,12 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				} else {
 					for (const record of result.direct) {
 						stdout(
-							`${values.impact ? 'direct\t' : ''}${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
+							`${values.impact ? 'direct\t' : ''}${record.relativePath}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
 						)
 					}
 					for (const record of result.impacted) {
 						stdout(
-							`impact\t${record.document.metadata.id}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
+							`impact\t${record.relativePath}\t${record.document.metadata.type}\t${record.document.metadata.status}\t${record.document.metadata.title}\n`,
 						)
 					}
 				}
@@ -1343,7 +1447,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					'document show options',
 				)
 				const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
-				const validatedId = parseSchema(DocumentIdSchema, id, 'document ID')
+				const validatedId = parseSchema(EntityReferenceSchema, id, 'document reference')
 				const record = await readDocument(
 					repository,
 					validatedId,
@@ -1352,7 +1456,9 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 
 				if (values.json) {
 					const derived = values['include-derived']
-						? buildDocumentGraph(await listDocuments(repository)).derive(validatedId)
+						? buildDocumentGraph(await listDocuments(repository)).derive(
+								record.document.metadata.id,
+							)
 						: undefined
 					stdout(
 						`${JSON.stringify(
@@ -1360,6 +1466,10 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 								relativePath: record.relativePath,
 								metadata: record.document.metadata,
 								body: record.document.body,
+								relationships: relationshipJson(
+									record.document.metadata,
+									await relationshipTargets(repository),
+								),
 								...(derived ? { derived } : {}),
 							},
 							null,
@@ -1367,7 +1477,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 						)}\n`,
 					)
 				} else {
-					stdout(serializeDocumentFile(record.document))
+					stdout(await readFile(path.join(repository.rootDirectory, record.relativePath), 'utf8'))
 				}
 				return 0
 			}
@@ -1387,7 +1497,11 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					},
 				})
 				const [documentId] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
-				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const validatedDocumentId = parseSchema(
+					EntityReferenceSchema,
+					documentId,
+					'document reference',
+				)
 				const values = parseSchema(
 					DocumentUpdateValuesSchema,
 					parsed.values,
@@ -1401,7 +1515,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					values.type ? normalizeDocumentKind(values.type) : undefined,
 					{ onWarning },
 				)
-				writeDocumentRecord(record, values.json, stdout)
+				await writeDocumentRecord(repository, record, values.json, stdout)
 				return 0
 			}
 
@@ -1416,7 +1530,11 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					2,
 					'a document ID and status',
 				)
-				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const validatedDocumentId = parseSchema(
+					EntityReferenceSchema,
+					documentId,
+					'document reference',
+				)
 				const validatedStatus = parseSchema(DocumentStatusSchema, status, 'document status')
 				const values = parseSchema(
 					z.strictObject({ ...CommonValuesSchema.shape, type: TrimmedStringSchema.optional() }),
@@ -1431,7 +1549,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					values.type ? normalizeDocumentKind(values.type) : undefined,
 					{ onWarning },
 				)
-				writeDocumentRecord(record, values.json, stdout)
+				await writeDocumentRecord(repository, record, values.json, stdout)
 				return 0
 			}
 
@@ -1446,7 +1564,11 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					},
 				})
 				const [documentId] = requirePositionals(parsed.positionals, 1, 'exactly one document ID')
-				const validatedDocumentId = parseSchema(DocumentIdSchema, documentId, 'document ID')
+				const validatedDocumentId = parseSchema(
+					EntityReferenceSchema,
+					documentId,
+					'document reference',
+				)
 				const values = parseSchema(
 					z.strictObject({
 						cwd: CwdSchema,
@@ -1469,7 +1591,16 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				)
 
 				if (values.json) {
-					stdout(`${JSON.stringify({ deleted: true, ...documentRecordJson(record) }, null, 2)}\n`)
+					stdout(
+						`${JSON.stringify(
+							{
+								deleted: true,
+								...documentRecordJson(record, undefined, await relationshipTargets(repository)),
+							},
+							null,
+							2,
+						)}\n`,
+					)
 				} else {
 					stdout(`${validatedDocumentId}\n`)
 				}
@@ -1513,7 +1644,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
 			const rollup = await getProgramRollup(
 				repository,
-				parseSchema(TaskIdSchema, parentId, 'parent task ID'),
+				parseSchema(EntityReferenceSchema, parentId, 'parent task reference'),
 			)
 			if (values.json) {
 				stdout(`${JSON.stringify(rollup, null, 2)}\n`)
@@ -1562,7 +1693,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				},
 				{ onWarning },
 			)
-			writeTaskRecord(record, values.json, stdout)
+			await writeTaskRecord(repository, record, values.json, stdout)
 			return 0
 		}
 
@@ -1644,8 +1775,9 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
 			const result = await queryTasks(repository, query)
 			const graph = values['include-derived'] ? (await buildTaskIndex(repository)).graph : undefined
+			const targets = values.json ? await relationshipTargets(repository) : undefined
 			const serialize = (record: TaskRecord) =>
-				taskRecordJson(record, graph?.derive(record.task.metadata.id))
+				taskRecordJson(record, graph?.derive(record.task.metadata.id), targets)
 
 			if (values.json) {
 				stdout(
@@ -1663,12 +1795,12 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			} else {
 				for (const record of result.direct) {
 					stdout(
-						`${values.impact ? 'direct\t' : ''}${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
+						`${values.impact ? 'direct\t' : ''}${record.relativePath}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
 					)
 				}
 				for (const record of result.impacted) {
 					stdout(
-						`impact\t${record.task.metadata.id}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
+						`impact\t${record.relativePath}\t${record.task.metadata.status}\t${record.task.metadata.title}\n`,
 					)
 				}
 			}
@@ -1685,7 +1817,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				},
 			})
 			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
-			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const validatedTaskId = parseSchema(EntityReferenceSchema, taskId, 'task reference')
 			const values = parseSchema(
 				z.strictObject({
 					cwd: CwdSchema,
@@ -1700,7 +1832,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 
 			if (values.json) {
 				const derived = values['include-derived']
-					? (await buildTaskIndex(repository)).graph.derive(validatedTaskId)
+					? (await buildTaskIndex(repository)).graph.derive(record.task.metadata.id)
 					: undefined
 				stdout(
 					`${JSON.stringify(
@@ -1708,6 +1840,10 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 							relativePath: record.relativePath,
 							metadata: record.task.metadata,
 							body: record.task.body,
+							relationships: relationshipJson(
+								record.task.metadata,
+								await relationshipTargets(repository),
+							),
 							...(derived ? { derived } : {}),
 						},
 						null,
@@ -1715,7 +1851,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 					)}\n`,
 				)
 			} else {
-				stdout(serializeTaskFile(record.task, { filePath: record.relativePath }))
+				stdout(await readFile(path.join(repository.rootDirectory, record.relativePath), 'utf8'))
 			}
 			return 0
 		}
@@ -1734,7 +1870,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				},
 			})
 			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
-			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const validatedTaskId = parseSchema(EntityReferenceSchema, taskId, 'task reference')
 			const values = parseSchema(UpdateValuesSchema, parsed.values, 'task update options')
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
 			const record = await updateTask(
@@ -1743,7 +1879,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				updateInputFromValues(repository, values),
 				{ onWarning },
 			)
-			writeTaskRecord(record, values.json, stdout)
+			await writeTaskRecord(repository, record, values.json, stdout)
 			return 0
 		}
 
@@ -1754,7 +1890,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				options: commonOptionDefinitions,
 			})
 			const [taskId, status] = requirePositionals(parsed.positionals, 2, 'a task ID and status')
-			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const validatedTaskId = parseSchema(EntityReferenceSchema, taskId, 'task reference')
 			const validatedStatus = parseSchema(TaskStatusSchema, status, 'task status')
 			const values = parseSchema(CommonValuesSchema, parsed.values, 'task status options')
 			const repository = await discoverRepository(resolveCommandCwd(cwd, values.cwd))
@@ -1764,7 +1900,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				{ status: validatedStatus },
 				{ onWarning },
 			)
-			writeTaskRecord(record, values.json, stdout)
+			await writeTaskRecord(repository, record, values.json, stdout)
 			return 0
 		}
 
@@ -1778,7 +1914,7 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 				},
 			})
 			const [taskId] = requirePositionals(parsed.positionals, 1, 'exactly one task ID')
-			const validatedTaskId = parseSchema(TaskIdSchema, taskId, 'task ID')
+			const validatedTaskId = parseSchema(EntityReferenceSchema, taskId, 'task reference')
 			const values = parseSchema(
 				z.strictObject({
 					cwd: CwdSchema,
@@ -1795,9 +1931,18 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			})
 
 			if (values.json) {
-				stdout(`${JSON.stringify({ deleted: true, ...taskRecordJson(record) }, null, 2)}\n`)
+				stdout(
+					`${JSON.stringify(
+						{
+							deleted: true,
+							...taskRecordJson(record, undefined, await relationshipTargets(repository)),
+						},
+						null,
+						2,
+					)}\n`,
+				)
 			} else {
-				stdout(`${validatedTaskId}\n`)
+				stdout(`${record.relativePath}\n`)
 			}
 			return 0
 		}

@@ -32,6 +32,7 @@ export {
 export {
 	CANONICAL_ENTITY_ID_PATTERN,
 	EntityIdSchema,
+	EntityReferenceSchema,
 	isCanonicalEntityId,
 	isLegacySequentialEntityId,
 	isLegacyUlidEntityId,

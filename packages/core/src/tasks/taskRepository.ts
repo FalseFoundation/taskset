@@ -4,6 +4,7 @@ import { readdir, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { AsyncQueuer } from '@tanstack/pacer'
 import {
+	EntityReferenceSchema,
 	needsEntityIdMigration,
 	type TaskFile,
 	TaskIdSchema,
@@ -19,7 +20,7 @@ import {
 import { formatDate } from '@taskset/utils'
 import * as z from 'zod'
 import { type Repository, RepositorySchema } from '../config/config.ts'
-import { listDocuments } from '../documents/documentRepository.ts'
+import { type DocumentRecord, listDocuments } from '../documents/documentRepository.ts'
 import { buildTaskGraph, TaskGraphError } from '../graph/taskGraph.ts'
 import {
 	assertEntityFileNameMatchesId,
@@ -29,6 +30,12 @@ import {
 	resolveEntityFileName,
 	slugifyTitle,
 } from '../ids/entityId.ts'
+import {
+	EntityReferenceError,
+	EntityReferenceIndex,
+	type EntityReferenceTarget,
+	normalizeEntityReference,
+} from '../ids/entityReference.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
@@ -55,7 +62,7 @@ function uniqueArray<T>(schema: z.ZodType<T>) {
 		.refine((values) => new Set(values).size === values.length, 'Values must be unique')
 }
 
-const TaskIdListSchema = uniqueArray(TaskIdSchema)
+const TaskIdListSchema = uniqueArray(EntityReferenceSchema)
 const StringListSchema = uniqueArray(TrimmedStringSchema)
 const RepositoryPathListSchema = uniqueArray(RepositoryRelativePathSchema)
 
@@ -77,7 +84,7 @@ export const CreateTaskInputSchema = z.strictObject({
 	dueDate: TaskTimestampSchema.optional(),
 	related: TaskIdListSchema.optional(),
 	duplicates: TaskIdListSchema.optional(),
-	parent: TaskIdSchema.optional(),
+	parent: EntityReferenceSchema.optional(),
 	directories: RepositoryPathListSchema.optional(),
 	projects: StringListSchema.optional(),
 	body: z.string().optional(),
@@ -139,7 +146,7 @@ export const UpdateTaskInputSchema = z
 		dueDate: TaskTimestampSchema.nullable().optional(),
 		related: TaskIdListSchema.optional(),
 		duplicates: TaskIdListSchema.optional(),
-		parent: TaskIdSchema.nullable().optional(),
+		parent: EntityReferenceSchema.nullable().optional(),
 		directories: RepositoryPathListSchema.optional(),
 		projects: StringListSchema.optional(),
 		body: z.string().optional(),
@@ -255,6 +262,93 @@ function toRepositoryRelativePath(repository: Repository, absolutePath: string):
 
 function freezeRecord(relativePath: string, task: TaskFile): TaskRecord {
 	return Object.freeze({ relativePath, task })
+}
+
+function taskReferenceTarget(record: TaskRecord): EntityReferenceTarget {
+	return {
+		id: record.task.metadata.id,
+		relativePath: record.relativePath,
+		title: record.task.metadata.title,
+		kind: 'task',
+		status: record.task.metadata.status,
+	}
+}
+
+function documentReferenceTarget(record: DocumentRecord): EntityReferenceTarget {
+	return {
+		id: record.document.metadata.id,
+		relativePath: record.relativePath,
+		title: record.document.metadata.title,
+		kind: record.document.metadata.type,
+		status: record.document.metadata.status,
+	}
+}
+
+function normalizedTaskFile(task: TaskFile, index: EntityReferenceIndex): TaskFile {
+	const map = (values: readonly string[] | undefined) =>
+		values?.map((value) => normalizeEntityReference(value, index))
+	const metadata = task.metadata
+	const normalized: TaskFile = {
+		metadata: {
+			...metadata,
+			dependsOn: map(metadata.dependsOn),
+			related: map(metadata.related),
+			duplicates: map(metadata.duplicates),
+			parent: metadata.parent ? normalizeEntityReference(metadata.parent, index) : undefined,
+		},
+		body: task.body,
+	}
+	return parseTaskFile(serializeTaskFile(normalized))
+}
+
+function resolveInputReferences(
+	input: CreateTaskInput | UpdateTaskInput,
+	index: EntityReferenceIndex,
+): CreateTaskInput | UpdateTaskInput {
+	const resolve = (field: string, values: readonly string[] | undefined) => {
+		if (values === undefined) return undefined
+		try {
+			return values.map((value) => index.resolveId(value))
+		} catch (error) {
+			if (error instanceof EntityReferenceError) {
+				throw new TaskRepositoryError('task-invalid', error.message, {
+					issues: [{ field, message: error.message }],
+				})
+			}
+			throw error
+		}
+	}
+	let parent = input.parent
+	if (typeof parent === 'string') {
+		try {
+			parent = index.resolveId(parent)
+		} catch (error) {
+			if (error instanceof EntityReferenceError) {
+				throw new TaskRepositoryError('task-invalid', error.message, {
+					issues: [{ field: 'parent', message: error.message }],
+				})
+			}
+			throw error
+		}
+	}
+	return {
+		...input,
+		dependsOn: resolve('dependsOn', input.dependsOn),
+		related: resolve('related', input.related),
+		duplicates: resolve('duplicates', input.duplicates),
+		parent,
+	}
+}
+
+async function repositoryReferenceIndex(
+	repository: Repository,
+	tasks: readonly TaskRecord[],
+): Promise<EntityReferenceIndex> {
+	const documents = await listDocuments(repository)
+	return new EntityReferenceIndex([
+		...tasks.map(taskReferenceTarget),
+		...documents.map(documentReferenceTarget),
+	])
 }
 
 const STATUS_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = Object.freeze({
@@ -614,11 +708,15 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 		}
 	}
 
+	const orderedRecords = records.sort(
+		(left, right) =>
+			left.relativePath.localeCompare(right.relativePath) ||
+			left.task.metadata.id.localeCompare(right.task.metadata.id),
+	)
+	const referenceIndex = new EntityReferenceIndex(orderedRecords.map(taskReferenceTarget))
 	return Object.freeze(
-		records.sort(
-			(left, right) =>
-				left.relativePath.localeCompare(right.relativePath) ||
-				left.task.metadata.id.localeCompare(right.task.metadata.id),
+		orderedRecords.map((record) =>
+			freezeRecord(record.relativePath, normalizedTaskFile(record.task, referenceIndex)),
 		),
 	)
 }
@@ -626,10 +724,17 @@ export async function listTasks(repository: Repository): Promise<readonly TaskRe
 /** Reads one validated task by immutable canonical ID. */
 export async function readTask(repository: Repository, taskId: string): Promise<TaskRecord> {
 	parseCoreInput(RepositorySchema, repository, 'task read repository')
-	const validatedTaskId = parseTaskId(taskId)
-	const record = (await listTasks(repository)).find(
-		(candidate) => candidate.task.metadata.id === validatedTaskId,
-	)
+	const records = await listTasks(repository)
+	let validatedTaskId: string
+	try {
+		validatedTaskId = new EntityReferenceIndex(records.map(taskReferenceTarget)).resolveId(taskId)
+	} catch (error) {
+		if (error instanceof EntityReferenceError) {
+			throw new TaskRepositoryError('task-not-found', error.message, { taskId })
+		}
+		throw error
+	}
+	const record = records.find((candidate) => candidate.task.metadata.id === validatedTaskId)
 
 	if (!record) {
 		throw new TaskRepositoryError('task-not-found', `Task ${validatedTaskId} was not found`, {
@@ -655,10 +760,12 @@ export async function createTask(
 		repository,
 		'task creation repository',
 	)
-	const validatedInput = parseInput(CreateTaskInputSchema, input, 'task creation')
+	const parsedInput = parseInput(CreateTaskInputSchema, input, 'task creation')
 	const validatedOptions = parseCoreInput(CreateTaskOptionsSchema, options, 'task creation options')
 	const now = validatedOptions.now?.() ?? new Date()
 	const existingRecords = await listTasks(validatedRepository)
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, existingRecords)
+	const validatedInput = resolveInputReferences(parsedInput, referenceIndex) as CreateTaskInput
 	const occupiedIds = new Set(existingRecords.map((record) => record.task.metadata.id))
 	const nextSequence = nextEntitySequence(
 		existingRecords.map((record) => path.basename(record.relativePath)),
@@ -713,8 +820,24 @@ export async function createTask(
 	}
 	const absolutePath = path.join(validatedRepository.tasksDirectory, fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
-	const contents = serializeTaskFile(task, { filePath: relativePath })
-	const parsedTask = parseTaskFile(contents, { filePath: relativePath })
+	const writeIndex = new EntityReferenceIndex([
+		...referenceIndex.targets,
+		{
+			id: taskId,
+			relativePath,
+			title: task.metadata.title,
+			kind: 'task',
+			status: task.metadata.status,
+		},
+	])
+	const contents = serializeTaskFile(task, {
+		filePath: relativePath,
+		referencePathForId: (id) => writeIndex.pathForId(id),
+	})
+	const parsedTask = normalizedTaskFile(
+		parseTaskFile(contents, { filePath: relativePath }),
+		writeIndex,
+	)
 	if (existingRecords.some((record) => record.task.metadata.id === taskId)) {
 		throw new TaskRepositoryError('task-exists', `Task ${taskId} already exists`, {
 			filePath: relativePath,
@@ -918,10 +1041,20 @@ export async function updateTask(
 	options: UpdateTaskOptions = {},
 ): Promise<TaskRecord> {
 	const validatedRepository = parseCoreInput(RepositorySchema, repository, 'task update repository')
-	const validatedTaskId = parseTaskId(taskId)
-	const validatedInput = parseInput(UpdateTaskInputSchema, input, 'task update')
+	const parsedInput = parseInput(UpdateTaskInputSchema, input, 'task update')
 	const validatedOptions = parseCoreInput(UpdateTaskOptionsSchema, options, 'task update options')
 	const records = await listTasks(validatedRepository)
+	const taskIndex = new EntityReferenceIndex(records.map(taskReferenceTarget))
+	let validatedTaskId: string
+	try {
+		validatedTaskId = taskIndex.resolveId(taskId)
+	} catch (error) {
+		if (error instanceof EntityReferenceError)
+			throw new TaskRepositoryError('task-not-found', error.message, { taskId })
+		throw error
+	}
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const validatedInput = resolveInputReferences(parsedInput, referenceIndex) as UpdateTaskInput
 	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
@@ -932,7 +1065,10 @@ export async function updateTask(
 
 	const absolutePath = path.join(validatedRepository.rootDirectory, existing.relativePath)
 	const originalContents = await readTaskContents(validatedRepository, existing, validatedTaskId)
-	const current = parseTaskFile(originalContents, { filePath: existing.relativePath })
+	const current = normalizedTaskFile(
+		parseTaskFile(originalContents, { filePath: existing.relativePath }),
+		referenceIndex,
+	)
 
 	if (current.metadata.id !== validatedTaskId) {
 		throw new TaskRepositoryError(
@@ -985,8 +1121,14 @@ export async function updateTask(
 		},
 		body: validatedInput.body ?? current.body,
 	}
-	const contents = serializeTaskFile(updatedTask, { filePath: existing.relativePath })
-	const parsedTask = parseTaskFile(contents, { filePath: existing.relativePath })
+	const contents = serializeTaskFile(updatedTask, {
+		filePath: existing.relativePath,
+		referencePathForId: (id) => referenceIndex.pathForId(id),
+	})
+	const parsedTask = normalizedTaskFile(
+		parseTaskFile(contents, { filePath: existing.relativePath }),
+		referenceIndex,
+	)
 	const updatedRecord = freezeRecord(existing.relativePath, parsedTask)
 	validateGraph(records.map((record) => (record === existing ? updatedRecord : record)))
 
@@ -1046,9 +1188,17 @@ export async function deleteTask(
 		repository,
 		'task deletion repository',
 	)
-	const validatedTaskId = parseTaskId(taskId)
 	const validatedOptions = parseCoreInput(DeleteTaskOptionsSchema, options, 'task deletion options')
 	const records = await listTasks(validatedRepository)
+	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	let validatedTaskId: string
+	try {
+		validatedTaskId = new EntityReferenceIndex(records.map(taskReferenceTarget)).resolveId(taskId)
+	} catch (error) {
+		if (error instanceof EntityReferenceError)
+			throw new TaskRepositoryError('task-not-found', error.message, { taskId })
+		throw error
+	}
 	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
 	if (!existing) {
@@ -1090,7 +1240,10 @@ export async function deleteTask(
 				record,
 				record.task.metadata.id,
 			)
-			const currentTask = parseTaskFile(originalContents, { filePath: record.relativePath })
+			const currentTask = normalizedTaskFile(
+				parseTaskFile(originalContents, { filePath: record.relativePath }),
+				referenceIndex,
+			)
 
 			const repairedTask: TaskFile = {
 				metadata: {
@@ -1115,7 +1268,10 @@ export async function deleteTask(
 
 			return {
 				targetPath: absolutePath,
-				contents: serializeTaskFile(repairedTask, { filePath: record.relativePath }),
+				contents: serializeTaskFile(repairedTask, {
+					filePath: record.relativePath,
+					referencePathForId: (id) => referenceIndex.pathForId(id),
+				}),
 				expectedContents: originalContents,
 			}
 		}),

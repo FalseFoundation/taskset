@@ -77,6 +77,10 @@ Rules:
   them independently authoritative.
 - Keep `dependsOn`, `related`, `duplicates`, and `parent` canonical. Derive
   `blockedBy`, `blocks`, `children`, and `subtasks`.
+- Resolve relationship inputs through a shared alias index. Accept full
+  repository-relative paths, unique basenames, stems, and immutable IDs, but
+  serialize complete canonical paths for human authoring. Quote numeric-looking
+  identity and reference strings so YAML preserves their type.
 - Treat schema additions, removals, defaults, and coercions as compatibility
   decisions.
 - Reject unknown fields, duplicate list values, self-dependencies,

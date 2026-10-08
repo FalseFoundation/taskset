@@ -1,8 +1,8 @@
 import {
+	EntityReferenceSchema,
 	TASK_PRIORITIES,
 	TASK_RISKS,
 	TASK_STATUSES,
-	TaskIdSchema,
 	type TaskPriority,
 	TaskPrioritySchema,
 	type TaskRisk,
@@ -15,6 +15,7 @@ import { parseDate } from '@taskset/utils'
 import * as z from 'zod'
 import type { Repository } from '../config/config.ts'
 import { buildTaskGraph } from '../graph/taskGraph.ts'
+import { EntityReferenceIndex, normalizeEntityReference } from '../ids/entityReference.ts'
 import { normalizeRepositoryPath, repositoryPathsRelate } from '../projects/repositoryPath.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
@@ -53,10 +54,10 @@ export const TaskQuerySchema = z
 		teams: StringListSchema.optional(),
 		risks: z.array(TaskRiskSchema).optional(),
 		projects: StringListSchema.optional(),
-		dependsOn: TaskIdSchema.optional(),
-		related: TaskIdSchema.optional(),
-		duplicate: TaskIdSchema.optional(),
-		parent: TaskIdSchema.optional(),
+		dependsOn: EntityReferenceSchema.optional(),
+		related: EntityReferenceSchema.optional(),
+		duplicate: EntityReferenceSchema.optional(),
+		parent: EntityReferenceSchema.optional(),
 		files: StringListSchema.optional(),
 		directories: StringListSchema.optional(),
 		estimateMin: NonnegativeNumberSchema.optional(),
@@ -469,8 +470,24 @@ export async function queryTasks(
 ): Promise<TaskQueryResult> {
 	const validatedQuery = validateQuery(query)
 	validateConfiguredStatuses(repository, validatedQuery.statuses)
+	const records = await listTasks(repository)
+	const referenceIndex = new EntityReferenceIndex(
+		records.map((record) => ({
+			id: record.task.metadata.id,
+			relativePath: record.relativePath,
+			title: record.task.metadata.title,
+			kind: 'task',
+			status: record.task.metadata.status,
+		})),
+	)
+	const reference = (value: string | undefined) =>
+		value === undefined ? undefined : normalizeEntityReference(value, referenceIndex)
 	const normalizedQuery: TaskQuery = {
 		...validatedQuery,
+		dependsOn: reference(validatedQuery.dependsOn),
+		related: reference(validatedQuery.related),
+		duplicate: reference(validatedQuery.duplicate),
+		parent: reference(validatedQuery.parent),
 		...(validatedQuery.files
 			? {
 					files: validatedQuery.files.map((value) => normalizeRepositoryPath(repository, value)),
@@ -484,7 +501,6 @@ export async function queryTasks(
 				}
 			: {}),
 	}
-	const records = await listTasks(repository)
 	const direct = queryTaskRecords(records, normalizedQuery, {
 		statusOrder: repository.config.tasks.statuses,
 	})

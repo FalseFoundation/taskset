@@ -9,11 +9,12 @@ Storage, graph, and snapshot rules for canonical repository data.
   expressions.
 - Normalize stored code references to repository-relative POSIX paths.
 - Reject paths that escape the repository or `.taskset/` ownership boundary.
-- Keep entity IDs immutable short hex values for commands and canonical
-  relationships. Filename display sequences are mutable maintenance metadata
-  repaired by `sync`; they are not identity. Markdown hyperlinks to entity or
-  documentation files must use repository-relative filepaths, not bare hex ids
-  or sequence prefixes.
+- Keep entity IDs immutable short hex internal metadata. Canonical relationships
+  and normal command/prose authoring use complete repository-relative entity
+  filenames. Accept IDs, unique basenames, and stems for compatibility, resolve
+  them through one alias index, and reject ambiguity with candidate paths.
+  Filename display sequences are mutable maintenance metadata repaired by
+  atomic `sync`; inbound filename references must be rewritten with a rename.
 - Store one canonical direction for inverse relationships unless the schema
   explicitly defines otherwise. Derive `blocks` from `dependsOn`, for example,
   rather than allowing silent divergence.
