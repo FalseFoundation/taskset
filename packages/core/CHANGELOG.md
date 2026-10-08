@@ -1,5 +1,17 @@
 # @taskset/core
 
+## 6.2.0
+
+### Minor Changes
+
+- f55f465: Make canonical filenames the human-facing relationship format and add staged,
+  diagnostic, dry-run, and safe-fix behavior to `taskset sync`.
+
+### Patch Changes
+
+- Updated dependencies [f55f465]
+  - @taskset/contracts@6.2.0
+
 ## 6.1.0
 
 ### Minor Changes

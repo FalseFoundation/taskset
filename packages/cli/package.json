@@ -2,7 +2,7 @@
 	"name": "@taskset/cli",
 	"type": "module",
 	"private": false,
-	"version": "6.1.0",
+	"version": "6.2.0",
 	"description": "CLI for Taskset: plan, research, decide, operate, and track repository work as Markdown.",
 	"license": "MIT",
 	"author": {
