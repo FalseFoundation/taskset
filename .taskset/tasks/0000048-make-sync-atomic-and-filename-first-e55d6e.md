@@ -1,18 +1,20 @@
 ---
 id: e55d6e
 title: Make sync atomic and filename-first
-status: doing
+status: done
 priority: urgent
 owner: junkieshuffle
 assignees:
   - junkieshuffle
 createdAt: 2026-10-08 09:45 UTC
-updatedAt: 2026-10-08 09:45 UTC
+updatedAt: 2026-10-08 10:19 UTC
 labels:
   - sync
   - migration
   - diagnostics
   - references
+related:
+  - .taskset/decisions/0000004-use-canonical-filenames-for-human-facing-entity-references-e90081.md
 directories:
   - packages/core/src
   - packages/cli/src
@@ -28,17 +30,17 @@ Make repository sync preflight all canonical entities, report complete actionabl
 
 # Checklist
 
-- [ ] Add shared aggregate validation and structured diagnostics for sync and doctor.
-- [ ] Preserve numeric-looking identity/reference strings and diagnose YAML coercion.
-- [ ] Infer missing document types by canonical directory in safe-fix mode.
-- [ ] Enforce every document template heading through shared validation.
-- [ ] Build a cross-entity alias index and resolve legacy/mixed references.
-- [ ] Serialize and display filename-first relationships with backward-compatible inputs.
-- [ ] Rewrite proven prose references without touching unrelated content.
-- [ ] Stage, validate, and atomically publish sync plans; support dry-run and idempotency.
-- [ ] Update CLI help, public docs, agent guidance, and implementation standards.
-- [ ] Add a compatible Changeset for affected public packages.
-- [ ] Run focused, package, repository, CLI fixture, and idempotency validation.
+- [x] Add shared aggregate validation and structured diagnostics for sync and doctor.
+- [x] Preserve numeric-looking identity/reference strings and diagnose YAML coercion.
+- [x] Infer missing document types by canonical directory in safe-fix mode.
+- [x] Enforce every document template heading through shared validation.
+- [x] Build a cross-entity alias index and resolve legacy/mixed references.
+- [x] Serialize and display filename-first relationships with backward-compatible inputs.
+- [x] Rewrite proven prose references without touching unrelated content.
+- [x] Stage, validate, and atomically publish sync plans; support dry-run and idempotency.
+- [x] Update CLI help, public docs, agent guidance, and implementation standards.
+- [x] Add a compatible Changeset for affected public packages.
+- [x] Run focused, package, repository, CLI fixture, and idempotency validation.
 
 # Acceptance Criteria
 
@@ -51,4 +53,4 @@ Make repository sync preflight all canonical entities, report complete actionabl
 
 # Changeset
 
-Required: compatible minor releases for @taskset/core and @taskset/cli, plus dependent public packages only if their exported contracts change.
+Added `.changeset/calm-files-sync.md` with compatible minor releases for @taskset/contracts, @taskset/core, and @taskset/cli.

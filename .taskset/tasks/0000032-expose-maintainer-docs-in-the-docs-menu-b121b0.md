@@ -10,7 +10,7 @@ labels:
   - docs
   - website
 related:
-  - "1e2079"
+  - .taskset/tasks/0000027-move-maintainer-documentation-into-a-separate-docs-route-1e2079.md
 files:
   - docs/_meta.ts
   - docs/maintainers

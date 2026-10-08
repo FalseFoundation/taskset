@@ -11,8 +11,8 @@ labels:
   - readme
   - compatibility
 related:
-  - 116b1f
-  - "1e2079"
+  - .taskset/tasks/0000024-remove-task-schema-versions-and-unify-the-canonical-format-116b1f.md
+  - .taskset/tasks/0000027-move-maintainer-documentation-into-a-separate-docs-route-1e2079.md
 files:
   - README.md
   - docs/task-files.md

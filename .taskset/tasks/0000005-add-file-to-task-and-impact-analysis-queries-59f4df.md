@@ -10,7 +10,7 @@ labels:
   - core
   - impact
 dependsOn:
-  - ed5457
+  - .taskset/tasks/0000004-add-task-filtering-sorting-and-search-queries-ed5457.md
 files:
   - packages/core/src/projects
   - packages/core/src/search

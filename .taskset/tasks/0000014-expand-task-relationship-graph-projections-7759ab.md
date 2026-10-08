@@ -8,7 +8,7 @@ updatedAt: 2026-06-14 17:15 UTC
 labels:
   - graph
 dependsOn:
-  - d5c25a
+  - .taskset/tasks/0000013-introduce-task-metadata-schema-version-2-d5c25a.md
 files:
   - packages/core/src/graph
   - packages/core/src/tasks

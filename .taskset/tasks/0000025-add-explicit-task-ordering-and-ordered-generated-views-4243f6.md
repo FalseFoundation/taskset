@@ -11,7 +11,7 @@ labels:
   - ordering
   - generated
 dependsOn:
-  - 116b1f
+  - .taskset/tasks/0000024-remove-task-schema-versions-and-unify-the-canonical-format-116b1f.md
 files:
   - packages/contracts/src/task.ts
   - packages/core/src/tasks

@@ -9,7 +9,7 @@ labels:
   - cli
   - search
 dependsOn:
-  - d5c25a
+  - .taskset/tasks/0000013-introduce-task-metadata-schema-version-2-d5c25a.md
 files:
   - packages/core/src/search
   - packages/core/src/projects

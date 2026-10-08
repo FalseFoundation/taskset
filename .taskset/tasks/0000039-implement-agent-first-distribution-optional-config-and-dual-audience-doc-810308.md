@@ -14,8 +14,8 @@ labels:
   - distribution
   - docs
 related:
-  - db4f18
-  - 12c8f5
+  - .taskset/research/0000001-agent-first-taskset-distribution-and-repository-discovery-db4f18.md
+  - .taskset/decisions/0000002-treat-taskset-as-an-agent-first-polyglot-repository-tool-12c8f5.md
 files:
   - packages/core/src/config/config.ts
   - packages/cli/src/cli.ts

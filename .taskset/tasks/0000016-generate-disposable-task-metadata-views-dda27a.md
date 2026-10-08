@@ -8,8 +8,8 @@ updatedAt: 2026-06-14 17:15 UTC
 labels:
   - generated
 dependsOn:
-  - 7759ab
-  - dc39db
+  - .taskset/tasks/0000014-expand-task-relationship-graph-projections-7759ab.md
+  - .taskset/tasks/0000015-unify-file-and-directory-impact-queries-in-task-list-dc39db.md
 files:
   - packages/core/src/generated
   - .taskset/generated

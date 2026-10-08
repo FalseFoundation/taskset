@@ -11,7 +11,7 @@ labels:
   - workflow
   - standards
 related:
-  - 67b0e3
+  - .taskset/tasks/0000033-audit-usage-docs-maintainer-docs-and-readmes-for-current-behavior-67b0e3.md
 files:
   - skills/taskset-implement/SKILL.md
   - skills/taskset-implement/references/workflows.md

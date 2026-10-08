@@ -11,8 +11,8 @@ labels:
   - identifiers
   - breaking
 related:
-  - 0d4d6e
-  - eba9d0
+  - .taskset/tasks/0000038-adopt-short-hex-entity-ids-with-sequenced-filenames-0d4d6e.md
+  - .taskset/tasks/0000026-design-memorable-collision-resistant-task-ids-eba9d0.md
 files:
   - packages/contracts/src/entityId.ts
   - packages/core/src/ids/entityId.ts
@@ -47,3 +47,7 @@ hex `id` never changes after allocation.
 - `taskset sync` / `task migrate-ids` migrate legacy ULID and sequential IDs, normalize filenames, and repair duplicate sequences by earliest `createdAt`.
 - Default list sorting uses `createdAt` because random hex IDs are not chronological.
 - This is a breaking persisted-format change requiring a major release.
+
+## Migration
+
+## Status

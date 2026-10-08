@@ -10,8 +10,8 @@ labels:
   - core
   - crud
 dependsOn:
-  - e21acd
-  - e05d3d
+  - .taskset/tasks/0000001-add-task-update-and-lifecycle-commands-e21acd.md
+  - .taskset/tasks/0000002-build-the-task-dependency-graph-and-integrity-validation-e05d3d.md
 files:
   - packages/core/src/tasks/taskRepository.ts
   - packages/cli/src/cli.ts

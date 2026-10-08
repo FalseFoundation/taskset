@@ -12,8 +12,8 @@ labels:
   - distribution
   - docs
 related:
-  - db4f18
-  - "810308"
+  - .taskset/research/0000001-agent-first-taskset-distribution-and-repository-discovery-db4f18.md
+  - .taskset/tasks/0000039-implement-agent-first-distribution-optional-config-and-dual-audience-doc-810308.md
 files:
   - packages/core/src/config/config.ts
   - docs/configuration.md

@@ -9,9 +9,9 @@ labels:
   - documentation
   - standards
 dependsOn:
-  - eb6917
-  - fbdad9
-  - "174061"
+  - .taskset/tasks/0000019-finish-zod-validation-across-public-core-boundaries-eb6917.md
+  - .taskset/tasks/0000020-harden-migration-snapshot-and-generated-view-failure-paths-fbdad9.md
+  - .taskset/tasks/0000021-complete-metadata-query-filters-and-integration-coverage-174061.md
 files:
   - packages/core/src
   - packages/contracts/src

@@ -9,7 +9,7 @@ labels:
   - contracts
   - schema
 dependsOn:
-  - a38383
+  - .taskset/tasks/0000012-add-snapshot-backed-task-schema-migration-a38383.md
 files:
   - packages/contracts/src/task.ts
   - packages/core/src/tasks/taskFile.ts

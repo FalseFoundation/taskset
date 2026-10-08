@@ -8,6 +8,6 @@ updatedAt: 2026-10-03 10:31 UTC
 labels:
   - taskset
 related:
-  - 81c92d
-parent: fb264c
+  - .taskset/decisions/0000003-operational-memory-lesson-concern-and-audit-document-kinds-81c92d.md
+parent: .taskset/tasks/0000040-ship-operational-memory-lesson-concern-audit-program-closeout-fb264c.md
 ---

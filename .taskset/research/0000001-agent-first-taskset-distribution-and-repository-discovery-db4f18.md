@@ -11,8 +11,8 @@ labels:
   - agents
   - distribution
 related:
-  - 12c8f5
-  - "810308"
+  - .taskset/decisions/0000002-treat-taskset-as-an-agent-first-polyglot-repository-tool-12c8f5.md
+  - .taskset/tasks/0000039-implement-agent-first-distribution-optional-config-and-dual-audience-doc-810308.md
 files:
   - packages/core/src/config/config.ts
   - docs/configuration.md

@@ -10,10 +10,10 @@ labels:
   - core
   - sync
 dependsOn:
-  - f4e803
-  - e21acd
-  - e05d3d
-  - 6c6d91
+  - .taskset/tasks/0000003-define-conflict-aware-synchronization-contracts-f4e803.md
+  - .taskset/tasks/0000001-add-task-update-and-lifecycle-commands-e21acd.md
+  - .taskset/tasks/0000002-build-the-task-dependency-graph-and-integrity-validation-e05d3d.md
+  - .taskset/tasks/0000006-add-guarded-task-deletion-and-removal-commands-6c6d91.md
 files:
   - packages/core/src/sync
   - packages/core/src/tasks/taskRepository.ts

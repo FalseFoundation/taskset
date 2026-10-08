@@ -8,7 +8,7 @@ updatedAt: 2026-06-14 17:15 UTC
 labels:
   - standards
 dependsOn:
-  - dda27a
+  - .taskset/tasks/0000016-generate-disposable-task-metadata-views-dda27a.md
 files:
   - skills/taskset-implement
   - packages/core/src

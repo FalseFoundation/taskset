@@ -13,8 +13,8 @@ labels:
   - identifiers
   - breaking
 related:
-  - eba9d0
-  - aeacba
+  - .taskset/tasks/0000026-design-memorable-collision-resistant-task-ids-eba9d0.md
+  - .taskset/decisions/0000001-use-short-hex-entity-ids-with-sequenced-filenames-aeacba.md
 files:
   - packages/contracts/src/entityId.ts
   - packages/contracts/src/task.ts

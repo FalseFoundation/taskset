@@ -8,8 +8,8 @@ updatedAt: 2026-06-14 17:15 UTC
 labels:
   - docs
 dependsOn:
-  - dda27a
-  - ef7fbf
+  - .taskset/tasks/0000016-generate-disposable-task-metadata-views-dda27a.md
+  - .taskset/tasks/0000017-document-complex-runtime-apis-and-algorithms-ef7fbf.md
 files:
   - README.md
   - packages/cli/README.md

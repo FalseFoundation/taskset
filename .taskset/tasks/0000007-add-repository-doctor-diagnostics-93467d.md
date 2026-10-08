@@ -10,7 +10,7 @@ labels:
   - core
   - diagnostics
 dependsOn:
-  - e05d3d
+  - .taskset/tasks/0000002-build-the-task-dependency-graph-and-integrity-validation-e05d3d.md
 files:
   - packages/core/src/diagnostics
   - packages/cli/src/cli.ts

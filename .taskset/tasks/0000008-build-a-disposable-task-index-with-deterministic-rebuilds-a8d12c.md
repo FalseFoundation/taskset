@@ -10,8 +10,8 @@ labels:
   - core
   - index
 dependsOn:
-  - e05d3d
-  - ed5457
+  - .taskset/tasks/0000002-build-the-task-dependency-graph-and-integrity-validation-e05d3d.md
+  - .taskset/tasks/0000004-add-task-filtering-sorting-and-search-queries-ed5457.md
 files:
   - packages/core/src/indexing
   - .taskset/cache

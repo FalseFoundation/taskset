@@ -9,8 +9,8 @@ labels:
   - migration
   - snapshot
 dependsOn:
-  - 0a9a79
-  - 4ed970
+  - .taskset/tasks/0000010-adopt-zod-validation-at-public-boundaries-0a9a79.md
+  - .taskset/tasks/0000011-move-strict-date-handling-to-generic-utilities-4ed970.md
 files:
   - packages/core/src/snapshots
   - packages/core/src/migrations

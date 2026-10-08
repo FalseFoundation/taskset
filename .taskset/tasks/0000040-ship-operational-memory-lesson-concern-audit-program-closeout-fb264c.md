@@ -8,5 +8,5 @@ updatedAt: 2026-10-03 10:31 UTC
 labels:
   - program
 related:
-  - 81c92d
+  - .taskset/decisions/0000003-operational-memory-lesson-concern-and-audit-document-kinds-81c92d.md
 ---

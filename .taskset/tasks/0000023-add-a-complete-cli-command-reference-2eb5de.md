@@ -9,7 +9,7 @@ labels:
   - docs
   - cli
 dependsOn:
-  - 650ecd
+  - .taskset/tasks/0000022-complete-focused-tsdoc-and-complex-code-comment-audit-650ecd.md
 files:
   - docs
   - docs/_meta.ts

@@ -11,7 +11,7 @@ labels:
   - docs
   - accessibility
 dependsOn:
-  - "1e2079"
+  - .taskset/tasks/0000027-move-maintainer-documentation-into-a-separate-docs-route-1e2079.md
 files:
   - apps/www/src/app/(docs)/layout.tsx
   - apps/www/src/app/(blog)/posts/layout.tsx

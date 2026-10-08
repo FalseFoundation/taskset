@@ -10,7 +10,7 @@ labels:
   - cli
   - editing
 related:
-  - "590627"
+  - .taskset/tasks/0000035-make-task-search-token-aware-590627.md
 files:
   - packages/cli/src/cli.ts
   - packages/cli/src/cli.test.ts
