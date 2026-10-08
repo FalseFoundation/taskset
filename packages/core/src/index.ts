@@ -27,6 +27,8 @@ export {
 export {
 	type DoctorResult,
 	diagnoseRepository,
+	type RepositoryConsideration,
+	type RepositoryConsiderationCode,
 	type RepositoryDiagnostic,
 	type RepositoryDiagnosticCode,
 } from './diagnostics/doctor.ts'

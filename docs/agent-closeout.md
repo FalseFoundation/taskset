@@ -25,6 +25,8 @@ Before marking a Taskset task `done`, agents must leave the repository in a stat
 5. Markdown prose that points at those files uses repository-relative filepaths, not bare hex ids.
 6. Labels and projects reuse repository taxonomy; do not invent one-off tags when an allowlist exists.
 7. `taskset doctor --json` reports no errors for the paths you touched.
+8. Review doctor `considerations` and disposition remaining tasks, pending
+   decisions, ready documents, and active concerns that affect the handoff.
 
 ## Optional config gates
 

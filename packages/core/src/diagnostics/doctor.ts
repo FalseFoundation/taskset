@@ -62,11 +62,32 @@ export interface RepositoryDiagnostic {
 	readonly inferredValue?: string
 }
 
+export type RepositoryConsiderationCode =
+	| 'open-task'
+	| 'decision-awaiting-approval'
+	| 'research-awaiting-acceptance'
+	| 'active-concern'
+	| 'document-awaiting-review'
+
+export interface RepositoryConsideration {
+	readonly code: RepositoryConsiderationCode
+	readonly message: string
+	readonly recommendation: string
+	readonly path: string
+	readonly title: string
+	readonly status: string
+	readonly kind: 'task' | DocumentKind
+	readonly taskId?: string
+	readonly documentId?: string
+}
+
 export interface DoctorResult {
 	readonly valid: boolean
 	readonly diagnostics: readonly RepositoryDiagnostic[]
+	readonly considerations: readonly RepositoryConsideration[]
 	readonly taskCount: number
 	readonly documentCount: number
+	readonly considerationCount: number
 }
 
 function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
@@ -338,6 +359,80 @@ function entityIds(
 		...tasks.map((record) => record.task.metadata.id),
 		...documents.map((record) => record.document.metadata.id),
 	])
+}
+
+function collectConsiderations(
+	tasks: readonly TaskRecord[],
+	documents: readonly DocumentRecord[],
+): readonly RepositoryConsideration[] {
+	const considerations: RepositoryConsideration[] = []
+	for (const record of tasks) {
+		const { metadata } = record.task
+		if (!['todo', 'doing', 'blocked'].includes(metadata.status)) continue
+		considerations.push({
+			code: 'open-task',
+			path: record.relativePath,
+			taskId: metadata.id,
+			title: metadata.title,
+			status: metadata.status,
+			kind: 'task',
+			message: `${metadata.status} task remains: ${metadata.title}`,
+			recommendation:
+				metadata.status === 'blocked'
+					? 'Resolve or record the blocker, then update the task status.'
+					: 'Complete, cancel, or update this task when its state changes.',
+		})
+	}
+
+	for (const record of documents) {
+		const { metadata } = record.document
+		let consideration:
+			| Pick<RepositoryConsideration, 'code' | 'message' | 'recommendation'>
+			| undefined
+		if (metadata.type === 'decision' && ['draft', 'ready'].includes(metadata.status)) {
+			consideration = {
+				code: 'decision-awaiting-approval',
+				message: `${metadata.status} decision may need approval: ${metadata.title}`,
+				recommendation: 'Review the decision and mark it accepted, superseded, or archived.',
+			}
+		} else if (metadata.type === 'research' && metadata.status === 'ready') {
+			consideration = {
+				code: 'research-awaiting-acceptance',
+				message: `Research is ready for acceptance: ${metadata.title}`,
+				recommendation: 'Review the recommendation and accept, supersede, or archive the research.',
+			}
+		} else if (metadata.type === 'concern' && metadata.status === 'active') {
+			consideration = {
+				code: 'active-concern',
+				message: `Active concern remains: ${metadata.title}`,
+				recommendation: 'Mitigate, explicitly accept, or archive the residual risk.',
+			}
+		} else if (
+			metadata.status === 'ready' &&
+			['story', 'flow', 'runbook', 'lesson', 'audit'].includes(metadata.type)
+		) {
+			consideration = {
+				code: 'document-awaiting-review',
+				message: `${metadata.type} is ready for review: ${metadata.title}`,
+				recommendation: 'Review and advance, supersede, or archive this document.',
+			}
+		}
+		if (!consideration) continue
+		considerations.push({
+			...consideration,
+			path: record.relativePath,
+			documentId: metadata.id,
+			title: metadata.title,
+			status: metadata.status,
+			kind: metadata.type,
+		})
+	}
+
+	return Object.freeze(
+		considerations.sort(
+			(left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code),
+		),
+	)
 }
 
 /**
@@ -614,11 +709,14 @@ export async function diagnoseRepository(repository: Repository): Promise<Doctor
 			(left.taskId ?? '').localeCompare(right.taskId ?? '') ||
 			(left.documentId ?? '').localeCompare(right.documentId ?? ''),
 	)
+	const considerations = collectConsiderations(records, documents)
 
 	return Object.freeze({
 		valid: !orderedDiagnostics.some((diagnostic) => diagnostic.severity === 'error'),
 		taskCount: records.length,
 		documentCount: documents.length,
 		diagnostics: Object.freeze(orderedDiagnostics),
+		considerations,
+		considerationCount: considerations.length,
 	})
 }

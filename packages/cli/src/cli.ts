@@ -1001,15 +1001,25 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 
 			if (values.json) {
 				stdout(`${JSON.stringify(result, null, 2)}\n`)
-			} else if (result.valid) {
-				stdout(
-					`Taskset repository is valid (${result.taskCount} tasks, ${result.documentCount} documents)\n`,
-				)
 			} else {
-				for (const diagnostic of result.diagnostics) {
+				if (result.valid) {
 					stdout(
-						`${diagnostic.code}\t${diagnostic.path ?? '-'}\t${diagnostic.message}\t${diagnostic.remediation}\n`,
+						`Taskset repository is valid (${result.taskCount} tasks, ${result.documentCount} documents)\n`,
 					)
+				} else {
+					for (const diagnostic of result.diagnostics) {
+						stdout(
+							`${diagnostic.code}\t${diagnostic.path ?? '-'}\t${diagnostic.message}\t${diagnostic.remediation}\n`,
+						)
+					}
+				}
+				if (result.considerations.length > 0) {
+					stdout(`Considerations (${result.considerations.length})\n`)
+					for (const consideration of result.considerations) {
+						stdout(
+							`${consideration.code}\t${consideration.path}\t${consideration.message}\t${consideration.recommendation}\n`,
+						)
+					}
 				}
 			}
 

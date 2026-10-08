@@ -261,3 +261,6 @@ For paired examples of required, multi-package, and unnecessary changesets, read
   every diagnostic and planned change, then run `taskset sync --fix --json`.
 - Avoid editing generated output, caches, or any non-canonical `.taskset/` artifacts.
 - Report validation failures plainly and only claim success after the command has run.
+- Treat doctor diagnostics as integrity results and `considerations` as a
+  non-failing action/review queue. Before closeout, review remaining tasks,
+  pending decisions, ready documents, and active concerns.

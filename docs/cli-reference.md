@@ -90,6 +90,8 @@ Human success output:
 
 ```text
 Taskset repository is valid (<count> tasks, <count> documents)
+Considerations (<count>)
+<consideration-code>  <path>  <message>  <recommendation>
 ```
 
 Human failure output is tab-separated:
@@ -99,7 +101,12 @@ Human failure output is tab-separated:
 ```
 
 JSON output is the full doctor result, including `valid`, `taskCount`,
-`documentCount`, and diagnostics. Warnings do not fail the command; errors do.
+`documentCount`, `diagnostics`, `considerationCount`, and `considerations`.
+Diagnostics describe repository integrity; errors fail the command and warnings
+do not. Considerations are valid but unresolved work and review queues, so they
+never change the exit code. Doctor reports open tasks, decisions awaiting
+approval, research awaiting acceptance, active concerns, and other ready
+documents awaiting review.
 
 ### `generate`
 

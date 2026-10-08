@@ -70,6 +70,16 @@ Interpret:
 | `missing-owner` | active concern without owner (when configured) |
 | `stale-research` | ready research older than N days without follow-up task |
 
+`considerations` are advisory and do not make `valid` false:
+
+| Consideration | Meaning |
+| --- | --- |
+| `open-task` | a `todo`, `doing`, or `blocked` task remains |
+| `decision-awaiting-approval` | a draft or ready decision needs disposition |
+| `research-awaiting-acceptance` | ready research needs acceptance or supersession |
+| `active-concern` | residual risk remains active |
+| `document-awaiting-review` | another ready document needs review |
+
 ## Create trail in one change
 
 ```bash
