@@ -1,3 +1,5 @@
+![Taskset banner](packages/static/src/images/banner.png)
+
 # Keep the whole delivery story beside the code
 
 Taskset is the Git-native workspace for how software gets planned, researched, decided, operated, and shipped. You store stories, research, decisions, flows, runbooks, lessons, concerns, audits, and the tasks that execute them as Markdown in the repository. Agents and humans read the same files. Git carries history, branches, and review.
