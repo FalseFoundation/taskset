@@ -65,14 +65,15 @@ package root.
 
 1. Confirm the repository root with `taskset config --json` (look for `.taskset/`, not a required config file).
 2. Inspect repository health with `taskset doctor --json`.
-3. List or show tasks and check their owner and assignees before changing or executing them.
-4. Resolve whether the current Git user is authorized to take the selected task; obtain confirmation when another person is responsible and the request does not already authorize that specific takeover.
+3. For a known task, run `taskset agent context <task-reference> --json` and review its execution gate, blockers, bounded relationships, durable memory, scopes, and warnings.
+4. Resolve whether the current Git user is authorized to take the selected task; obtain confirmation when the context reports `confirmation_required` and the request does not already authorize that specific takeover. Do not start while it reports `blocked`.
 5. Create, update, execute, or close tasks with Taskset commands.
 6. Re-run validation after edits and keep Git as the collaboration and history layer.
 
 ## Before Executing a Task
 
 - Show the task and resolve `git config --get user.name` before implementation, changing its status to `doing`, or modifying its ownership or assignment. Also check unresolved dependencies and other explicit blockers; matching ownership does not override them.
+- Prefer `taskset agent context <task-reference> --json` for this pre-execution read. It performs the task, program, related-document, and ownership checks in one bounded, read-only result. Review every truncation warning; request larger limits only when needed.
 - The current Git user may proceed when they are an assignee, or when the task has no assignees and they are its owner. A different owner does not block an explicitly assigned executor.
 - If another person is the explicit owner and the current Git user is not an assignee, or if the task is assigned only to other people, pause before mutation and ask the user to confirm execution or takeover. Read-only inspection and reporting may continue while awaiting that decision.
 - A current instruction that explicitly identifies and authorizes executing that task counts as confirmation. A generic instruction such as “work on the next task,” task visibility, code ownership, or repository access does not override another person's assignment.
@@ -88,6 +89,7 @@ taskset config --json
 taskset doctor --json
 taskset task list --json
 taskset task show .taskset/tasks/0000001-describe-the-work-a1b2c3.md --json
+taskset agent context .taskset/tasks/0000001-describe-the-work-a1b2c3.md --json
 taskset task create --title "Describe the work"
 taskset task update .taskset/tasks/0000001-describe-the-work-a1b2c3.md --status doing
 taskset task status .taskset/tasks/0000001-describe-the-work-a1b2c3.md done

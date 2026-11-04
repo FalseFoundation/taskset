@@ -106,6 +106,9 @@ Non-negotiable rules:
   filesystem mutation, indexing, graph rules, search, and lifecycle transitions.
 - CLI, TUI, MCP, extension, Kanban, and Office are interfaces over the same core
   contracts. They do not reimplement Taskset semantics.
+- Bounded agent context is resolved by `resolveAgentContext` in core. CLI and
+  MCP adapters validate inputs and delegate to that operation; they do not
+  compose task, program, document, or ownership semantics independently.
 - `@taskset/contracts` owns shared runtime schemas and TypeScript contracts
   without filesystem, lifecycle, or UI behavior.
 - `@taskset/utils` stays domain-light. Task graph policy and entity lifecycle

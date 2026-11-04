@@ -12,6 +12,25 @@ filenames in commands, `--related`, and prose links. Short hex IDs remain
 accepted compatibility metadata. Unique basenames and stems are convenient
 inputs, but full paths avoid ambiguity (see [commands](commands.md)).
 
+## Resolve execution context
+
+Before executing or reviewing a known task, prefer one bounded context query:
+
+```bash
+taskset agent context .taskset/tasks/0000001-example-a1b2c3.md --json
+```
+
+Inspect `execution.result` before mutation. `blocked` means an unresolved
+Taskset dependency remains. `confirmation_required` preserves the existing
+ownership confirmation rule. Review `warnings`, `dependencies.unresolved`,
+`children`, `attention`, `program.closeoutReady`, and `scopes` before choosing
+repository tools or validation commands.
+
+Use `--max-related`, `--max-children`, and `--max-body-chars` to reduce output.
+Add `--include-document-bodies` only when summaries are insufficient. Taskset
+does not choose repository-specific skills, engineering policy, or test
+commands.
+
 ## Open concerns on a path
 
 ```bash

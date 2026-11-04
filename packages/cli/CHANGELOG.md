@@ -1,5 +1,17 @@
 # @taskset/cli
 
+## 6.3.0
+
+### Minor Changes
+
+- Add a compact, bounded agent-context resolver in core and expose it through the
+  `taskset agent context` CLI command for local, read-only task handoffs.
+
+### Patch Changes
+
+- Updated dependencies
+  - @taskset/core@6.3.0
+
 ## 6.2.0
 
 ### Minor Changes

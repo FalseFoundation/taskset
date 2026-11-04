@@ -432,6 +432,34 @@ persisted relationships prefer complete repository-relative filenames. JSON
 retains `id` and adds resolved relationship objects with `path`, `filename`,
 `title`, `kind`, and `status`.
 
+## Agent Commands
+
+### `agent context`
+
+```bash
+taskset agent context <task-reference> [--max-related <count>] [--max-children <count>] [--max-body-chars <count>] [--include-document-bodies] [--json] [--cwd <path>]
+```
+
+Resolves the bounded, read-only Taskset context needed before executing or
+reviewing a task. It includes ownership permission, blockers, parent and child
+state, checklist progress, related durable memory, repository scopes, program
+readiness, and truncation warnings without mutating repository state.
+
+Defaults limit child tasks and related documents to 20 entries and task bodies
+to 4,000 characters. Related document bodies are omitted unless
+`--include-document-bodies` is supplied. Every bounded collection reports its
+total and truncation state; `warnings` explains hidden context.
+
+Human output is one tab-separated summary:
+
+```text
+<task-id> <status> <allowed|confirmation_required|blocked> <title>
+```
+
+JSON output is the stable `formatVersion: "1"` context object. Stdout contains
+only the requested result; diagnostics remain on stderr. The command is local
+and offline and delegates to the same core operation used by agent adapters.
+
 ## Document Commands
 
 `document` may be shortened to `doc`. Supported types are `story`, `flow`,

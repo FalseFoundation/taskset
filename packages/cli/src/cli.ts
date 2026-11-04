@@ -47,6 +47,7 @@ import {
 	RepositorySyncError,
 	readDocument,
 	readTask,
+	resolveAgentContext,
 	restoreSnapshot,
 	syncRepository,
 	TASK_SORT_DIRECTIONS,
@@ -76,6 +77,7 @@ const USAGE = `Usage:
   taskset task delete <task-id> [--remove-dependencies] [--json] [--cwd <path>]
   taskset task migrate-ids [--json] [--cwd <path>]
   taskset task program <parent-id> [--json] [--cwd <path>]
+  taskset agent context <task-reference> [--max-related <count>] [--max-children <count>] [--max-body-chars <count>] [--include-document-bodies] [--json] [--cwd <path>]
   taskset sync [--dry-run] [--fix] [--concurrency <count>] [--json] [--cwd <path>]
   taskset document create <story|flow|decision|adr|dr|research|runbook|lesson|antipattern|concern|audit> --title <title> [metadata options]
   taskset document import <markdown-path> [--type <type>] [--move]
@@ -1174,6 +1176,50 @@ export async function runCli(args: readonly string[], context: CliContext = {}):
 			}
 
 			throw new CliUsageError(`Unknown snapshot command "${subcommand ?? ''}"`)
+		}
+
+		if (command === 'agent' && subcommand === 'context') {
+			const parsed = parseArgs({
+				args: subcommandArgs,
+				allowPositionals: true,
+				options: {
+					...commonOptionDefinitions,
+					'max-related': { type: 'string' },
+					'max-children': { type: 'string' },
+					'max-body-chars': { type: 'string' },
+					'include-document-bodies': { type: 'boolean' },
+				},
+			})
+			const [task] = requirePositionals(parsed.positionals, 1, 'exactly one task reference')
+			const taskReference = parseSchema(z.string(), task, 'task reference')
+			const values = parseSchema(
+				z.strictObject({
+					cwd: CwdSchema,
+					json: JsonSchema,
+					'max-related': z.coerce.number().int().nonnegative().max(10_000).optional(),
+					'max-children': z.coerce.number().int().nonnegative().max(10_000).optional(),
+					'max-body-chars': z.coerce.number().int().nonnegative().max(1_000_000).optional(),
+					'include-document-bodies': z.boolean().optional(),
+				}),
+				parsed.values,
+				'agent context options',
+			)
+			const context = await resolveAgentContext({
+				task: taskReference,
+				cwd: resolveCommandCwd(cwd, values.cwd),
+				includeDocumentBodies: values['include-document-bodies'],
+				limits: {
+					maxRelated: values['max-related'],
+					maxChildren: values['max-children'],
+					maxBodyChars: values['max-body-chars'],
+				},
+			})
+			stdout(
+				values.json
+					? `${JSON.stringify(context, null, 2)}\n`
+					: `${context.task.id}\t${context.task.status}\t${context.execution.result}\t${context.task.title}\n`,
+			)
+			return 0
 		}
 
 		if (command === 'document' || command === 'doc') {

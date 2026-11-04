@@ -31,6 +31,7 @@ Key public operations include:
 - `executeDocumentBatch` for bounded, progress-reporting multi-document work
 - `migrateTaskIds` for atomic legacy-ID, relationship, and repository-reference migration
 - `queryTasks`, `buildTaskGraph`, `buildTaskIndex`, and `diagnoseRepository`
+- `resolveAgentContext` for compact, bounded, read-only task execution context
 - `createSnapshot`, `listSnapshots`, and `restoreSnapshot`
 - `generateViews` and `syncRepository`
 

@@ -9,6 +9,8 @@ CLI, interface, UI, and frontend organization rules.
 - Current CLI commands are `taskset init`, `taskset config`, `taskset doctor`,
   `taskset generate`, `taskset snapshot create`, `list`, `restore`, and
   `taskset task create`, `list`, `show`, `update`, `status`, and `delete`.
+- Agent context is exposed as `taskset agent context`; it delegates to core and
+  keeps bounded JSON on stdout while diagnostics remain on stderr.
 - Reserve stdout for requested output and stderr for diagnostics.
 - Avoid interactive prompts when flags or stdin make automation possible.
 - Provide deterministic structured output before integrations depend on parsing

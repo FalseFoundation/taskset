@@ -162,7 +162,26 @@ importers:
 
   packages/kanban: {}
 
-  packages/mcp: {}
+  packages/mcp:
+    dependencies:
+      '@taskset/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@taskset/configs':
+        specifier: workspace:*
+        version: link:../configs
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.2(@types/node@26.6.3)(vite@8.2.2(@types/node@26.6.3)(yaml@2.9.1))
+
+  packages/static: {}
 
   packages/tui: {}
 

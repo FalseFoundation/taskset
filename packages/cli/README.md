@@ -26,6 +26,7 @@ The package owns argument tokenization, Zod-backed command validation, output, a
 
 - `taskset init`, `config`, `doctor`, `generate`, and `sync`
 - `taskset task create|list|show|update|status|delete|migrate-ids`
+- `taskset agent context <task-reference> --json`
 - `taskset document create|import|batch|list|show|update|status|delete` (`doc` is an alias)
 - `taskset snapshot create|list|restore`
 

@@ -1,4 +1,19 @@
 export {
+	type AgentContext,
+	type AgentContextBody,
+	type AgentContextChecklist,
+	type AgentContextInput,
+	AgentContextInputSchema,
+	type AgentContextLimits,
+	AgentContextLimitsSchema,
+	type AgentContextWarning,
+	type AgentDocumentCollection,
+	type AgentDocumentSummary,
+	type AgentExecutionGate,
+	type AgentTaskSummary,
+	resolveAgentContext,
+} from './agents/agentContext.ts'
+export {
 	CONFIG_FILE_NAME,
 	ConfigError,
 	type ConfigErrorCode,

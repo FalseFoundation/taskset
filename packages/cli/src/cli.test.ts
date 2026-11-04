@@ -159,6 +159,42 @@ describe('runCli', () => {
 		})
 	})
 
+	it('resolves bounded agent context as clean JSON', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const created = createOutput()
+		await runCli(['task', 'create', '--title', 'Agent context', '--body', '0123456789', '--json'], {
+			cwd,
+			stdout: created.writeStdout,
+		})
+		const taskId = JSON.parse(created.stdout).id as string
+		const output = createOutput()
+
+		expect(
+			await runCli(
+				[
+					'agent',
+					'context',
+					taskId,
+					'--max-related',
+					'3',
+					'--max-children',
+					'4',
+					'--max-body-chars',
+					'5',
+					'--include-document-bodies',
+					'--json',
+				],
+				{ cwd, stdout: output.writeStdout, stderr: output.writeStderr },
+			),
+		).toBe(0)
+		expect(JSON.parse(output.stdout)).toMatchObject({
+			formatVersion: '1',
+			task: { id: taskId, body: { text: '01234', truncated: true } },
+		})
+		expect(output.stderr).toBe('')
+	})
+
 	it('runs document batch manifests and reports progress without corrupting JSON output', async () => {
 		const cwd = await createTemporaryDirectory()
 		await runCli(['init'], { cwd })

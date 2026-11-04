@@ -11,11 +11,11 @@ These workflows assume the CLI is available and `.taskset/` already exists. Init
 
 ## Before you execute a task
 
-1. Run `taskset task show your_task_id_here --json`
-2. Resolve `git config --get user.name`
-3. Compare owner and assignees with that identity
-4. Pause for confirmation when another person owns or is exclusively assigned the task
-5. Check unresolved dependencies and blockers before status changes
+1. Run `taskset agent context your_task_id_here --json`
+2. Review `execution.result`, `execution.reasons`, and unresolved dependencies
+3. Pause for confirmation when `execution.result` is `confirmation_required`
+4. Do not start while `execution.result` is `blocked`
+5. Review bounded children, durable memory, scopes, and warnings before status changes
 
 Matching ownership does not override blockers. A generic instruction such as “work on the next task” does not override another person’s assignment.
 
