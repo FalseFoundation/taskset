@@ -54,8 +54,9 @@ package root.
 - Use Taskset commands to inspect and mutate tasks instead of editing canonical task files by hand when a command exists.
 - Pass actual whitespace characters in task and document bodies. Do not rely on
   shell quoting to decode literal `\n`, `\t`, or `\r\n` text into layout.
-  After body mutations, inspect the rendered canonical Markdown and treat those
-  literal escapes outside intentional inline or fenced code examples as an error.
+  Current Taskset create/update commands repair those sequences outside inline
+  and fenced code, but agents should still pass real whitespace and inspect the
+  rendered canonical Markdown after body mutations.
 - Invoke Taskset with whatever runner the environment provides:
   `npx @taskset/cli`, `pnpm dlx @taskset/cli`, `yarn dlx @taskset/cli`,
   `bunx @taskset/cli`, `pnpm exec taskset`, or a global `taskset` binary. Do not

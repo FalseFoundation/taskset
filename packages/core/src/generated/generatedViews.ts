@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { DocumentKind, DocumentMetadata, TaskMetadata } from '@taskset/contracts'
 import * as z from 'zod'
@@ -10,7 +10,6 @@ import {
 	type Repository,
 } from '../config/config.ts'
 import { type DocumentRecord, listDocuments } from '../documents/documentRepository.ts'
-import { serializeTaskFile } from '../tasks/taskFile.ts'
 import { listTasks, type TaskRecord } from '../tasks/taskRepository.ts'
 import { parseCoreInput } from '../validation/coreValidation.ts'
 
@@ -29,6 +28,15 @@ export interface GeneratedViewsResult {
 	readonly directory: string
 	readonly fingerprint: string
 	readonly files: readonly string[]
+}
+
+export type GeneratedViewScope = 'tasks' | DocumentKind
+
+export interface RefreshGeneratedViewScopesOptions {
+	readonly taskRecords: readonly TaskRecord[]
+	readonly documentRecords: readonly DocumentRecord[]
+	readonly scopes: readonly GeneratedViewScope[]
+	readonly skipUnchanged?: boolean
 }
 
 interface GeneratedManifest {
@@ -300,7 +308,7 @@ function fingerprintTaskRecords(records: readonly TaskRecord[]): string {
 	for (const record of records) {
 		hash.update(record.relativePath)
 		hash.update('\0')
-		hash.update(serializeTaskFile(record.task, { filePath: record.relativePath }))
+		hash.update(JSON.stringify(record.task.metadata))
 		hash.update('\0')
 	}
 
@@ -315,11 +323,122 @@ function fingerprintDocumentRecords(records: readonly DocumentRecord[]): string 
 		hash.update('\0')
 		hash.update(JSON.stringify(record.document.metadata))
 		hash.update('\0')
-		hash.update(record.document.body)
-		hash.update('\0')
 	}
 
 	return hash.digest('hex')
+}
+
+async function unchangedGeneratedScope(
+	entityDirectory: string,
+	fingerprint: string,
+): Promise<{ readonly directory: string; readonly files: readonly string[] } | undefined> {
+	const directory = entityGeneratedDirectory(entityDirectory)
+	try {
+		const manifest = JSON.parse(await readFile(path.join(directory, 'manifest.json'), 'utf8')) as
+			| Partial<GeneratedManifest>
+			| undefined
+		if (
+			manifest?.fingerprint === fingerprint &&
+			Array.isArray(manifest.files) &&
+			manifest.files.every((file) => typeof file === 'string')
+		) {
+			return { directory, files: Object.freeze([...manifest.files]) }
+		}
+	} catch {
+		// Missing or corrupt disposable state is rebuilt below.
+	}
+	return undefined
+}
+
+/**
+ * Refreshes only the disposable scopes affected by a canonical mutation.
+ *
+ * Mutation paths already hold validated task and document records. Reusing
+ * them avoids reparsing the entire repository and prevents a task-only change
+ * from rebuilding every document-kind index (and vice versa).
+ */
+export async function refreshGeneratedViewScopes(
+	repository: Repository,
+	options: RefreshGeneratedViewScopesOptions,
+): Promise<readonly GeneratedScopeResult[]> {
+	const requestedScopes = new Set(options.scopes)
+	const referencePaths = new Map([
+		...options.taskRecords.map((record) => [record.task.metadata.id, record.relativePath] as const),
+		...options.documentRecords.map(
+			(record) => [record.document.metadata.id, record.relativePath] as const,
+		),
+	])
+	const displayReference = (value: string): string => referencePaths.get(value) ?? value
+	const scopes: GeneratedScopeResult[] = []
+
+	if (requestedScopes.has('tasks')) {
+		const fingerprint = fingerprintTaskRecords(options.taskRecords)
+		const unchanged = options.skipUnchanged
+			? await unchangedGeneratedScope(repository.tasksDirectory, fingerprint)
+			: undefined
+		if (unchanged) {
+			scopes.push(Object.freeze({ scope: 'tasks', fingerprint, ...unchanged }))
+		} else {
+			const files = buildGroupedFiles(
+				options.taskRecords,
+				TASK_METADATA_VIEWS,
+				(record) => record.task.metadata,
+				(record) => path.basename(record.relativePath),
+				displayReference,
+			)
+			const written = await writeGeneratedScope({
+				entityDirectory: repository.tasksDirectory,
+				fingerprint,
+				files,
+			})
+			scopes.push(
+				Object.freeze({
+					scope: 'tasks',
+					directory: written.directory,
+					fingerprint,
+					files: written.files,
+				}),
+			)
+		}
+	}
+
+	for (const kind of Object.keys(DOCUMENT_DIRECTORY_NAMES) as DocumentKind[]) {
+		if (!requestedScopes.has(kind)) continue
+		const documentRecords = options.documentRecords.filter(
+			(record) => record.document.metadata.type === kind,
+		)
+		const fingerprint = fingerprintDocumentRecords(documentRecords)
+		const entityDirectory = path.join(repository.documentsDirectory, DOCUMENT_DIRECTORY_NAMES[kind])
+		const unchanged = options.skipUnchanged
+			? await unchangedGeneratedScope(entityDirectory, fingerprint)
+			: undefined
+		if (unchanged) {
+			scopes.push(Object.freeze({ scope: kind, fingerprint, ...unchanged }))
+			continue
+		}
+		const files = buildGroupedFiles(
+			documentRecords,
+			DOCUMENT_METADATA_VIEWS,
+			(record) => record.document.metadata,
+			(record) => path.basename(record.relativePath),
+			displayReference,
+		)
+		const written = await writeGeneratedScope({
+			entityDirectory,
+			fingerprint,
+			files,
+		})
+		scopes.push(
+			Object.freeze({
+				scope: kind,
+				directory: written.directory,
+				fingerprint,
+				files: written.files,
+			}),
+		)
+	}
+
+	return Object.freeze(scopes)
 }
 
 /**
@@ -340,62 +459,13 @@ export async function generateViews(
 		listTasks(repository),
 		listDocuments(repository),
 	])
-	const referencePaths = new Map([
-		...taskRecords.map((record) => [record.task.metadata.id, record.relativePath] as const),
-		...allDocumentRecords.map(
-			(record) => [record.document.metadata.id, record.relativePath] as const,
-		),
-	])
-	const displayReference = (value: string): string => referencePaths.get(value) ?? value
-	const taskFingerprint = fingerprintTaskRecords(taskRecords)
-	const taskFiles = buildGroupedFiles(
+	const scopes = await refreshGeneratedViewScopes(repository, {
 		taskRecords,
-		TASK_METADATA_VIEWS,
-		(record) => record.task.metadata,
-		(record) => path.basename(record.relativePath),
-		displayReference,
-	)
-	const taskScope = await writeGeneratedScope({
-		entityDirectory: repository.tasksDirectory,
-		fingerprint: taskFingerprint,
-		files: taskFiles,
+		documentRecords: allDocumentRecords,
+		scopes: ['tasks', ...(Object.keys(DOCUMENT_DIRECTORY_NAMES) as DocumentKind[])],
 	})
-
-	const scopes: GeneratedScopeResult[] = [
-		Object.freeze({
-			scope: 'tasks',
-			directory: taskScope.directory,
-			fingerprint: taskFingerprint,
-			files: taskScope.files,
-		}),
-	]
-
-	for (const kind of Object.keys(DOCUMENT_DIRECTORY_NAMES) as DocumentKind[]) {
-		const documentRecords = allDocumentRecords.filter(
-			(record) => record.document.metadata.type === kind,
-		)
-		const fingerprint = fingerprintDocumentRecords(documentRecords)
-		const files = buildGroupedFiles(
-			documentRecords,
-			DOCUMENT_METADATA_VIEWS,
-			(record) => record.document.metadata,
-			(record) => path.basename(record.relativePath),
-			displayReference,
-		)
-		const written = await writeGeneratedScope({
-			entityDirectory: path.join(repository.documentsDirectory, DOCUMENT_DIRECTORY_NAMES[kind]),
-			fingerprint,
-			files,
-		})
-		scopes.push(
-			Object.freeze({
-				scope: kind,
-				directory: written.directory,
-				fingerprint,
-				files: written.files,
-			}),
-		)
-	}
+	const taskScope = scopes.find((scope) => scope.scope === 'tasks')
+	if (!taskScope) throw new TypeError('Task generated view scope was not produced')
 
 	const aggregateFiles = scopes.flatMap((scope) =>
 		scope.files.map((file) => `${scope.scope}/${file}`),

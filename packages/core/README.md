@@ -41,7 +41,8 @@ field-level `issues`; task-domain failures retain their more specific typed
 errors. Query ranges are inclusive; repeated values generally use OR within a
 field, labels require every requested value, and different filter fields
 compose with AND. `order` is the optional explicit task sequence; ordered tasks
-sort before unordered tasks with task ID fallback for ties. Task mutations
-refresh disposable generated views on a best-effort basis; canonical writes
-remain successful if generation fails and callers can surface the warning
-callback.
+sort before unordered tasks with task ID fallback for ties. Task and document
+mutations refresh only their affected disposable generated-view scopes on a
+best-effort basis, reusing the canonical records already read for validation.
+Canonical writes remain successful if generation fails and callers can surface
+the warning callback.

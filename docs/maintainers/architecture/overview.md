@@ -91,6 +91,11 @@ Each entity folder owns disposable `.generated/` metadata indexes with
 date-only grouping and readable filenames (for example
 `.taskset/tasks/.generated/`). `.taskset/cache/` and generated views are
 disposable. Legacy `.taskset/generated/` is removed by `generate` / `sync`.
+`generate` and `sync` deliberately rebuild every scope. Ordinary canonical
+mutations reuse the records already loaded for validation and refresh only the
+affected task or document-kind scope, avoiding a second repository-wide parse
+and unrelated view writes. Generated fingerprints cover indexed metadata rather
+than body text, so body-only edits skip view sorting and filesystem replacement.
 `.taskset/snapshots/` contains immutable safety checkpoints and is not normal
 history or a second source of truth.
 

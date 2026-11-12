@@ -1,5 +1,15 @@
 # @taskset/core
 
+## 6.3.1
+
+### Patch Changes
+
+- Reduce large-repository CPU and I/O during task and document mutations by
+  reusing validated records, avoiding redundant task serialization and parsing,
+  refreshing only affected generated-view scopes, and skipping unchanged
+  metadata-view rewrites for body-only edits. Normalize accidental literal
+  whitespace escapes in task and document bodies while preserving Markdown code.
+
 ## 6.3.0
 
 ### Minor Changes

@@ -166,11 +166,18 @@ projections to records in both groups.
 `.taskset/cache/` and each entity folder's `.generated/` directory are disposable.
 Generated metadata
 indexes are deterministic projections for supported non-ID task metadata fields
-and refresh on a best-effort basis after canonical mutations. Date and
-timestamp metadata is grouped by calendar date only. Generated filenames remain
-human-readable: spaces are preserved and path separators are displayed with
-`∕` instead of URL-encoded text. Generated views sort tasks by `order` when
-present and display ordered rows with the order value.
+and refresh on a best-effort basis after canonical mutations. Mutation refreshes
+are scoped to the affected entity collection; `taskset generate` remains the
+explicit full rebuild. Body-only edits reuse an unchanged metadata view from its
+manifest instead of sorting and rewriting the scope. Date and timestamp metadata
+is grouped by calendar date only. Generated filenames remain human-readable: spaces are preserved and path
+separators are displayed with `∕` instead of URL-encoded text. Generated views
+sort tasks by `order` when present and display ordered rows with the order
+value.
+
+Task and document create/update commands normalize accidental literal `\n`,
+`\r\n`, and `\t` sequences in Markdown prose into real whitespace.
+Intentional examples inside inline code or fenced code blocks are preserved.
 
 ## Snapshots
 

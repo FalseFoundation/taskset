@@ -373,6 +373,22 @@ related:
 		})
 	})
 
+	it('normalizes literal whitespace escapes supplied through task body options', async () => {
+		const cwd = await createTemporaryDirectory()
+		await runCli(['init'], { cwd })
+		const output = createOutput()
+		expect(
+			await runCli(['task', 'create', '--title', 'Whitespace', '--body', 'One\\n\\n\\tTwo'], {
+				cwd,
+				stdout: output.writeStdout,
+				stderr: output.writeStderr,
+			}),
+		).toBe(0)
+		const source = await readFile(path.join(cwd, output.stdout.trim()), 'utf8')
+		expect(source).toContain('One\n\n\tTwo')
+		expect(source).not.toContain('One\\n')
+	})
+
 	it('returns a usage exit code for an unknown command', async () => {
 		const output = createOutput()
 
@@ -821,7 +837,7 @@ related:
 		expect(invalidRange.stderr).toContain('estimate-max')
 	})
 
-	it('reports generated-view failures as warnings without failing canonical updates', async () => {
+	it('reports generated-view failures as warnings without failing canonical mutations', async () => {
 		const cwd = await createTemporaryDirectory()
 		await runCli(['init'], { cwd })
 		const created = createOutput()
@@ -835,7 +851,7 @@ related:
 
 		try {
 			expect(
-				await runCli(['task', 'update', created.stdout.trim(), '--title', 'Updated'], {
+				await runCli(['task', 'delete', created.stdout.trim()], {
 					cwd,
 					stdout: output.writeStdout,
 					stderr: output.writeStderr,

@@ -42,6 +42,19 @@ describe('generateTaskId', () => {
 })
 
 describe('task repository', () => {
+	it('normalizes literal whitespace escapes in task bodies', async () => {
+		const rootDirectory = await createTemporaryDirectory()
+		const repository = await initializeRepository(rootDirectory)
+		const created = await createTask(repository, {
+			title: 'Whitespace',
+			body: 'First\\n\\n \\t\\tSecond and `\\n`',
+		})
+		const source = await readFile(path.join(rootDirectory, created.relativePath), 'utf8')
+		expect(created.task.body).toBe('First\n\n \t\tSecond and `\\n`\n')
+		expect(source).toContain('First\n\n \t\tSecond and `\\n`')
+		expect(source).not.toContain('First\\n')
+	})
+
 	it('atomically migrates legacy IDs, filenames, and relationships', async () => {
 		const rootDirectory = await createTemporaryDirectory()
 		const repository = await initializeRepository(rootDirectory)
@@ -149,7 +162,10 @@ updatedAt: 2026-06-13 00:00 UTC
 
 		expect(updated.task.metadata.title).toBe('Updated')
 		expect(deleted.task.metadata.id).toBe(created.task.metadata.id)
-		expect(warnings).toHaveLength(3)
+		// Task create/update no longer touch unrelated document view scopes.
+		// Delete still performs a conservative full refresh because dependency
+		// repair can affect multiple collections.
+		expect(warnings).toHaveLength(1)
 		expect(
 			warnings.every((warning) => warning.includes('generated views could not be refreshed')),
 		).toBe(true)

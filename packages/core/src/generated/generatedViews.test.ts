@@ -2,8 +2,9 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { createDocument, updateDocument } from '../documents/documentRepository.ts'
 import { initializeRepository } from '../repository/repository.ts'
-import { createTask } from '../tasks/taskRepository.ts'
+import { createTask, updateTask } from '../tasks/taskRepository.ts'
 import { generateViews } from './generatedViews.ts'
 
 const temporaryDirectories: string[] = []
@@ -15,6 +16,55 @@ afterEach(async () => {
 })
 
 describe('generated views', () => {
+	it('refreshes only the entity scope affected by a mutation', async () => {
+		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-generated-scopes-'))
+		temporaryDirectories.push(rootDirectory)
+		const repository = await initializeRepository(rootDirectory)
+		await createDocument(repository, {
+			type: 'research',
+			title: 'Existing research',
+			body: '# Existing research\n',
+		})
+		const researchGeneratedDirectory = path.join(
+			repository.documentsDirectory,
+			'research',
+			'.generated',
+		)
+		const unrelatedSentinel = path.join(researchGeneratedDirectory, 'unrelated-sentinel.md')
+		await writeFile(unrelatedSentinel, 'preserve me\n')
+
+		await createTask(repository, { title: 'Task-only mutation' })
+
+		expect(await readFile(unrelatedSentinel, 'utf8')).toBe('preserve me\n')
+	})
+
+	it('skips unchanged metadata scopes for body-only edits', async () => {
+		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-generated-noop-'))
+		temporaryDirectories.push(rootDirectory)
+		const repository = await initializeRepository(rootDirectory)
+		const task = await createTask(repository, { title: 'Body task', body: 'Before' })
+		const document = await createDocument(repository, {
+			type: 'research',
+			title: 'Body research',
+			body: '# Before\n',
+		})
+		const taskSentinel = path.join(repository.generatedDirectory, 'task-sentinel.md')
+		const documentSentinel = path.join(
+			repository.documentsDirectory,
+			'research',
+			'.generated',
+			'document-sentinel.md',
+		)
+		await writeFile(taskSentinel, 'task\n')
+		await writeFile(documentSentinel, 'document\n')
+
+		await updateTask(repository, task.task.metadata.id, { body: 'After' })
+		await updateDocument(repository, document.document.metadata.id, { body: '# After\n' })
+
+		expect(await readFile(taskSentinel, 'utf8')).toBe('task\n')
+		expect(await readFile(documentSentinel, 'utf8')).toBe('document\n')
+	})
+
 	it('is deterministic, versionless, and replaces stale generated output', async () => {
 		const rootDirectory = await mkdtemp(path.join(tmpdir(), 'taskset-generated-'))
 		temporaryDirectories.push(rootDirectory)

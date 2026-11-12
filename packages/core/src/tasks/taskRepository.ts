@@ -7,6 +7,7 @@ import {
 	EntityReferenceSchema,
 	needsEntityIdMigration,
 	type TaskFile,
+	TaskFileSchema,
 	TaskIdSchema,
 	type TaskPriority,
 	TaskPrioritySchema,
@@ -36,6 +37,7 @@ import {
 	type EntityReferenceTarget,
 	normalizeEntityReference,
 } from '../ids/entityReference.ts'
+import { normalizeBodyWhitespaceEscapes } from '../markdown/bodyWhitespace.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
@@ -298,7 +300,7 @@ function normalizedTaskFile(task: TaskFile, index: EntityReferenceIndex): TaskFi
 		},
 		body: task.body,
 	}
-	return parseTaskFile(serializeTaskFile(normalized))
+	return TaskFileSchema.parse(normalized)
 }
 
 function resolveInputReferences(
@@ -343,12 +345,18 @@ function resolveInputReferences(
 async function repositoryReferenceIndex(
 	repository: Repository,
 	tasks: readonly TaskRecord[],
-): Promise<EntityReferenceIndex> {
+): Promise<{
+	readonly index: EntityReferenceIndex
+	readonly documents: readonly DocumentRecord[]
+}> {
 	const documents = await listDocuments(repository)
-	return new EntityReferenceIndex([
-		...tasks.map(taskReferenceTarget),
-		...documents.map(documentReferenceTarget),
-	])
+	return {
+		index: new EntityReferenceIndex([
+			...tasks.map(taskReferenceTarget),
+			...documents.map(documentReferenceTarget),
+		]),
+		documents,
+	}
 }
 
 const STATUS_TRANSITIONS: Readonly<Record<TaskStatus, readonly TaskStatus[]>> = Object.freeze({
@@ -449,10 +457,23 @@ async function invalidateTaskIndex(repository: Repository): Promise<void> {
 async function refreshGeneratedViews(
 	repository: Repository,
 	onWarning: ((warning: CoreWarning) => void) | undefined,
+	taskRecords?: readonly TaskRecord[],
+	documentRecords?: readonly DocumentRecord[],
 ): Promise<void> {
 	try {
-		const { generateViews } = await import('../generated/generatedViews.ts')
-		await generateViews(repository)
+		const { generateViews, refreshGeneratedViewScopes } = await import(
+			'../generated/generatedViews.ts'
+		)
+		if (taskRecords && documentRecords) {
+			await refreshGeneratedViewScopes(repository, {
+				taskRecords,
+				documentRecords,
+				scopes: ['tasks'],
+				skipUnchanged: true,
+			})
+		} else {
+			await generateViews(repository)
+		}
 	} catch (error) {
 		onWarning?.(
 			Object.freeze({
@@ -764,7 +785,10 @@ export async function createTask(
 	const validatedOptions = parseCoreInput(CreateTaskOptionsSchema, options, 'task creation options')
 	const now = validatedOptions.now?.() ?? new Date()
 	const existingRecords = await listTasks(validatedRepository)
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, existingRecords)
+	const { index: referenceIndex, documents } = await repositoryReferenceIndex(
+		validatedRepository,
+		existingRecords,
+	)
 	const validatedInput = resolveInputReferences(parsedInput, referenceIndex) as CreateTaskInput
 	const occupiedIds = new Set(existingRecords.map((record) => record.task.metadata.id))
 	const nextSequence = nextEntitySequence(
@@ -816,7 +840,7 @@ export async function createTask(
 			...(validatedInput.directories?.length ? { directories: validatedInput.directories } : {}),
 			...(validatedInput.projects?.length ? { projects: validatedInput.projects } : {}),
 		},
-		body: validatedInput.body ?? '',
+		body: normalizeBodyWhitespaceEscapes(validatedInput.body ?? ''),
 	}
 	const absolutePath = path.join(validatedRepository.tasksDirectory, fileName)
 	const relativePath = toRepositoryRelativePath(validatedRepository, absolutePath)
@@ -845,7 +869,9 @@ export async function createTask(
 		})
 	}
 
-	validateGraph([...existingRecords, freezeRecord(relativePath, parsedTask)])
+	const createdRecord = freezeRecord(relativePath, parsedTask)
+	const nextRecords = [...existingRecords, createdRecord]
+	validateGraph(nextRecords)
 
 	try {
 		await atomicWriteFileExclusive(absolutePath, contents)
@@ -869,8 +895,13 @@ export async function createTask(
 	}
 
 	await invalidateTaskIndex(validatedRepository)
-	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
-	return freezeRecord(relativePath, parsedTask)
+	await refreshGeneratedViews(
+		validatedRepository,
+		validatedOptions.onWarning,
+		nextRecords,
+		documents,
+	)
+	return createdRecord
 }
 
 /**
@@ -1053,7 +1084,10 @@ export async function updateTask(
 			throw new TaskRepositoryError('task-not-found', error.message, { taskId })
 		throw error
 	}
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const { index: referenceIndex, documents } = await repositoryReferenceIndex(
+		validatedRepository,
+		records,
+	)
 	const validatedInput = resolveInputReferences(parsedInput, referenceIndex) as UpdateTaskInput
 	const existing = records.find((record) => record.task.metadata.id === validatedTaskId)
 
@@ -1119,7 +1153,10 @@ export async function updateTask(
 			directories: validatedInput.directories ?? current.metadata.directories,
 			projects: validatedInput.projects ?? current.metadata.projects,
 		},
-		body: validatedInput.body ?? current.body,
+		body:
+			validatedInput.body === undefined
+				? current.body
+				: normalizeBodyWhitespaceEscapes(validatedInput.body),
 	}
 	const contents = serializeTaskFile(updatedTask, {
 		filePath: existing.relativePath,
@@ -1130,14 +1167,14 @@ export async function updateTask(
 		referenceIndex,
 	)
 	const updatedRecord = freezeRecord(existing.relativePath, parsedTask)
-	validateGraph(records.map((record) => (record === existing ? updatedRecord : record)))
+	const nextRecords = records.map((record) => (record === existing ? updatedRecord : record))
+	validateGraph(nextRecords)
 
 	if (nextStatus === 'done' && current.metadata.status !== 'done') {
-		const documents = await listDocuments(validatedRepository)
 		const closeoutIssues = collectCloseoutIssues(
 			validatedRepository.config.closeout,
 			parsedTask.metadata,
-			records.map((record) => (record === existing ? updatedRecord : record)),
+			nextRecords,
 			documents,
 		)
 		if (closeoutIssues.length > 0) {
@@ -1170,7 +1207,12 @@ export async function updateTask(
 	}
 
 	await invalidateTaskIndex(validatedRepository)
-	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
+	await refreshGeneratedViews(
+		validatedRepository,
+		validatedOptions.onWarning,
+		nextRecords,
+		documents,
+	)
 	return updatedRecord
 }
 
@@ -1190,7 +1232,7 @@ export async function deleteTask(
 	)
 	const validatedOptions = parseCoreInput(DeleteTaskOptionsSchema, options, 'task deletion options')
 	const records = await listTasks(validatedRepository)
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const { index: referenceIndex } = await repositoryReferenceIndex(validatedRepository, records)
 	let validatedTaskId: string
 	try {
 		validatedTaskId = new EntityReferenceIndex(records.map(taskReferenceTarget)).resolveId(taskId)

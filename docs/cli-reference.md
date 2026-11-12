@@ -203,7 +203,7 @@ Array options are repeatable.
 | `--parent <reference>` | `parent` | Single entity reference. |
 | `--directory <path>` | `directories` | Repeatable; normalized to a repository-relative POSIX path. |
 | `--project <project>` | `projects` | Repeatable. |
-| `--body <markdown>` | body | Replaces the Markdown body. |
+| `--body <markdown>` | body | Replaces the body; normalizes literal whitespace escapes in prose while preserving code. |
 | `--json` | output | Emit a task record as JSON. |
 | `--cwd <path>` | discovery | Resolve repository discovery from another directory. |
 

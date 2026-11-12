@@ -18,6 +18,22 @@ afterEach(async () =>
 )
 
 describe('document repository', () => {
+	it('normalizes literal whitespace escapes in document bodies', async () => {
+		const root = await mkdtemp(path.join(tmpdir(), 'taskset-documents-whitespace-'))
+		directories.push(root)
+		const repository = await initializeRepository(root)
+		const created = await createDocument(repository, {
+			type: 'research',
+			title: 'Whitespace',
+			body: '# First\\n\\n \\tSecond and `\\t`',
+		})
+		expect(created.document.body).toBe('# First\n\n \tSecond and `\\t`\n')
+		const updated = await updateDocument(repository, created.document.metadata.id, {
+			body: '# Updated\\r\\nbody',
+		})
+		expect(updated.document.body).toBe('# Updated\nbody\n')
+	})
+
 	it('creates typed templates with short hex IDs and sequenced filenames', async () => {
 		const root = await mkdtemp(path.join(tmpdir(), 'taskset-documents-'))
 		directories.push(root)

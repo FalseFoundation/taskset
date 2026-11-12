@@ -2,7 +2,7 @@
 	"name": "@taskset/core",
 	"type": "module",
 	"private": false,
-	"version": "6.3.0",
+	"version": "6.3.1",
 	"description": "The reusable domain and repository engine for Taskset.",
 	"license": "MIT",
 	"author": {

@@ -46,6 +46,7 @@ import {
 	type EntityReferenceTarget,
 	normalizeEntityReference,
 } from '../ids/entityReference.ts'
+import { normalizeBodyWhitespaceEscapes } from '../markdown/bodyWhitespace.ts'
 import { RepositoryRelativePathSchema } from '../projects/repositoryPath.ts'
 import { atomicWriteFileExclusive } from '../repository/atomicWrite.ts'
 import { applyFileTransaction, FileTransactionError } from '../repository/fileTransaction.ts'
@@ -421,12 +422,18 @@ function resolveDocumentInputReferences<T extends CreateDocumentInput | UpdateDo
 async function repositoryReferenceIndex(
 	repository: Repository,
 	documents: readonly DocumentRecord[],
-): Promise<EntityReferenceIndex> {
+): Promise<{
+	readonly index: EntityReferenceIndex
+	readonly tasks: readonly TaskRecord[]
+}> {
 	const tasks = await listTasks(repository)
-	return new EntityReferenceIndex([
-		...documents.map(documentReferenceTarget),
-		...tasks.map(taskReferenceTarget),
-	])
+	return {
+		index: new EntityReferenceIndex([
+			...documents.map(documentReferenceTarget),
+			...tasks.map(taskReferenceTarget),
+		]),
+		tasks,
+	}
 }
 
 function defaultStatus(type: DocumentKind): DocumentStatus {
@@ -543,10 +550,24 @@ function validateGraph(records: readonly DocumentRecord[]): void {
 async function refreshGeneratedViews(
 	repository: Repository,
 	onWarning: ((warning: CoreWarning) => void) | undefined,
+	documentRecords?: readonly DocumentRecord[],
+	taskRecords?: readonly TaskRecord[],
+	scopes?: readonly DocumentKind[],
 ): Promise<void> {
 	try {
-		const { generateViews } = await import('../generated/generatedViews.ts')
-		await generateViews(repository)
+		const { generateViews, refreshGeneratedViewScopes } = await import(
+			'../generated/generatedViews.ts'
+		)
+		if (documentRecords && taskRecords && scopes) {
+			await refreshGeneratedViewScopes(repository, {
+				taskRecords,
+				documentRecords,
+				scopes,
+				skipUnchanged: true,
+			})
+		} else {
+			await generateViews(repository)
+		}
 	} catch (error) {
 		onWarning?.(
 			Object.freeze({
@@ -847,7 +868,10 @@ export async function createDocument(
 		'document creation options',
 	)
 	const existingRecords = await listDocuments(validatedRepository)
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, existingRecords)
+	const { index: referenceIndex, tasks } = await repositoryReferenceIndex(
+		validatedRepository,
+		existingRecords,
+	)
 	const validatedInput = resolveDocumentInputReferences(parsedInput, referenceIndex)
 	const type = validatedInput.type
 	const title = validatedInput.title
@@ -859,7 +883,7 @@ export async function createDocument(
 		...(validatedInput.projects ? { projects: validatedInput.projects } : {}),
 		...(validatedInput.class ? { class: validatedInput.class } : {}),
 	})
-	const body = validatedInput.body ?? documentTemplate(type, title)
+	const body = normalizeBodyWhitespaceEscapes(validatedInput.body ?? documentTemplate(type, title))
 	validateDocumentBody(type, body)
 	const occupiedIds = new Set(existingRecords.map((record) => record.document.metadata.id))
 	const { id, fileName } = await allocateDocumentIdentity(
@@ -921,7 +945,9 @@ export async function createDocument(
 			documentId: id,
 		})
 	}
-	validateGraph([...existingRecords, freezeRecord(relativePath, parsedDocument)])
+	const createdRecord = freezeRecord(relativePath, parsedDocument)
+	const nextRecords = [...existingRecords, createdRecord]
+	validateGraph(nextRecords)
 
 	await mkdir(path.dirname(absolutePath), { recursive: true })
 	try {
@@ -937,8 +963,10 @@ export async function createDocument(
 		throw error
 	}
 
-	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
-	return freezeRecord(relativePath, parsedDocument)
+	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning, nextRecords, tasks, [
+		type,
+	])
+	return createdRecord
 }
 
 function titleFromMarkdown(source: string, sourcePath: string): string {
@@ -1277,7 +1305,10 @@ export async function updateDocument(
 			)
 		throw error
 	}
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const { index: referenceIndex, tasks } = await repositoryReferenceIndex(
+		validatedRepository,
+		records,
+	)
 	const validatedInput = resolveDocumentInputReferences(parsedInput, referenceIndex)
 	const existing = type
 		? records.find(
@@ -1324,7 +1355,10 @@ export async function updateDocument(
 	validateStatusTransition(current.metadata.status, nextStatus)
 	validateConfiguredPriority(validatedRepository, nextPriority)
 
-	const nextBody = validatedInput.body ?? current.body
+	const nextBody =
+		validatedInput.body === undefined
+			? current.body
+			: normalizeBodyWhitespaceEscapes(validatedInput.body)
 	validateDocumentBody(current.metadata.type, nextBody)
 
 	const nextSeverity =
@@ -1387,7 +1421,8 @@ export async function updateDocument(
 	})
 	const parsedDocument = normalizedDocumentFile(parseDocumentFile(contents), referenceIndex)
 	const updatedRecord = freezeRecord(existing.relativePath, parsedDocument)
-	validateGraph(records.map((record) => (record === existing ? updatedRecord : record)))
+	const nextRecords = records.map((record) => (record === existing ? updatedRecord : record))
+	validateGraph(nextRecords)
 
 	try {
 		await applyFileTransaction([
@@ -1408,7 +1443,9 @@ export async function updateDocument(
 		throw error
 	}
 
-	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning)
+	await refreshGeneratedViews(validatedRepository, validatedOptions.onWarning, nextRecords, tasks, [
+		current.metadata.type,
+	])
 	return updatedRecord
 }
 
@@ -1433,7 +1470,7 @@ export async function deleteDocument(
 		'document deletion options',
 	)
 	const records = await listDocuments(validatedRepository)
-	const referenceIndex = await repositoryReferenceIndex(validatedRepository, records)
+	const { index: referenceIndex } = await repositoryReferenceIndex(validatedRepository, records)
 	let validatedId: string
 	try {
 		validatedId = new EntityReferenceIndex(records.map(documentReferenceTarget)).resolveId(id)
